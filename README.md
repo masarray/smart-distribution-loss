@@ -1,41 +1,88 @@
-# Smart Distribution Loss — P0-A
+# Smart Distribution Loss
 
-Browser-only feasibility spike for an open-source distribution-loss intelligence platform.
+Browser-only proof of concept for an open-source distribution-loss intelligence platform.
 
-## What this proves
+## Architecture
 
-This spike tests whether a static GitHub Pages application can run:
+All engineering computation runs on the **user's own device**:
 
-- CPython through Pyodide/WebAssembly
-- Pandapower
-- unbalanced three-phase `runpp_3ph()`
-- transformer + LV line + asymmetric load
-- technical-loss extraction
-- repeated solves needed by a future calibration optimizer
+```text
+GitHub Pages
+    ↓
+Browser UI
+    ↓
+Web Worker
+    ↓
+Pyodide / CPython WebAssembly
+    ↓
+NumPy + pandas + SciPy + NetworkX
+    ↓
+Pandapower runpp_3ph()
+```
 
-All calculation happens inside the **user's browser Web Worker**. There is no Python backend.
+There is **no Python backend** and no server-side power-flow computation.
+
+### Does the end user need Python installed?
+
+**No.** End users opening the GitHub Pages application do not need Python, Pandapower, Node.js, or any installer. Pyodide provides CPython inside the browser as WebAssembly.
+
+Python is currently used only as a convenient local static HTTP server during development (`python -m http.server`). This is not an end-user requirement.
 
 ## Runtime pins
 
 - Pyodide `0.28.3`
 - Pandapower `3.1.2`
+- DeepDiff `8.5.0`
 - Numba disabled
 
-These versions are intentionally pinned for dependency compatibility during P0-A.
+The dependency set is intentionally pinned for Pyodide/WASM compatibility.
+
+## P0-A — PASS
+
+P0-A proved real unbalanced three-phase Pandapower execution in a Windows browser Web Worker.
+
+Observed real-browser baseline:
+
+- engine initialization: `9.73 s`
+- first `runpp_3ph()`: `176.5 ms`
+- repeated solve average: `39.77 ms`
+- technical loss: `6.484981 kW`
+- max voltage delta vs official tutorial reference: `3.75e-7 pu`
+- repeated-run delta: `4.35e-8 pu`
+
+See `docs/P0A-GATE.md`.
+
+## P0-B — current phase
+
+P0-B scales the same browser-only physics path to the canonical demo network:
+
+```text
+20 kV source
+  ↓
+MV feeder
+  ↓
+400 kVA 20/0.4 kV transformer
+  ↓
+3 JTR branches
+  ↓
+90 individual single-phase customers
+```
+
+The browser benchmarks 1 / 10 / 30 / 60 / 90 customers and runs 25 repeated three-phase solves on the final 90-customer case to test whether a future smart-calibration loop is practical.
+
+See `docs/P0B-GATE.md`.
 
 ## Run locally
 
-A local HTTP server is required because module workers do not run correctly from `file://` URLs.
+Recommended on Windows:
 
-Windows PowerShell:
-
-```powershell
-.\run-local.ps1
+```cmd
+run-local.cmd
 ```
 
-Or:
+Alternative:
 
-```bash
+```powershell
 python -m http.server 8000 --directory web
 ```
 
@@ -45,28 +92,32 @@ Then open:
 http://localhost:8000
 ```
 
-The first run downloads Pyodide and Python packages, so it needs internet access.
+The first browser run needs internet access to download Pyodide and Python packages.
 
 ## GitHub Pages
 
-The included workflow deploys the `web/` directory on pushes to `main`.
+The included workflow deploys `web/` on pushes to `main`.
 
-Repository Settings → Pages should use **GitHub Actions** as the source.
+Repository **Settings → Pages → Build and deployment → Source → GitHub Actions**.
 
-## P0-A gate
+Once deployed, end users only need the Pages URL and a modern browser.
 
-Click **Initialize & Run P0-A**. Do not proceed to the larger product demo until the result is `PASS` in a real Chrome/Edge browser.
+## Development order
 
-See `docs/P0A-GATE.md`.
+```text
+P0-A browser physics                 PASS
+  ↓
+P0-B 90-customer browser scale      CURRENT
+  ↓
+P1 Ground Truth simulator
+  ↓
+P2 data degradation
+  ↓
+P3 smart calibration
+  ↓
+confidence / explainability
+  ↓
+engineering cockpit
+```
 
-## Scope intentionally excluded
-
-- React cockpit
-- 90-customer synthetic network
-- smart load estimation
-- phase estimation
-- SciPy calibration optimizer
-- time series
-- utility data import
-
-Those belong after this physics gate passes.
+Do not add smart calibration before P0-B passes in a real browser.
