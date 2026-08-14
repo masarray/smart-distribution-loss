@@ -188,6 +188,47 @@ async function runP0B() {
   return payload;
 }
 
+async function runP1() {
+  await initialize();
+  progress(70, 'Loading validated 90-customer topology', 'Reusing the P0-B distribution-network engine');
+  await ensureEngine('p0b_engine.py');
+  progress(72, 'Loading P1 Ground Truth engine', 'Immutable truth · 96 intervals · synthetic measurements');
+  await ensureEngine('p1_ground_truth.py');
+
+  const startRaw = await pyodide.runPythonAsync('start_p1_session_json()');
+  const start = JSON.parse(startRaw);
+  self.postMessage({ type: 'p1-start', payload: start });
+
+  const compactSeries = [];
+  for (let i = 0; i < 96; i += 1) {
+    const pct = 74 + Math.round(((i + 1) / 96) * 21);
+    if (i === 0 || i === 95 || i % 4 === 0) {
+      const minutes = i * 15;
+      const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const mm = String(minutes % 60).padStart(2, '0');
+      progress(pct, `Simulating Ground Truth ${hh}:${mm}`, `${i + 1}/96 three-phase intervals`);
+    }
+
+    const raw = await pyodide.runPythonAsync(`run_p1_step_json(${i})`);
+    const record = JSON.parse(raw);
+    compactSeries.push(record);
+    if (i === 0 || i === 95 || i % 4 === 0) {
+      self.postMessage({ type: 'p1-step', index: i, total: 96, payload: record });
+    }
+  }
+
+  progress(96, 'Finalizing Ground Truth', 'Integrating daily energy · losses · AMI · integrity checks');
+  const finalRaw = await pyodide.runPythonAsync('finish_p1_json()');
+  const payload = JSON.parse(finalRaw);
+  payload.versions = {
+    pyodide: PYODIDE_VERSION,
+    pandapower: PANDAPOWER_PIN.split('==')[1],
+  };
+  payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
+  progress(99, 'Validating P1 gate', 'Truth hash · 96/96 convergence · energy accounting · measurement coverage');
+  return payload;
+}
+
 self.onmessage = async (event) => {
   const type = event.data?.type;
   try {
@@ -197,6 +238,9 @@ self.onmessage = async (event) => {
     } else if (type === 'run-p0b') {
       const payload = await runP0B();
       self.postMessage({ type: 'result', phase: 'p0b', payload });
+    } else if (type === 'run-p1') {
+      const payload = await runP1();
+      self.postMessage({ type: 'result', phase: 'p1', payload });
     }
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
