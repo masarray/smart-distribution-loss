@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Smart Distribution Loss — P0-A Browser Physics Gate</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">SMART DISTRIBUTION LOSS · P0-A</p>
+        <h1>Browser Physics Feasibility Gate</h1>
+        <p class="subtitle">Pyodide + Pandapower + unbalanced 3-phase power flow, executed entirely on this device.</p>
+      </div>
+      <div class="privacy-pill">LOCAL COMPUTE · NO BACKEND</div>
+    </header>
+
+    <section class="panel control-panel">
+      <div>
+        <div class="label">ENGINE STATUS</div>
+        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Not initialized</div>
+        <div id="statusDetail" class="muted">Nothing has been downloaded or executed yet.</div>
+      </div>
+      <button id="runButton" class="primary-button">Initialize & Run P0-A</button>
+    </section>
+
+    <section class="progress-wrap panel" aria-live="polite">
+      <div class="progress-head">
+        <span id="progressLabel">Waiting</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+      <div id="progressLog" class="progress-log"></div>
+    </section>
+
+    <section id="resultSection" class="hidden">
+      <div class="gate-banner panel">
+        <div>
+          <div class="label">P0-A GATE</div>
+          <div id="gateTitle" class="gate-title">—</div>
+          <div id="gateReason" class="muted">—</div>
+        </div>
+        <div id="gateBadge" class="gate-badge">—</div>
+      </div>
+
+      <div class="metric-grid">
+        <article class="metric panel"><span>Pyodide</span><strong id="mPyodide">—</strong></article>
+        <article class="metric panel"><span>Pandapower</span><strong id="mPandapower">—</strong></article>
+        <article class="metric panel"><span>Engine init</span><strong id="mInit">—</strong></article>
+        <article class="metric panel"><span>3φ solve</span><strong id="mSolve">—</strong></article>
+        <article class="metric panel"><span>Total P loss</span><strong id="mLoss">—</strong></article>
+        <article class="metric panel"><span>LV unbalance</span><strong id="mUnbalance">—</strong></article>
+      </div>
+
+      <div class="two-col">
+        <section class="panel">
+          <div class="section-title">LV BUS · PHASE VOLTAGE</div>
+          <div class="phase-row"><span>A</span><div class="bar"><i id="barA"></i></div><b id="vA">—</b></div>
+          <div class="phase-row"><span>B</span><div class="bar"><i id="barB"></i></div><b id="vB">—</b></div>
+          <div class="phase-row"><span>C</span><div class="bar"><i id="barC"></i></div><b id="vC">—</b></div>
+          <div class="mini-note">Expected behavior: unequal phase voltages from an asymmetric LV load.</div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">PHYSICS CHECKS</div>
+          <div id="checkList" class="check-list"></div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="section-title">RUNTIME DIAGNOSTICS</div>
+        <pre id="diagnostics" class="diagnostics"></pre>
+      </section>
+    </section>
+
+    <section id="errorSection" class="panel error-panel hidden">
+      <div class="section-title">ENGINE ERROR</div>
+      <div id="errorMessage" class="error-message"></div>
+      <pre id="errorStack" class="diagnostics"></pre>
+    </section>
+
+    <footer>
+      P0-A only. No calibration logic yet. The gate must pass before building the larger 90-customer demo.
+    </footer>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
