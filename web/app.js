@@ -101,7 +101,11 @@ function showError(message, stack = '') {
 
 function createWorker() {
   if (worker) worker.terminate();
-  worker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+
+  // Use a classic .js worker deliberately. Python's built-in HTTP server on
+  // Windows may serve .mjs as text/plain, which browsers reject for module
+  // workers. Classic worker.js works both locally and on GitHub Pages.
+  worker = new Worker('./worker.js');
 
   worker.onmessage = (event) => {
     const msg = event.data || {};
@@ -132,7 +136,7 @@ function createWorker() {
     running = false;
     ui.button.disabled = false;
     ui.button.textContent = 'Retry P0-A';
-    setStatus('fail', 'Worker error', error.message || 'The module worker failed to start.');
+    setStatus('fail', 'Worker error', error.message || 'The worker failed to start.');
     showError(error.message, `${error.filename || ''}:${error.lineno || ''}:${error.colno || ''}`);
   };
 }
