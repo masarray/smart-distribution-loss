@@ -55,7 +55,6 @@ async function initialize() {
   const started = performance.now();
 
   loadPyodideRuntimeScript();
-
   progress(10, 'Initializing Pyodide', 'CPython / WebAssembly runtime');
   pyodide = await self.loadPyodide({ indexURL: PYODIDE_INDEX });
 
@@ -75,17 +74,10 @@ async function initialize() {
   const micropip = pyodide.pyimport('micropip');
   try {
     progress(40, 'Installing browser-safe dependencies', `${DEEPDIFF_PIN} · ${GEOJSON_PIN}`);
-    await micropip.install([
-      ORDERLY_SET_PIN,
-      DEEPDIFF_PIN,
-      GEOJSON_PIN,
-    ], { keep_going: false });
+    await micropip.install([ORDERLY_SET_PIN, DEEPDIFF_PIN, GEOJSON_PIN], { keep_going: false });
 
     progress(54, 'Installing Pandapower', `${PANDAPOWER_PIN} · dependency graph pinned for Pyodide`);
-    await micropip.install(PANDAPOWER_PIN, {
-      keep_going: false,
-      deps: false,
-    });
+    await micropip.install(PANDAPOWER_PIN, { keep_going: false, deps: false });
   } finally {
     micropip.destroy();
   }
@@ -95,7 +87,6 @@ async function initialize() {
 import pandapower as _pp_browser_check
 assert _pp_browser_check.__version__ == "3.1.2"
 `);
-
   initMs = performance.now() - started;
 }
 
@@ -119,6 +110,37 @@ function commonRuntime() {
   };
 }
 
+async function ensureP1Engines() {
+  await ensureEngine('p0b_engine.py');
+  await ensureEngine('p1_ground_truth.py');
+}
+
+async function buildP1TruthIfNeeded({ emitSteps = false } = {}) {
+  await ensureP1Engines();
+  const ready = await pyodide.runPythonAsync(
+    '_P1_SESSION is not None and len(_P1_SESSION.get("records", [])) == 96',
+  );
+  if (ready) return { reused: true, payload: null };
+
+  const startRaw = await pyodide.runPythonAsync('start_p1_session_json()');
+  const start = JSON.parse(startRaw);
+  if (emitSteps) self.postMessage({ type: 'p1-start', payload: start });
+
+  for (let i = 0; i < 96; i += 1) {
+    const raw = await pyodide.runPythonAsync(`run_p1_step_json(${i})`);
+    if (emitSteps && (i === 0 || i === 95 || i % 4 === 0)) {
+      self.postMessage({ type: 'p1-step', index: i, total: 96, payload: JSON.parse(raw) });
+    }
+  }
+
+  const finalRaw = await pyodide.runPythonAsync('finish_p1_json()');
+  const payload = JSON.parse(finalRaw);
+  if (!payload.gate?.pass) {
+    throw new Error('P1 Ground Truth regression failed while preparing P2.');
+  }
+  return { reused: false, payload };
+}
+
 async function runP0A() {
   await initialize();
   progress(74, 'Loading P0-A physics code', 'Minimal official-reference network');
@@ -130,7 +152,6 @@ async function runP0A() {
   payload.versions = payload.versions || {};
   payload.versions.pyodide = PYODIDE_VERSION;
   payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
-
   progress(95, 'Validating results', 'Convergence · reference voltages · losses · repeatability');
   return payload;
 }
@@ -183,7 +204,6 @@ async function runP0B() {
     final: finalCase,
     runtime: commonRuntime(),
   };
-
   progress(97, 'Validating P0-B scale gate', '90 customers · voltage · losses · repeatability · 25-loop budget');
   return payload;
 }
@@ -191,15 +211,13 @@ async function runP0B() {
 async function runP1() {
   await initialize();
   progress(70, 'Loading validated 90-customer topology', 'Reusing the P0-B distribution-network engine');
-  await ensureEngine('p0b_engine.py');
-  progress(72, 'Loading P1 Ground Truth engine', 'Immutable truth · 96 intervals · synthetic measurements');
-  await ensureEngine('p1_ground_truth.py');
+  await ensureP1Engines();
 
+  progress(72, 'Starting immutable Ground Truth', '90 customers · 96 intervals · noiseless measurements');
   const startRaw = await pyodide.runPythonAsync('start_p1_session_json()');
   const start = JSON.parse(startRaw);
   self.postMessage({ type: 'p1-start', payload: start });
 
-  const compactSeries = [];
   for (let i = 0; i < 96; i += 1) {
     const pct = 74 + Math.round(((i + 1) / 96) * 21);
     if (i === 0 || i === 95 || i % 4 === 0) {
@@ -208,12 +226,9 @@ async function runP1() {
       const mm = String(minutes % 60).padStart(2, '0');
       progress(pct, `Simulating Ground Truth ${hh}:${mm}`, `${i + 1}/96 three-phase intervals`);
     }
-
     const raw = await pyodide.runPythonAsync(`run_p1_step_json(${i})`);
-    const record = JSON.parse(raw);
-    compactSeries.push(record);
     if (i === 0 || i === 95 || i % 4 === 0) {
-      self.postMessage({ type: 'p1-step', index: i, total: 96, payload: record });
+      self.postMessage({ type: 'p1-step', index: i, total: 96, payload: JSON.parse(raw) });
     }
   }
 
@@ -229,6 +244,64 @@ async function runP1() {
   return payload;
 }
 
+async function runP2(preset = 'typical') {
+  await initialize();
+  const normalizedPreset = ['good', 'typical', 'poor'].includes(String(preset).toLowerCase())
+    ? String(preset).toLowerCase()
+    : 'typical';
+
+  progress(70, 'Preparing immutable P1 reference', 'Ground Truth stays hidden from the conventional model');
+  await ensureP1Engines();
+  const ready = await pyodide.runPythonAsync(
+    '_P1_SESSION is not None and len(_P1_SESSION.get("records", [])) == 96',
+  );
+
+  if (!ready) {
+    progress(71, 'Rebuilding P1 reference in browser memory', '96 Ground Truth intervals are required before degradation');
+    await pyodide.runPythonAsync('start_p1_session_json()');
+    for (let i = 0; i < 96; i += 1) {
+      if (i === 0 || i === 95 || i % 8 === 0) {
+        progress(71 + Math.round(((i + 1) / 96) * 10), 'Rebuilding hidden Ground Truth', `${i + 1}/96 intervals`);
+      }
+      await pyodide.runPythonAsync(`run_p1_step_json(${i})`);
+    }
+    const p1Raw = await pyodide.runPythonAsync('finish_p1_json()');
+    const p1Payload = JSON.parse(p1Raw);
+    if (!p1Payload.gate?.pass) throw new Error('P1 regression failed while preparing P2.');
+  }
+
+  progress(82, 'Loading P2 degradation engine', `${normalizedPreset.toUpperCase()} observability preset · no smart optimizer`);
+  await ensureEngine('p2_degradation.py');
+  const startRaw = await pyodide.runPythonAsync(`start_p2_session_json(${JSON.stringify(normalizedPreset)})`);
+  const start = JSON.parse(startRaw);
+  self.postMessage({ type: 'p2-start', payload: start });
+
+  for (let i = 0; i < 96; i += 1) {
+    const pct = 84 + Math.round(((i + 1) / 96) * 12);
+    if (i === 0 || i === 95 || i % 4 === 0) {
+      const minutes = i * 15;
+      const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const mm = String(minutes % 60).padStart(2, '0');
+      progress(pct, `Running conventional model ${hh}:${mm}`, `${i + 1}/96 degraded-data power flows`);
+    }
+    const raw = await pyodide.runPythonAsync(`run_p2_step_json(${i})`);
+    if (i === 0 || i === 95 || i % 4 === 0) {
+      self.postMessage({ type: 'p2-step', index: i, total: 96, payload: JSON.parse(raw) });
+    }
+  }
+
+  progress(97, 'Scoring observability error', 'Loss error · feeder residual · phase residual · voltage residual');
+  const finalRaw = await pyodide.runPythonAsync('finish_p2_json()');
+  const payload = JSON.parse(finalRaw);
+  payload.versions = {
+    pyodide: PYODIDE_VERSION,
+    pandapower: PANDAPOWER_PIN.split('==')[1],
+  };
+  payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
+  progress(99, 'Validating P2 isolation gate', 'Truth immutability · no leakage · degradation counts · model divergence');
+  return payload;
+}
+
 self.onmessage = async (event) => {
   const type = event.data?.type;
   try {
@@ -241,6 +314,9 @@ self.onmessage = async (event) => {
     } else if (type === 'run-p1') {
       const payload = await runP1();
       self.postMessage({ type: 'result', phase: 'p1', payload });
+    } else if (type === 'run-p2') {
+      const payload = await runP2(event.data?.preset || 'typical');
+      self.postMessage({ type: 'result', phase: 'p2', payload });
     }
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
