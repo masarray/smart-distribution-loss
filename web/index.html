@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Smart Distribution Loss — P0-B Browser Scale Benchmark</title>
+  <title>Smart Distribution Loss — P1 Ground Truth Simulator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -12,12 +12,13 @@
   <main class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">SMART DISTRIBUTION LOSS · P0-B</p>
-        <h1>Distribution Scale Benchmark</h1>
-        <p class="subtitle">Pandapower unbalanced 3-phase simulation scaled from 1 to 90 individual customers, executed entirely in this browser.</p>
+        <p class="eyebrow">SMART DISTRIBUTION LOSS · P1</p>
+        <h1>Ground Truth Simulator</h1>
+        <p class="subtitle">Immutable 90-customer distribution truth, 24-hour 15-minute profiles, real unbalanced 3-phase power flow, and synthetic utility measurements — all computed locally in this browser.</p>
       </div>
       <div class="hero-badges">
         <div class="privacy-pill pass-pill">P0-A · PASS</div>
+        <div class="privacy-pill pass-pill">P0-B · PASS</div>
         <div class="privacy-pill">LOCAL COMPUTE · NO BACKEND</div>
       </div>
     </header>
@@ -25,12 +26,13 @@
     <section class="panel control-panel">
       <div>
         <div class="label">ENGINE STATUS</div>
-        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready to benchmark</div>
-        <div id="statusDetail" class="muted">Target: 20 kV feeder → 400 kVA transformer → 3 JTR → 90 individual single-phase customers.</div>
+        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready for Ground Truth</div>
+        <div id="statusDetail" class="muted">Target: 90 customers × 96 intervals, with immutable network/customer truth and noiseless measurements for the future P2 degradation layer.</div>
       </div>
       <div class="button-row">
-        <button id="runP0AButton" class="secondary-button">Re-run P0-A</button>
-        <button id="runButton" class="primary-button">Run P0-B Benchmark</button>
+        <button id="runP0AButton" class="secondary-button compact-button">P0-A</button>
+        <button id="runP0BButton" class="secondary-button compact-button">P0-B</button>
+        <button id="runButton" class="primary-button">Run P1 Ground Truth</button>
       </div>
     </section>
 
@@ -53,33 +55,35 @@
         <div id="gateBadge" class="gate-badge">—</div>
       </div>
 
-      <div class="metric-grid p0b-metrics">
-        <article class="metric panel"><span>Pyodide</span><strong id="mPyodide">—</strong></article>
-        <article class="metric panel"><span>Pandapower</span><strong id="mPandapower">—</strong></article>
-        <article class="metric panel"><span>Customers</span><strong id="mCustomers">—</strong></article>
-        <article class="metric panel"><span>Network buses</span><strong id="mBuses">—</strong></article>
-        <article class="metric panel"><span>90-cust warm solve</span><strong id="mWarm">—</strong></article>
-        <article class="metric panel"><span>25 solve loop</span><strong id="m25">—</strong></article>
-        <article class="metric panel"><span>Technical loss</span><strong id="mLoss">—</strong></article>
-        <article class="metric panel"><span>Minimum LV voltage</span><strong id="mMinV">—</strong></article>
+      <div class="metric-grid p1-metrics">
+        <article class="metric panel"><span id="mLabel1">Pyodide</span><strong id="m1">—</strong></article>
+        <article class="metric panel"><span id="mLabel2">Pandapower</span><strong id="m2">—</strong></article>
+        <article class="metric panel"><span id="mLabel3">Customers</span><strong id="m3">—</strong></article>
+        <article class="metric panel"><span id="mLabel4">Intervals</span><strong id="m4">—</strong></article>
+        <article class="metric panel"><span id="mLabel5">Source energy</span><strong id="m5">—</strong></article>
+        <article class="metric panel"><span id="mLabel6">Technical loss</span><strong id="m6">—</strong></article>
+        <article class="metric panel"><span id="mLabel7">Peak source P</span><strong id="m7">—</strong></article>
+        <article class="metric panel"><span id="mLabel8">Minimum LV voltage</span><strong id="m8">—</strong></article>
       </div>
 
-      <section id="benchmarkPanel" class="panel benchmark-panel">
+      <section id="p1ChartPanel" class="panel chart-panel hidden">
+        <div class="chart-head">
+          <div>
+            <div class="section-title">24-HOUR GROUND TRUTH PROFILE</div>
+            <div class="muted">Source active power from 96 real three-phase load-flow intervals.</div>
+          </div>
+          <div class="chart-legend"><span class="legend-line"></span> Source P</div>
+        </div>
+        <div id="profileChart" class="profile-chart"></div>
+      </section>
+
+      <section id="benchmarkPanel" class="panel benchmark-panel hidden">
         <div class="section-title">BROWSER SCALE CURVE</div>
         <div class="table-wrap">
           <table class="benchmark-table">
             <thead>
               <tr>
-                <th>Customers</th>
-                <th>Buses</th>
-                <th>Lines</th>
-                <th>Build</th>
-                <th>First solve</th>
-                <th>Warm avg</th>
-                <th>P loss</th>
-                <th>Min V</th>
-                <th>Unbalance</th>
-                <th>Status</th>
+                <th>Customers</th><th>Buses</th><th>Lines</th><th>Build</th><th>First solve</th><th>Warm avg</th><th>P loss</th><th>Min V</th><th>Unbalance</th><th>Status</th>
               </tr>
             </thead>
             <tbody id="benchmarkRows"></tbody>
@@ -89,14 +93,25 @@
 
       <div class="two-col">
         <section class="panel">
-          <div class="section-title">90-CUSTOMER NETWORK</div>
+          <div id="factsTitle" class="section-title">GROUND TRUTH</div>
           <div id="networkFacts" class="fact-list"></div>
         </section>
         <section class="panel">
-          <div class="section-title">P0-B CHECKS</div>
+          <div id="checksTitle" class="section-title">P1 CHECKS</div>
           <div id="checkList" class="check-list"></div>
         </section>
       </div>
+
+      <section id="measurementPanel" class="panel measurement-panel hidden">
+        <div class="section-title">SYNTHETIC MEASUREMENT INVENTORY</div>
+        <div class="muted measurement-note">P1 measurements are perfect/noiseless Ground Truth. Missing data, mapping errors and meter noise are introduced only in P2.</div>
+        <div class="table-wrap">
+          <table class="benchmark-table measurement-table">
+            <thead><tr><th>Channel</th><th>Records</th><th>Resolution</th><th>Status</th></tr></thead>
+            <tbody id="measurementRows"></tbody>
+          </table>
+        </div>
+      </section>
 
       <section class="panel diagnostic-panel">
         <div class="section-title diagnostic-title">RUNTIME DIAGNOSTICS</div>
@@ -111,7 +126,7 @@
     </section>
 
     <footer>
-      P0-B only measures browser-scale physics performance. Ground Truth, data degradation and smart calibration begin after this gate passes.
+      P1 establishes immutable Ground Truth and synthetic measurements only. Data degradation begins in P2; smart calibration begins in P3.
     </footer>
   </main>
   <script src="./app.js"></script>
