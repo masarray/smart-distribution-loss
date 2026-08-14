@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Smart Distribution Loss — P0-A Browser Physics Gate</title>
+  <title>Smart Distribution Loss — P0-B Browser Scale Benchmark</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -12,20 +12,26 @@
   <main class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">SMART DISTRIBUTION LOSS · P0-A</p>
-        <h1>Browser Physics Feasibility Gate</h1>
-        <p class="subtitle">Pyodide + Pandapower + unbalanced 3-phase power flow, executed entirely on this device.</p>
+        <p class="eyebrow">SMART DISTRIBUTION LOSS · P0-B</p>
+        <h1>Distribution Scale Benchmark</h1>
+        <p class="subtitle">Pandapower unbalanced 3-phase simulation scaled from 1 to 90 individual customers, executed entirely in this browser.</p>
       </div>
-      <div class="privacy-pill">LOCAL COMPUTE · NO BACKEND</div>
+      <div class="hero-badges">
+        <div class="privacy-pill pass-pill">P0-A · PASS</div>
+        <div class="privacy-pill">LOCAL COMPUTE · NO BACKEND</div>
+      </div>
     </header>
 
     <section class="panel control-panel">
       <div>
         <div class="label">ENGINE STATUS</div>
-        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Not initialized</div>
-        <div id="statusDetail" class="muted">Nothing has been downloaded or executed yet.</div>
+        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready to benchmark</div>
+        <div id="statusDetail" class="muted">Target: 20 kV feeder → 400 kVA transformer → 3 JTR → 90 individual single-phase customers.</div>
       </div>
-      <button id="runButton" class="primary-button">Initialize & Run P0-A</button>
+      <div class="button-row">
+        <button id="runP0AButton" class="secondary-button">Re-run P0-A</button>
+        <button id="runButton" class="primary-button">Run P0-B Benchmark</button>
+      </div>
     </section>
 
     <section class="progress-wrap panel" aria-live="polite">
@@ -34,45 +40,66 @@
         <span id="progressPct">0%</span>
       </div>
       <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
-      <div id="progressLog" class="progress-log"></div>
+      <div id="progressLog" class="progress-log">No computation is running.</div>
     </section>
 
     <section id="resultSection" class="hidden">
       <div class="gate-banner panel">
         <div>
-          <div class="label">P0-A GATE</div>
+          <div class="label">CURRENT GATE</div>
           <div id="gateTitle" class="gate-title">—</div>
           <div id="gateReason" class="muted">—</div>
         </div>
         <div id="gateBadge" class="gate-badge">—</div>
       </div>
 
-      <div class="metric-grid">
+      <div class="metric-grid p0b-metrics">
         <article class="metric panel"><span>Pyodide</span><strong id="mPyodide">—</strong></article>
         <article class="metric panel"><span>Pandapower</span><strong id="mPandapower">—</strong></article>
-        <article class="metric panel"><span>Engine init</span><strong id="mInit">—</strong></article>
-        <article class="metric panel"><span>3φ solve</span><strong id="mSolve">—</strong></article>
-        <article class="metric panel"><span>Total P loss</span><strong id="mLoss">—</strong></article>
-        <article class="metric panel"><span>LV unbalance</span><strong id="mUnbalance">—</strong></article>
+        <article class="metric panel"><span>Customers</span><strong id="mCustomers">—</strong></article>
+        <article class="metric panel"><span>Network buses</span><strong id="mBuses">—</strong></article>
+        <article class="metric panel"><span>90-cust warm solve</span><strong id="mWarm">—</strong></article>
+        <article class="metric panel"><span>25 solve loop</span><strong id="m25">—</strong></article>
+        <article class="metric panel"><span>Technical loss</span><strong id="mLoss">—</strong></article>
+        <article class="metric panel"><span>Minimum LV voltage</span><strong id="mMinV">—</strong></article>
       </div>
+
+      <section id="benchmarkPanel" class="panel benchmark-panel">
+        <div class="section-title">BROWSER SCALE CURVE</div>
+        <div class="table-wrap">
+          <table class="benchmark-table">
+            <thead>
+              <tr>
+                <th>Customers</th>
+                <th>Buses</th>
+                <th>Lines</th>
+                <th>Build</th>
+                <th>First solve</th>
+                <th>Warm avg</th>
+                <th>P loss</th>
+                <th>Min V</th>
+                <th>Unbalance</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="benchmarkRows"></tbody>
+          </table>
+        </div>
+      </section>
 
       <div class="two-col">
         <section class="panel">
-          <div class="section-title">LV BUS · PHASE VOLTAGE</div>
-          <div class="phase-row"><span>A</span><div class="bar"><i id="barA"></i></div><b id="vA">—</b></div>
-          <div class="phase-row"><span>B</span><div class="bar"><i id="barB"></i></div><b id="vB">—</b></div>
-          <div class="phase-row"><span>C</span><div class="bar"><i id="barC"></i></div><b id="vC">—</b></div>
-          <div class="mini-note">Expected behavior: unequal phase voltages from an asymmetric LV load.</div>
+          <div class="section-title">90-CUSTOMER NETWORK</div>
+          <div id="networkFacts" class="fact-list"></div>
         </section>
-
         <section class="panel">
-          <div class="section-title">PHYSICS CHECKS</div>
+          <div class="section-title">P0-B CHECKS</div>
           <div id="checkList" class="check-list"></div>
         </section>
       </div>
 
-      <section class="panel">
-        <div class="section-title">RUNTIME DIAGNOSTICS</div>
+      <section class="panel diagnostic-panel">
+        <div class="section-title diagnostic-title">RUNTIME DIAGNOSTICS</div>
         <pre id="diagnostics" class="diagnostics"></pre>
       </section>
     </section>
@@ -84,9 +111,9 @@
     </section>
 
     <footer>
-      P0-A only. No calibration logic yet. The gate must pass before building the larger 90-customer demo.
+      P0-B only measures browser-scale physics performance. Ground Truth, data degradation and smart calibration begin after this gate passes.
     </footer>
   </main>
-  <script src="./app.js" defer></script>
+  <script src="./app.js"></script>
 </body>
 </html>
