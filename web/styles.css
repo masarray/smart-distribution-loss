@@ -23,6 +23,7 @@ h1 { margin: 7px 0 8px; font-size: clamp(30px, 4vw, 52px); line-height: 1; lette
 .muted { color: #869da2; font-size: 13px; line-height: 1.45; }
 .button-row { display: flex; gap: 8px; align-items: center; }
 .primary-button, .secondary-button { border-radius: 11px; padding: 12px 18px; font-weight: 800; cursor: pointer; min-width: 154px; }
+.compact-button { min-width: 72px; padding-left: 13px; padding-right: 13px; }
 .primary-button { color: #061317; background: #7ce3d4; border: 0; }
 .secondary-button { color: #a9c4c8; background: #102127; border: 1px solid #28454c; }
 .primary-button:hover, .secondary-button:hover { filter: brightness(1.06); }
@@ -44,19 +45,13 @@ h1 { margin: 7px 0 8px; font-size: clamp(30px, 4vw, 52px); line-height: 1; lette
 .two-col { display: grid; grid-template-columns: 1.05fr .95fr; gap: 10px; margin-top: 10px; }
 .two-col > .panel { padding: 18px; }
 .section-title { margin-bottom: 14px; }
-.phase-row { display: grid; grid-template-columns: 28px 1fr 72px; align-items: center; gap: 10px; margin: 11px 0; font-size: 13px; }
-.phase-row > span { font-weight: 850; color: #b9cbcf; }
-.phase-row > b { text-align: right; font-variant-numeric: tabular-nums; }
-.bar { height: 8px; border-radius: 99px; background: #12262c; overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; background: #71d3c5; transition: width .5s ease; }
-.mini-note { margin-top: 14px; color: #718b91; font-size: 12px; }
 .check-list { display: grid; gap: 9px; }
 .check { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid #162d33; padding-bottom: 9px; color: #b3c5c9; font-size: 13px; }
 .check:last-child { border-bottom: 0; padding-bottom: 0; }
 .check > div { min-width: 0; display: grid; gap: 3px; }
 .check small { color: #6f8c92; font-size: 11px; line-height: 1.35; }
 .check b.ok { color: #68d1ae; }.check b.fail { color: #ef8589; }
-.benchmark-panel { margin-top: 10px; padding: 18px; }
+.benchmark-panel, .measurement-panel, .chart-panel { margin-top: 10px; padding: 18px; }
 .table-wrap { width: 100%; overflow-x: auto; border: 1px solid #173037; border-radius: 11px; }
 .benchmark-table { width: 100%; border-collapse: collapse; min-width: 950px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .benchmark-table th { text-align: right; color: #789299; background: #0a181d; padding: 10px 11px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid #1d3940; }
@@ -64,6 +59,8 @@ h1 { margin: 7px 0 8px; font-size: clamp(30px, 4vw, 52px); line-height: 1; lette
 .benchmark-table td { text-align: right; padding: 11px; color: #afc3c7; border-bottom: 1px solid #142c32; }
 .benchmark-table tbody tr:last-child td { border-bottom: 0; }
 .benchmark-table tbody tr:hover { background: rgba(124,227,212,.025); }
+.measurement-table { min-width: 720px; }
+.measurement-note { margin: -5px 0 14px; }
 .table-status { display: inline-flex; padding: 4px 7px; border-radius: 6px; font-size: 10px; font-weight: 850; letter-spacing: .05em; }
 .table-status.ok { color: #6ed6b3; background: rgba(74,198,160,.10); }
 .table-status.fail { color: #ee8d90; background: rgba(232,91,96,.10); }
@@ -72,11 +69,22 @@ h1 { margin: 7px 0 8px; font-size: clamp(30px, 4vw, 52px); line-height: 1; lette
 .fact-row:last-child { border-bottom: 0; }
 .fact-row span { color: #789299; }
 .fact-row b { color: #bcd0d4; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.chart-legend { color: #8ea8ad; font-size: 11px; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.legend-line { width: 22px; height: 2px; background: #7ce3d4; display: inline-block; border-radius: 999px; }
+.profile-chart { width: 100%; min-height: 250px; border: 1px solid #173037; border-radius: 11px; background: #081317; overflow: hidden; }
+.profile-chart svg { display: block; width: 100%; height: auto; min-height: 250px; }
+.chart-grid { stroke: #173138; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-line { fill: none; stroke: #7ce3d4; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.chart-peak { fill: #081317; stroke: #9df2df; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.chart-label, .chart-axis-title, .chart-peak-label { fill: #789299; font: 11px Inter, ui-sans-serif, system-ui, sans-serif; }
+.chart-axis-title { fill: #91a8ad; font-weight: 700; }
+.chart-peak-label { fill: #b8d6d7; font-weight: 700; }
 .diagnostic-panel { margin-top: 10px; overflow: hidden; }
 .diagnostic-title { padding: 18px 18px 0; }
-.diagnostics { margin: 0; padding: 16px 18px; white-space: pre-wrap; overflow: auto; color: #9db7bc; background: #071014; border-radius: 0 0 16px 16px; border-top: 1px solid #183038; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.diagnostics { margin: 0; padding: 16px 18px; white-space: pre-wrap; overflow: auto; color: #9db7bc; background: #071014; border-radius: 0 0 16px 16px; border-top: 1px solid #183038; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; max-height: 620px; }
 .hidden { display: none !important; }
 .error-panel { margin-top: 14px; padding-top: 18px; overflow: hidden; border-color: #60383b; }.error-panel .section-title, .error-message { padding-left: 18px; padding-right: 18px; }.error-message { color: #f0a3a6; margin-bottom: 14px; }
 footer { margin-top: 19px; text-align: center; color: #60777c; font-size: 11px; }
 @media (max-width: 920px) { .metric-grid { grid-template-columns: repeat(2, 1fr); }.two-col { grid-template-columns: 1fr; }.control-panel { align-items: flex-start; } }
-@media (max-width: 680px) { .shell { width: min(100% - 20px, 1240px); padding-top: 22px; }.hero, .control-panel { flex-direction: column; }.hero-badges { justify-content: flex-start; }.privacy-pill { align-self: flex-start; }.button-row { width: 100%; flex-direction: column-reverse; }.primary-button, .secondary-button { width: 100%; }.metric-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 680px) { .shell { width: min(100% - 20px, 1240px); padding-top: 22px; }.hero, .control-panel { flex-direction: column; }.hero-badges { justify-content: flex-start; }.privacy-pill { align-self: flex-start; }.button-row { width: 100%; flex-wrap: wrap; }.primary-button { width: 100%; order: -1; }.secondary-button { flex: 1; min-width: 90px; }.metric-grid { grid-template-columns: repeat(2, 1fr); }.chart-head { flex-direction: column; } }
