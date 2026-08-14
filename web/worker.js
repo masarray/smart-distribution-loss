@@ -7,6 +7,9 @@
 const PYODIDE_VERSION = '0.28.3';
 const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PANDAPOWER_PIN = 'pandapower==3.1.2';
+const DEEPDIFF_PIN = 'deepdiff==8.5.0';
+const GEOJSON_PIN = 'geojson==3.2.0';
+const ORDERLY_SET_PIN = 'orderly-set==5.4.1';
 
 let pyodide = null;
 let initMs = null;
@@ -47,7 +50,7 @@ async function initialize() {
   progress(10, 'Initializing Pyodide', 'CPython / WebAssembly runtime');
   pyodide = await self.loadPyodide({ indexURL: PYODIDE_INDEX });
 
-  progress(25, 'Loading scientific stack', 'NumPy · pandas · SciPy · NetworkX · lxml');
+  progress(24, 'Loading scientific stack', 'NumPy · pandas · SciPy · NetworkX · lxml');
   await pyodide.loadPackage([
     'micropip',
     'numpy',
@@ -60,15 +63,36 @@ async function initialize() {
     'typing-extensions',
   ]);
 
-  progress(48, 'Installing Pandapower', `${PANDAPOWER_PIN} via micropip`);
   const micropip = pyodide.pyimport('micropip');
   try {
-    await micropip.install(PANDAPOWER_PIN, { keep_going: false });
+    // pandapower 3.1.2 declares DeepDiff without an upper bound. Newer DeepDiff
+    // releases depend on cachebox, a Rust extension that has no Pyodide/WASM wheel.
+    // P0-A only needs pandapower's modelling + runpp_3ph path, so install the
+    // browser-compatible dependency set explicitly and then install pandapower
+    // without re-resolving its full PyPI dependency graph.
+    progress(40, 'Installing browser-safe dependencies', `${DEEPDIFF_PIN} · ${GEOJSON_PIN}`);
+    await micropip.install([
+      ORDERLY_SET_PIN,
+      DEEPDIFF_PIN,
+      GEOJSON_PIN,
+    ], { keep_going: false });
+
+    progress(54, 'Installing Pandapower', `${PANDAPOWER_PIN} · dependency graph pinned for Pyodide`);
+    await micropip.install(PANDAPOWER_PIN, {
+      keep_going: false,
+      deps: false,
+    });
   } finally {
     micropip.destroy();
   }
 
-  progress(68, 'Loading P0-A physics code', '20/0.4 kV transformer + LV line + asymmetric load');
+  progress(70, 'Import-checking Pandapower', 'Verifying the installed browser runtime before solving');
+  await pyodide.runPythonAsync(`
+import pandapower as _pp_browser_check
+assert _pp_browser_check.__version__ == "3.1.2"
+`);
+
+  progress(74, 'Loading P0-A physics code', '20/0.4 kV transformer + LV line + asymmetric load');
   const source = await loadEngineSource();
   await pyodide.runPythonAsync(source);
   initMs = performance.now() - started;
@@ -76,7 +100,7 @@ async function initialize() {
 
 async function runP0A() {
   await initialize();
-  progress(77, 'Running three-phase power flow', 'Pandapower runpp_3ph(numba=False)');
+  progress(80, 'Running three-phase power flow', 'Pandapower runpp_3ph(numba=False)');
 
   const raw = await pyodide.runPythonAsync('run_p0a_json()');
   const payload = JSON.parse(raw);
@@ -87,10 +111,12 @@ async function runP0A() {
     worker_init_ms: initMs,
     execution_location: 'browser-web-worker',
     worker_type: 'classic',
+    dependency_strategy: 'explicit-pyodide-compatible-pins',
+    deepdiff_pin: DEEPDIFF_PIN,
     backend: null,
   };
 
-  progress(94, 'Validating results', 'Convergence · reference voltages · losses · repeatability');
+  progress(95, 'Validating results', 'Convergence · reference voltages · losses · repeatability');
   return payload;
 }
 
