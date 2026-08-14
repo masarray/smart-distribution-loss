@@ -1,0 +1,37 @@
+name: Validate Browser Engines
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JavaScript syntax
+        run: |
+          node --check web/app.js
+          node --check web/worker.js
+
+      - name: Python syntax
+        run: |
+          python -m py_compile web/engine/p0a_engine.py
+          python -m py_compile web/engine/p0b_engine.py
+          python -m py_compile web/engine/p1_ground_truth.py
+
+      - name: Required files
+        run: |
+          test -f web/index.html
+          test -f web/styles.css
+          test -f docs/P0A-GATE.md
+          test -f docs/P0B-GATE.md
+          test -f docs/P1-GROUND-TRUTH.md
