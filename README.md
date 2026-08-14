@@ -52,25 +52,58 @@ Observed real-browser baseline:
 
 See `docs/P0A-GATE.md`.
 
-## P0-B — current phase
+## P0-B — PASS
 
-P0-B scales the same browser-only physics path to the canonical demo network:
+P0-B proved the same browser-only physics architecture at the canonical 90-customer scale:
 
 ```text
 20 kV source
   ↓
-MV feeder
+250 m MV feeder
   ↓
-400 kVA 20/0.4 kV transformer
+400 kVA 20/0.4 kV Dyn transformer
   ↓
 3 JTR branches
   ↓
 90 individual single-phase customers
 ```
 
-The browser benchmarks 1 / 10 / 30 / 60 / 90 customers and runs 25 repeated three-phase solves on the final 90-customer case to test whether a future smart-calibration loop is practical.
+Observed final-case browser baseline:
+
+- `123` buses
+- `121` lines
+- `90` asymmetric customer loads
+- network build: `766.5 ms`
+- first solve: `116.4 ms`
+- warm solve average: `37.35 ms`
+- 25 warm solves: `933.7 ms`
+- technical loss: `4.515 kW` (`2.828%` of source P)
+- minimum LV voltage: `0.934944 pu`
+- transformer loading: `58.07%`
+- WASM heap: approximately `215 MB`
 
 See `docs/P0B-GATE.md`.
+
+## P1 — current phase
+
+P1 turns the validated 90-customer snapshot into an **immutable 24-hour Ground Truth simulator**.
+
+It creates:
+
+- `96` × 15-minute unbalanced three-phase power-flow states
+- deterministic residential and small-commercial profiles
+- true customer phase / PF / service length
+- SHA-256 Ground Truth integrity hash
+- feeder/source P and Q measurements
+- LV bus A/B/C voltage measurements
+- transformer LV A/B/C current measurements
+- `90 × 96 = 8,640` customer AMI interval-energy values
+- per-interval technical-loss decomposition
+- daily kWh energy/loss accounting
+
+P1 measurements are intentionally perfect/noiseless. Missing data, unknown phase, mapping errors, parameter uncertainty and meter noise begin in P2.
+
+See `docs/P1-GROUND-TRUTH.md`.
 
 ## Run locally
 
@@ -107,9 +140,9 @@ Once deployed, end users only need the Pages URL and a modern browser.
 ```text
 P0-A browser physics                 PASS
   ↓
-P0-B 90-customer browser scale      CURRENT
+P0-B 90-customer browser scale      PASS
   ↓
-P1 Ground Truth simulator
+P1 Ground Truth simulator           CURRENT
   ↓
 P2 data degradation
   ↓
@@ -120,4 +153,4 @@ confidence / explainability
 engineering cockpit
 ```
 
-Do not add smart calibration before P0-B passes in a real browser.
+Do not begin P2 until P1 passes its real-browser integrity and energy-accounting gate.
