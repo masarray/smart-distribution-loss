@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SingleLineDiagram } from "@/components/sdl/SingleLineDiagram";
 import { LossProfileChart } from "@/components/sdl/LossProfileChart";
 import { DataDrawer } from "@/components/sdl/DataDrawer";
+import { DatasetManager } from "@/components/sdl/DatasetManager";
 import { DetailDrawer } from "@/components/sdl/DetailDrawer";
 import { useEngine } from "@/lib/sdl/useEngine";
 import { deriveAssets, fmt, type AssetId } from "@/lib/sdl/derive";
@@ -22,6 +23,7 @@ export default function App() {
   const [preset, setPreset] = useState<Preset>("poor");
   const [selected, setSelected] = useState<AssetId>("gd");
   const [dataDrawerOpen, setDataDrawerOpen] = useState(false);
+  const [datasetManagerOpen, setDatasetManagerOpen] = useState(false);
   const [engineeringDrawerOpen, setEngineeringDrawerOpen] = useState(false);
 
   const assets = useMemo(
@@ -68,9 +70,8 @@ export default function App() {
   const selectedSummary = useMemo(() => summarizeLossSeries(selectedSeries), [selectedSeries]);
   const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
 
-  const selectAsset = (id: AssetId, openData = true) => {
+  const selectAsset = (id: AssetId) => {
     setSelected(id);
-    if (openData) setDataDrawerOpen(true);
   };
 
   return (
@@ -106,9 +107,14 @@ export default function App() {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2 py-1.5 text-[10px] font-semibold tracking-wider text-warn lg:flex">
-            <Database className="size-3" /> SYNTHETIC DEMO
-          </span>
+          <button
+            type="button"
+            onClick={() => setDatasetManagerOpen(true)}
+            aria-label="Kelola dataset"
+            className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2 py-1.5 text-[10px] font-semibold tracking-wider text-warn transition-colors hover:border-warn/45 hover:bg-warn/10 lg:flex"
+          >
+            <Database className="size-3" /> DATASET · SYNTHETIC DEMO
+          </button>
           <div className="hidden items-center gap-2 lg:flex">
             <span className="label-xs">Kualitas data</span>
             <Select value={preset} onValueChange={(v) => setPreset(v as Preset)} disabled={running}>
@@ -229,7 +235,7 @@ export default function App() {
             </div>
             <SingleLineDiagram
               selected={selected}
-              onSelect={(id) => selectAsset(id)}
+              onSelect={selectAsset}
               energised={energised}
               intensity={running ? 0.9 : 0.5}
               gdLossKwh={gdLossKwh}
@@ -287,14 +293,25 @@ export default function App() {
               <Kpi icon={<ShieldCheck className="size-3.5" />} label="Confidence" value={operational.confidence} unit="input + engineering gate" tone={confidenceTone(operational.confidence)} />
             </div>
 
-            <Button
-              size="sm"
-              className="mt-3 h-9 w-full gap-2 text-xs font-semibold"
-              onClick={() => setEngineeringDrawerOpen(true)}
-            >
-              <ShieldCheck className="size-3.5" />
-              Detail engineering &amp; gate
-            </Button>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-9 gap-2 text-xs font-semibold"
+                onClick={() => setDataDrawerOpen(true)}
+              >
+                <Database className="size-3.5" />
+                Data &amp; input
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 gap-2 text-xs font-semibold"
+                onClick={() => setEngineeringDrawerOpen(true)}
+              >
+                <ShieldCheck className="size-3.5" />
+                Engineering &amp; gate
+              </Button>
+            </div>
           </div>
 
           <div className="panel min-h-0 flex-1 overflow-hidden p-3">
@@ -359,6 +376,8 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      <DatasetManager open={datasetManagerOpen} onOpenChange={setDatasetManagerOpen} />
 
       {active && (
         <>

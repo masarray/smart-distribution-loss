@@ -5,19 +5,23 @@ on:
     branches: ["main"]
     paths:
       - "public/sdl-worker.js"
+      - "public/field-worker.js"
       - "public/engine/**"
       - "src/App.tsx"
       - "src/components/sdl/DataDrawer.tsx"
+      - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
       - "src/lib/sdl/derive.ts"
+      - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
+      - "tests/field-dataset-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operational-sld-ci.mjs"
       - ".github/workflows/browser-physics.yml"
@@ -27,19 +31,23 @@ on:
     branches: ["main"]
     paths:
       - "public/sdl-worker.js"
+      - "public/field-worker.js"
       - "public/engine/**"
       - "src/App.tsx"
       - "src/components/sdl/DataDrawer.tsx"
+      - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
       - "src/lib/sdl/derive.ts"
+      - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
+      - "tests/field-dataset-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operational-sld-ci.mjs"
       - ".github/workflows/browser-physics.yml"
@@ -52,7 +60,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + M4 manager intelligence · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + M5 field foundation · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -93,7 +101,7 @@ jobs:
           cat /tmp/sdl-http.log
           exit 1
 
-      - name: Prove contextual Data & Input drawer
+      - name: Prove explicit Data & Input drawer interaction
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/data-drawer-ci.mjs
@@ -107,6 +115,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/operational-sld-ci.mjs
+
+      - name: Prove M5 field import + browser physics preview
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/field-dataset-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:
