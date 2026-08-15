@@ -90,9 +90,28 @@ Observed real-browser P1 baseline:
 - 96-solve runtime: `5.27 s`
 - Ground Truth SHA-256 remained unchanged
 
-P1 measurements are intentionally perfect/noiseless. Missing data, unknown phase, mapping errors, parameter uncertainty and meter noise begin in P2.
-
 See `docs/P1-GROUND-TRUTH.md`.
+
+## P2 — current phase
+
+P2 creates an **imperfect observable view** from P1 while leaving Ground Truth immutable. A separate conventional, non-smart Pandapower model is then built only from degraded/observed/assumed fields.
+
+The primary `Typical` scenario introduces:
+
+- `35%` unknown customer phase
+- `20%` missing AMI streams
+- `60%` unknown PF
+- `5%` wrong customer mapping
+- `10%` one-interval timestamp mismatch
+- service-length uncertainty `±15%`
+- AMI/source-P meter noise `±0.5%`
+- transformer parameter uncertainty
+
+Simple baseline rules fill the gaps: peer-profile AMI imputation, default PF assumptions and greedy branch phase balancing. There is deliberately **no optimizer or smart calibration in P2**.
+
+P2 reports Ground Truth vs conventional technical loss, loss error, source/phase/voltage residuals, coverage metrics, degradation provenance and 24-hour divergence curves. The synthetic truth is used only for validation and never as conventional-model input.
+
+See `docs/P2-DATA-DEGRADATION.md`.
 
 ## Run locally
 
@@ -133,7 +152,7 @@ P0-B 90-customer browser scale      PASS
   ↓
 P1 Ground Truth simulator           PASS
   ↓
-P2 data degradation                 NEXT
+P2 data degradation                 CURRENT
   ↓
 P3 smart calibration
   ↓
@@ -142,4 +161,4 @@ confidence / explainability
 engineering cockpit
 ```
 
-P2 must operate only on a derived/imperfect view. The immutable P1 Ground Truth remains hidden as the validation reference for all later stages.
+**P3 may start only after the `Typical` P2 scenario passes in a real browser and establishes a reproducible conventional-model error baseline.**
