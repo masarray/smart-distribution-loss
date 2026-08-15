@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Activity, CircuitBoard, Cpu, Gauge, Play, ShieldCheck, Zap } from "lucide-react";
+import { Activity, CircuitBoard, Cpu, Database, Gauge, Play, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SingleLineDiagram } from "@/components/sdl/SingleLineDiagram";
 import { LossProfileChart } from "@/components/sdl/LossProfileChart";
+import { DataDrawer } from "@/components/sdl/DataDrawer";
 import { DetailDrawer } from "@/components/sdl/DetailDrawer";
 import { useEngine } from "@/lib/sdl/useEngine";
 import { deriveAssets, fmt, fmtSigned, type AssetId } from "@/lib/sdl/derive";
@@ -14,7 +15,8 @@ export default function App() {
   const { state, run } = useEngine();
   const [preset, setPreset] = useState<Preset>("poor");
   const [selected, setSelected] = useState<AssetId>("gd");
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dataDrawerOpen, setDataDrawerOpen] = useState(false);
+  const [engineeringDrawerOpen, setEngineeringDrawerOpen] = useState(false);
 
   const assets = useMemo(
     () => deriveAssets(state.result, state.spot, state.tm),
@@ -33,6 +35,11 @@ export default function App() {
     active?.convErr != null && active?.smartErr != null
       ? Math.abs(active.convErr) - Math.abs(active.smartErr)
       : null;
+
+  const selectAsset = (id: AssetId, openData = true) => {
+    setSelected(id);
+    if (openData) setDataDrawerOpen(true);
+  };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -53,7 +60,7 @@ export default function App() {
             <button
               key={a.id}
               type="button"
-              onClick={() => setSelected(a.id)}
+              onClick={() => selectAsset(a.id)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 selected === a.id
@@ -67,6 +74,9 @@ export default function App() {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
+          <span className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2 py-1.5 text-[10px] font-semibold tracking-wider text-warn lg:flex">
+            <Database className="size-3" /> SYNTHETIC DEMO
+          </span>
           <div className="hidden items-center gap-2 lg:flex">
             <span className="label-xs">Kualitas data</span>
             <Select value={preset} onValueChange={(v) => setPreset(v as Preset)} disabled={running}>
@@ -187,7 +197,7 @@ export default function App() {
             </div>
             <SingleLineDiagram
               selected={selected}
-              onSelect={setSelected}
+              onSelect={(id) => selectAsset(id)}
               energised={energised}
               intensity={running ? 0.9 : 0.5}
               gdLossKwh={gdLossKwh}
@@ -241,7 +251,7 @@ export default function App() {
             <Button
               size="sm"
               className="mt-3 h-9 w-full gap-2 text-xs font-semibold"
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => setEngineeringDrawerOpen(true)}
             >
               <ShieldCheck className="size-3.5" />
               Detail engineering &amp; gate
@@ -255,7 +265,7 @@ export default function App() {
                 <button
                   key={a.id}
                   type="button"
-                  onClick={() => setSelected(a.id)}
+                  onClick={() => selectAsset(a.id)}
                   className={cn(
                     "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                     selected === a.id ? "border-primary/50 bg-primary/10" : "border-border/55 bg-surface-2/80 hover:border-primary/20",
@@ -292,14 +302,25 @@ export default function App() {
       </main>
 
       {active && (
-        <DetailDrawer
-          open={drawerOpen}
-          onOpenChange={setDrawerOpen}
-          asset={active}
-          result={state.result}
-          spot={state.spot}
-          tm={state.tm}
-        />
+        <>
+          <DataDrawer
+            open={dataDrawerOpen}
+            onOpenChange={setDataDrawerOpen}
+            asset={active}
+            result={state.result}
+            spot={state.spot}
+            tm={state.tm}
+            preset={preset}
+          />
+          <DetailDrawer
+            open={engineeringDrawerOpen}
+            onOpenChange={setEngineeringDrawerOpen}
+            asset={active}
+            result={state.result}
+            spot={state.spot}
+            tm={state.tm}
+          />
+        </>
       )}
     </div>
   );
