@@ -137,6 +137,6 @@ export const PRESET_PROFILE: Record<
   { label: string; ami: number; phase: number; pf: number; mapping: number; verdict: string }
 > = {
   good: { label: "Good field data", ami: 94.4, phase: 90, pf: 80, mapping: 98.9, verdict: "Strong" },
-  typical: { label: "Typical field data", ami: 80, phase: 65.6, pf: 40, mapping: 94.4, verdict: "Imperfect" },
+  typical: { label: "Typical field data", ami: 80, phase: 64.4, pf: 40, mapping: 94.4, verdict: "Imperfect" },
   poor: { label: "Poor field data", ami: 60, phase: 40, pf: 20, mapping: 90, verdict: "Weak" },
 };
