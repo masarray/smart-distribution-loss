@@ -19,10 +19,14 @@ permissions:
   contents: read
 
 jobs:
-  p3-typical-browser:
-    name: P3 Typical · Chromium/Pyodide/Pandapower
+  p3-browser:
+    name: P3 ${{ matrix.preset }} · Spot + Distribution · Chromium/Pyodide/Pandapower
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [typical, poor]
 
     steps:
       - name: Checkout
@@ -51,10 +55,10 @@ jobs:
           cat /tmp/sdl-http.log
           exit 1
 
-      - name: Run P3 Typical browser gate
+      - name: Run PLN comparison browser gate
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
-          SDL_PRESET: typical
+          SDL_PRESET: ${{ matrix.preset }}
           SDL_TIMEOUT_MS: '1200000'
           SDL_ARTIFACT_DIR: artifacts/browser-ci
         run: node tests/browser-ci.mjs
@@ -63,7 +67,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smart-distribution-loss-p3-typical-${{ github.sha }}
+          name: smart-distribution-loss-p3-${{ matrix.preset }}-${{ github.sha }}
           path: artifacts/browser-ci
           if-no-files-found: warn
           retention-days: 30
