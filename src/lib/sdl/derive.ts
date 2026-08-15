@@ -1,4 +1,4 @@
-import type { P3Result, SpotDemo } from "./types";
+import type { P3Result, SpotDemo, TmDemo } from "./types";
 
 export type AssetId = "feeder" | "spot" | "tm" | "gd";
 
@@ -26,19 +26,19 @@ export const ASSET_META: Record<AssetId, { label: string; short: string; domain:
       label: "Feeder 20 kV — roll-up",
       short: "Feeder",
       domain: "FEEDER",
-      note: "Agregat susut MV + GD-01 pada penyulang yang sama.",
+      note: "Agregat susut Spot MV + Pelanggan TM + GD-01 pada penyulang yang sama.",
     },
     spot: {
       label: "Spot load MV",
       short: "Spot MV",
       domain: "MV",
-      note: "Kasus MV dengan observabilitas penuh.",
+      note: "Kasus Spot MV observabilitas penuh dengan profil dan saluran tersendiri.",
     },
     tm: {
       label: "Pelanggan TM",
       short: "Pelanggan TM",
       domain: "MV",
-      note: "Kalkulasi memakai model pelanggan TM terukur dari demo MV; feeder roll-up tetap menghitung kanal MV satu kali.",
+      note: "Model TM independen: feeder 2.8 km, profil 15 menit, P/Q per fasa dan kalibrasi resistansi tersendiri.",
     },
     gd: {
       label: "Gardu distribusi GD-01",
@@ -48,53 +48,70 @@ export const ASSET_META: Record<AssetId, { label: string; short: string; domain:
     },
   };
 
-export function deriveAssets(result: P3Result | null, spot: SpotDemo | null): AssetLoss[] {
+function demoErrors(demo: SpotDemo | TmDemo | null) {
+  const truth = demo?.comparison.truth.loss_kwh ?? null;
+  const conv = demo?.comparison.conventional.loss_kwh ?? null;
+  const smart = demo?.comparison.smart.loss_kwh ?? null;
+  return {
+    truth,
+    conv,
+    smart,
+    convErr:
+      demo?.comparison.conventional.loss_error_percent_validation_only ??
+      (truth && conv != null ? pctErr(conv, truth) : null),
+    smartErr:
+      demo?.comparison.smart.loss_error_percent_validation_only ??
+      (truth && smart != null ? pctErr(smart, truth) : null),
+  };
+}
+
+export function deriveAssets(result: P3Result | null, spot: SpotDemo | null, tm: TmDemo | null): AssetLoss[] {
   const gdTruth = result?.comparison.truth.loss_kwh ?? null;
   const gdConv = result?.comparison.conventional.loss_kwh ?? null;
   const gdSmart = result?.comparison.smart.loss_kwh ?? null;
-  const mvTruth = spot?.comparison.truth.loss_kwh ?? null;
-  const mvConv = spot?.comparison.conventional.loss_kwh ?? null;
-  const mvSmart = spot?.comparison.smart.loss_kwh ?? null;
-
-  const mvConvErr = mvTruth && mvConv != null ? pctErr(mvConv, mvTruth) : null;
-  const mvSmartErr = mvTruth && mvSmart != null ? pctErr(mvSmart, mvTruth) : null;
-  const spotAction = spot?.smart_action.classification ?? "—";
+  const spotValues = demoErrors(spot);
+  const tmValues = demoErrors(tm);
 
   const spotAsset: AssetLoss = {
     id: "spot",
     ...ASSET_META.spot,
     observability: "Tinggi · P/Q · fasa · topologi · timing",
     observabilityScore: 100,
-    truthKwh: mvTruth,
-    convKwh: mvConv,
-    smartKwh: mvSmart,
-    convErr: mvConvErr,
-    smartErr: mvSmartErr,
-    action: spotAction,
+    truthKwh: spotValues.truth,
+    convKwh: spotValues.conv,
+    smartKwh: spotValues.smart,
+    convErr: spotValues.convErr,
+    smartErr: spotValues.smartErr,
+    action: spot?.smart_action.classification ?? "—",
   };
 
   const tmAsset: AssetLoss = {
     id: "tm",
     ...ASSET_META.tm,
-    observability: "Tinggi · meter interval 15 menit",
+    observability: "Tinggi · 96 interval · meter P/Q per fasa",
     observabilityScore: 100,
-    truthKwh: mvTruth,
-    convKwh: mvConv,
-    smartKwh: mvSmart,
-    convErr: mvConvErr,
-    smartErr: mvSmartErr,
-    action: "METERED MV",
+    truthKwh: tmValues.truth,
+    convKwh: tmValues.conv,
+    smartKwh: tmValues.smart,
+    convErr: tmValues.convErr,
+    smartErr: tmValues.smartErr,
+    action: tm?.smart_action.classification ?? "—",
   };
 
-  const feederTruth = gdTruth != null && mvTruth != null ? gdTruth + mvTruth : null;
-  const feederConv = gdConv != null && mvConv != null ? gdConv + mvConv : null;
-  const feederSmart = gdSmart != null && mvSmart != null ? gdSmart + mvSmart : null;
+  const feederComplete =
+    gdTruth != null && gdConv != null && gdSmart != null &&
+    spotValues.truth != null && spotValues.conv != null && spotValues.smart != null &&
+    tmValues.truth != null && tmValues.conv != null && tmValues.smart != null;
+
+  const feederTruth = feederComplete ? gdTruth + spotValues.truth! + tmValues.truth! : null;
+  const feederConv = feederComplete ? gdConv + spotValues.conv! + tmValues.conv! : null;
+  const feederSmart = feederComplete ? gdSmart + spotValues.smart! + tmValues.smart! : null;
 
   return [
     {
       id: "feeder",
       ...ASSET_META.feeder,
-      observability: "Campuran MV terukur + LV terdegradasi",
+      observability: "Campuran dua kanal MV terukur + LV terdegradasi",
       observabilityScore: 78,
       truthKwh: feederTruth,
       convKwh: feederConv,
