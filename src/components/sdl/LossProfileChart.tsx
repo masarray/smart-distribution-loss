@@ -1,4 +1,13 @@
-import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { SeriesPoint } from "@/lib/sdl/types";
 
 export function LossProfileChart({ series }: { series: SeriesPoint[] }) {
@@ -42,7 +51,10 @@ export function LossProfileChart({ series }: { series: SeriesPoint[] }) {
             fontSize: 11,
           }}
           labelStyle={{ color: "var(--color-muted-foreground)" }}
-          formatter={(v: number, name: string) => [`${Number(v).toFixed(3)} kW`, name]}
+          formatter={(value, name) => [
+            `${Number(value ?? 0).toFixed(3)} kW`,
+            String(name ?? ""),
+          ]}
         />
         <Area
           type="monotone"
