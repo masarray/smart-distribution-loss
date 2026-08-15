@@ -18,6 +18,9 @@
   const gateBadge = $('#gateBadge');
   const chartPlaceholder = $('#chartPlaceholder');
   const sld = $('#distributionSld');
+  const runButton = $('#runButton');
+  const errorSection = $('#errorSection');
+  const errorMessage = $('#errorMessage');
 
   function text(id, value) {
     const node = document.getElementById(id);
@@ -38,6 +41,27 @@
     const n = Number(value);
     if (!Number.isFinite(n)) return '—';
     return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`;
+  }
+
+  function setPipelineVerdict(message, state = 'idle') {
+    const node = $('#demoPipelineVerdict');
+    if (!node) return;
+    node.classList.toggle('is-running', state === 'running');
+    node.classList.toggle('is-pass', state === 'pass');
+    node.innerHTML = `<span aria-hidden="true"></span>${message}`;
+  }
+
+  function normalizeSldGeometry() {
+    const busbar = $('.sld-lv-bus .busbar');
+    busbar?.setAttribute('d', 'M453 205v220');
+    const branch2Wire = $('.branch-2 .branch-wire');
+    const branch2Breaker = $('.branch-2 .breaker-node');
+    branch2Wire?.setAttribute('d', 'M453 325H615');
+    branch2Breaker?.setAttribute('cy', '325');
+    const branch3Wire = $('.branch-3 .branch-wire');
+    const branch3Breaker = $('.branch-3 .breaker-node');
+    branch3Wire?.setAttribute('d', 'M453 425H615');
+    branch3Breaker?.setAttribute('cy', '425');
   }
 
   function updatePresetProfile() {
@@ -98,6 +122,7 @@
 
   preset?.addEventListener('change', updatePresetProfile);
   updatePresetProfile();
+  normalizeSldGeometry();
 
   function resetPublicResult() {
     text('demoConventionalLoss', '—');
@@ -116,10 +141,7 @@
     text('sldSmartLoss', 'Calculating…');
     text('sldSmartLossSub', '96 interval physics validation');
     text('demoGuardValidation', 'Analysis in progress');
-    text('demoPipelineVerdict', 'Running calibration stages');
-    const verdict = $('#demoPipelineVerdict');
-    verdict?.classList.remove('is-pass');
-    verdict?.classList.add('is-running');
+    setPipelineVerdict('Running calibration stages', 'running');
     sld?.classList.remove('is-complete');
     sld?.classList.add('is-running');
     chartPlaceholder?.classList.remove('hidden');
@@ -130,7 +152,7 @@
     });
   }
 
-  $('#runButton')?.addEventListener('click', () => {
+  runButton?.addEventListener('click', () => {
     resetPublicResult();
     showPublic();
     activateNav('overview');
@@ -197,12 +219,10 @@
     text('sldSmartLossSub', `Conventional ${num(conventional.loss_kwh, 2)} · validation ${num(truth.loss_kwh, 2)}`);
     text('demoGuardValidation', payload.gate?.pass ? `${checks.filter((item) => item.pass).length}/${checks.length} checks passed` : 'Gate needs review');
 
-    const verdict = $('#demoPipelineVerdict');
-    if (verdict) {
-      verdict.textContent = payload.gate?.pass ? 'Calibration + hold-out physics passed' : 'One or more gates require review';
-      verdict.classList.remove('is-running');
-      verdict.classList.toggle('is-pass', Boolean(payload.gate?.pass));
-    }
+    setPipelineVerdict(
+      payload.gate?.pass ? 'Calibration + hold-out physics passed' : 'One or more gates require review',
+      payload.gate?.pass ? 'pass' : 'idle',
+    );
     updatePipeline(payload.trace || []);
 
     sld?.classList.remove('is-running');
@@ -227,9 +247,7 @@
   if (gateBadge) {
     new MutationObserver(() => {
       if (gateBadge.textContent?.trim() === 'PASS') {
-        const verdict = $('#demoPipelineVerdict');
-        verdict?.classList.remove('is-running');
-        verdict?.classList.add('is-pass');
+        setPipelineVerdict('Calibration + hold-out physics passed', 'pass');
       }
     }).observe(gateBadge, { childList: true, characterData: true, subtree: true });
   }
@@ -266,7 +284,33 @@
     }).observe(progressBar, { attributes: true, attributeFilter: ['style'] });
   }
 
-  // Keep public demo as the default landing experience even when CI discovers the hidden engineering nodes.
+  if (errorSection) {
+    new MutationObserver(() => {
+      if (!errorSection.classList.contains('hidden')) {
+        text('demoRailTitle', 'Browser engine error');
+        text('demoRailState', 'ERROR');
+        text('sldSmartLoss', 'Analysis stopped');
+        text('sldSmartLossSub', errorMessage?.textContent?.trim() || 'Open Engineering for diagnostics');
+        text('demoGuardValidation', 'Engine error · inspect diagnostics');
+        setPipelineVerdict('Analysis stopped · engineering diagnostics available', 'idle');
+        sld?.classList.remove('is-running', 'is-complete');
+        showPublic();
+      }
+    }).observe(errorSection, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // app.js updates the CTA with textContent while running; restore the product-style icon without changing behavior.
+  if (runButton) {
+    let decorating = false;
+    new MutationObserver(() => {
+      if (decorating || runButton.querySelector('svg')) return;
+      decorating = true;
+      const label = runButton.textContent?.trim() || 'Run Smart Analysis';
+      runButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg><span>${label}</span>`;
+      decorating = false;
+    }).observe(runButton, { childList: true, characterData: true, subtree: true });
+  }
+
   showPublic();
   activateNav('overview');
 })();
