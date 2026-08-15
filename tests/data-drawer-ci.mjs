@@ -14,6 +14,12 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
   await page.getByRole("button", { name: "Feeder", exact: true }).click();
+  if ((await page.getByText("Data & Input · Feeder", { exact: true }).count()) !== 0) {
+    throw new Error("Asset navigation must not auto-open the Data drawer.");
+  }
+  await assertVisible(page.getByText("Feeder 20 kV — roll-up", { exact: true }), "selected Feeder view");
+
+  await page.getByRole("button", { name: "Data & input", exact: true }).click();
   await assertVisible(page.getByText("Data & Input · Feeder", { exact: true }), "Feeder data drawer title");
   await assertVisible(page.getByText("SYNTHETIC DEMO", { exact: true }).last(), "Synthetic Demo badge");
 
@@ -29,22 +35,24 @@ try {
 
   await page.getByRole("button", { name: "Close" }).click();
   await page.getByRole("button", { name: "Pelanggan TM", exact: true }).click();
-  await assertVisible(
-    page.getByText("Data & Input · Pelanggan TM", { exact: true }),
-    "Pelanggan TM contextual drawer title",
-  );
+  if ((await page.getByText("Data & Input · Pelanggan TM", { exact: true }).count()) !== 0) {
+    throw new Error("Pelanggan TM selection auto-opened the Data drawer.");
+  }
+  await page.getByRole("button", { name: "Data & input", exact: true }).click();
+  await assertVisible(page.getByText("Data & Input · Pelanggan TM", { exact: true }), "Pelanggan TM explicit drawer title");
 
   await page.getByRole("button", { name: "Close" }).click();
-  await page.getByRole("button", { name: "Gardu GD-01", exact: true }).click();
-  await assertVisible(
-    page.getByText("Data & Input · Gardu GD-01", { exact: true }),
-    "GD-01 contextual drawer title",
-  );
+  await page.getByRole("button", { name: "Gardu GD-01", exact: true }).first().click();
+  if ((await page.getByText("Data & Input · Gardu GD-01", { exact: true }).count()) !== 0) {
+    throw new Error("GD-01 selection auto-opened the Data drawer.");
+  }
+  await page.getByRole("button", { name: "Data & input", exact: true }).click();
+  await assertVisible(page.getByText("Data & Input · Gardu GD-01", { exact: true }), "GD-01 explicit drawer title");
   await page.getByRole("tab", { name: "Measurements", exact: true }).click();
   await assertVisible(page.getByText("AMI tersedia", { exact: true }), "GD-01 AMI coverage");
   await assertVisible(page.getByText("54/90", { exact: false }), "Poor-preset AMI count");
 
-  console.log("Data Drawer gate PASS: contextual asset clicks, synthetic labeling, five transparency tabs, and GD-01 input coverage are visible.");
+  console.log("Data Drawer gate PASS: asset navigation stays unobstructed and data inspection is explicit per selected asset.");
 } finally {
   await browser.close();
 }
