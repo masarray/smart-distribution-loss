@@ -2,7 +2,7 @@
 
 ## Status
 
-**POOR PRESET PASS — validated in a real Windows browser on 2026-08-15; canonical Typical baseline still pending**
+**PASS — canonical Typical baseline validated in a real Windows browser on 2026-08-15**
 
 P0-A, P0-B and P1 have already passed in a real Windows browser. P2 deliberately damages the observable/model view while preserving the P1 Ground Truth as an immutable hidden reference.
 
@@ -63,13 +63,13 @@ All degradation uses deterministic seed `62052` (`61850 + 202`) plus a small pre
 - LV voltage measurement noise: `±0.1%`
 - transformer parameter assumptions: `Pfe +12%`, `vkr +8%`, `vk -5%`
 
-For 90 customers this should resolve deterministically to approximately:
+For the deterministic 90-customer run this resolved to:
 
-- 32 phase-unknown customers
-- 18 missing AMI streams
-- 54 PF-unknown customers
-- 5 wrong-mapping customers
-- 9 timestamp-shifted customers
+- `31/90` phase-unknown customers (`65.6%` phase known)
+- `18/90` missing AMI streams (`80.0%` coverage)
+- `54/90` PF-unknown customers (`40.0%` PF known)
+- `5/90` wrong customer mappings (`94.4%` mapping known)
+- `9/90` timestamp-shifted customers (`90.0%` aligned)
 
 ### Poor
 
@@ -81,9 +81,30 @@ For 90 customers this should resolve deterministically to approximately:
 - service length error: `±25%`
 - AMI/source-P meter noise: `±1.0%`
 
+## Real-browser validation — Typical preset
+
+The canonical P2 acceptance scenario passed in a real Windows browser.
+
+Observed result:
+
+- P1 Ground Truth technical loss: `33.30 kWh`
+- conventional-model technical loss: `33.07 kWh`
+- signed technical-loss error: `-0.67%`
+- source-P normalized RMSE: `1.25%`
+- phase-P residual RMSE: approximately `2.821 kW`
+- LV-voltage residual RMSE: approximately `0.00125 pu`
+- technical-loss profile RMSE: approximately `0.134 kW`
+- conventional customer-energy error: approximately `-1.20%`
+- validation-only phase-assignment accuracy: approximately `75.6%`
+- conventional `96/96` three-phase intervals converged
+- conventional solver time: approximately `19.38 s` total, `201.9 ms` average in that browser run
+- Ground Truth hash remained unchanged
+
+The loss-error magnitude is smaller than in the Poor scenario, but the source-P and phase residuals remain measurable. This makes Typical a useful and nontrivial baseline for P3: Smart Calibration must improve the observable residuals and then prove that its validation-only loss estimate is closer to hidden Ground Truth.
+
 ## Real-browser validation — Poor preset
 
-The first real-browser P2 validation was intentionally run with the **Poor** preset, which is harsher than the canonical Typical scenario.
+A harsher Poor scenario also passed.
 
 Observed degradation counts / coverage:
 
@@ -111,11 +132,9 @@ Observed result:
 - conventional solver time: approximately `9.33 s` total, `97.2 ms` average
 - Ground Truth hash remained unchanged
 
-This result is important because the aggregate source-P error remains relatively small (`1.35% NRMSE`) while technical-loss error grows to `+5.72%`. That is consistent with distribution-loss sensitivity to phase allocation, current distribution and resistance: a model can look reasonably close at an aggregate feeder measurement while still estimate technical losses materially incorrectly.
+The Poor result is important because aggregate source-P error remains relatively small (`1.35% NRMSE`) while technical-loss error grows to `+5.72%`. A model can look reasonably close at the feeder while still distribute current incorrectly enough to bias technical-loss calculation.
 
-Also keep the voltage-observability distinction explicit: a small residual at the limited measured LV point(s) does not prove that downstream customer/end-of-line voltage states are correct. P3 should not optimize only feeder/source P; it must use multi-signal residuals and preserve physical constraints.
-
-The Poor preset therefore **passes its scenario gate**, but P2 is not yet promoted to completed status because the documented canonical acceptance baseline remains the deterministic `Typical` preset.
+Also keep the voltage-observability distinction explicit: a small residual at the limited measured LV point(s) does not prove that downstream customer/end-of-line voltage states are correct. P3 must not optimize only feeder/source P; it needs multi-signal residuals and physical constraints.
 
 ## Conventional non-smart rules
 
@@ -152,7 +171,7 @@ The browser reports:
 - sample conventional input records with observed/assumed statuses
 - runtime
 
-The validation-only Ground Truth metrics are visible in this synthetic demo so the quality of later P3 calibration can be measured. They are not supplied to the conventional estimator.
+The validation-only Ground Truth metrics are visible in this synthetic demo so the quality of P3 calibration can be measured. They are not supplied to the conventional estimator.
 
 ## Mandatory checks
 
@@ -165,8 +184,8 @@ The validation-only Ground Truth metrics are visible in this synthetic demo so t
 7. Conventional LV voltage remains numerically plausible (`0.85 < V < 1.12 pu`).
 8. Total solver time for 96 conventional intervals is below `60 s`.
 
-## Gate rule
+## Gate result
 
-**Do not begin P3 Smart Calibration until the Typical P2 preset passes in a real browser and produces a stable, reproducible conventional-model error baseline.**
+**P2 COMPLETE.** The deterministic `Typical` scenario is now the canonical conventional baseline for P3.
 
-P3 must receive the same degraded view used here. It must not gain access to hidden P1 phase, PF, service-length, load-profile or mapping truth during optimization.
+P3 must receive the same degraded customer/model view and may not read hidden P1 phase, PF, service-length, load-profile or mapping truth during calibration.
