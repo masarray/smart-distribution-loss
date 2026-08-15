@@ -1,0 +1,90 @@
+name: Browser Physics Gate
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "public/sdl-worker.js"
+      - "public/engine/**"
+      - "src/lib/sdl/useEngine.ts"
+      - "tests/worker-physics-ci.mjs"
+      - ".github/workflows/browser-physics.yml"
+      - "package.json"
+      - "vite.config.ts"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "public/sdl-worker.js"
+      - "public/engine/**"
+      - "src/lib/sdl/useEngine.ts"
+      - "tests/worker-physics-ci.mjs"
+      - ".github/workflows/browser-physics.yml"
+      - "package.json"
+      - "vite.config.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p0a-browser:
+    name: P0-A · Chromium / Pyodide / Pandapower 3φ
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build static application at root base
+        env:
+          VITE_BASE_PATH: /
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start production build server
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 --directory dist > /tmp/sdl-http.log 2>&1 &
+          echo $! > /tmp/sdl-http.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sdl-http.log
+          exit 1
+
+      - name: Run real browser physics gate
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_TIMEOUT_MS: "600000"
+          SDL_ARTIFACT_DIR: artifacts/browser-physics
+        run: node tests/worker-physics-ci.mjs
+
+      - name: Upload browser physics diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-physics-p0a-${{ github.sha }}
+          path: artifacts/browser-physics
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Show static server log on failure
+        if: failure()
+        run: cat /tmp/sdl-http.log || true
