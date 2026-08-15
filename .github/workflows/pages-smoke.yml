@@ -1,0 +1,37 @@
+name: Pages Production Smoke
+
+on:
+  workflow_run:
+    workflows: ['Deploy Smart Distribution Loss to GitHub Pages']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deployed-p0a:
+    name: Public Pages · P0-A browser physics
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
+      - name: Verify deployed browser physics
+        env:
+          SDL_PAGES_URL: https://masarray.github.io/smart-distribution-loss/
+          SDL_TIMEOUT_MS: '300000'
+        run: node tests/pages-smoke.mjs
