@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -69,16 +69,17 @@ jobs:
           cat /tmp/sdl-http.log
           exit 1
 
-      - name: Run real browser physics gate
+      - name: Run real browser physics gate + warm benchmark
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
           SDL_TIMEOUT_MS: "600000"
           SDL_ARTIFACT_DIR: artifacts/browser-physics
+          SDL_EXPECTED_PANDAPOWER: "3.1.2"
         run: node tests/worker-physics-ci.mjs
 
       - name: Upload browser physics diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-physics-p0a-${{ github.sha }}
           path: artifacts/browser-physics
