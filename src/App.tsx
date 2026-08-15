@@ -33,7 +33,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* ---------- TOP BAR ---------- */}
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/70 bg-surface px-4">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md bg-primary/15 text-primary">
             <CircuitBoard className="size-4.5" />
@@ -66,7 +66,7 @@ export default function App() {
           <div className="hidden items-center gap-2 lg:flex">
             <span className="label-xs">Kualitas data</span>
             <Select value={preset} onValueChange={(v) => setPreset(v as Preset)} disabled={running}>
-              <SelectTrigger className="h-8 w-36 border-border bg-surface-2 text-xs">
+              <SelectTrigger className="h-8 w-36 border-border/70 bg-surface-2 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -76,8 +76,8 @@ export default function App() {
               </SelectContent>
             </Select>
           </div>
-          <span className="hidden items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground xl:flex">
-            <Cpu className="size-3 text-primary" /> LOCAL COMPUTE · PANDAPOWER 3φ
+          <span className="hidden items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground/80 xl:flex">
+            <Cpu className="size-3 text-primary/80" /> LOCAL COMPUTE · PANDAPOWER 3φ
           </span>
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => run(preset)} disabled={running}>
             <Play className="size-3.5" />
@@ -87,22 +87,32 @@ export default function App() {
       </header>
 
       {/* ---------- PROGRESS STRIP ---------- */}
-      <div className="relative h-8 shrink-0 border-b border-border bg-surface-2/60">
+      <div className="relative h-8 shrink-0 border-b border-border/50 bg-surface-2/55">
         <div className="flex h-full items-center gap-3 px-4 text-[11px]">
           <span
             className={cn(
               "size-1.5 rounded-full",
-              running ? "animate-pulse bg-warn" : state.status === "done" ? "bg-success" : "bg-muted-foreground",
+              running ? "animate-pulse bg-warn" : state.status === "done" ? "bg-success/65" : "bg-muted-foreground/65",
             )}
           />
-          <span className="font-medium text-foreground">{state.progress.label}</span>
-          <span className="truncate text-muted-foreground">{state.progress.detail}</span>
-          <span className="numeric ml-auto text-muted-foreground">
+          <span
+            className={cn(
+              "font-medium transition-colors",
+              running ? "text-foreground" : state.status === "done" ? "text-muted-foreground/90" : "text-muted-foreground",
+            )}
+          >
+            {state.progress.label}
+          </span>
+          <span className="truncate text-muted-foreground/75">{state.progress.detail}</span>
+          <span className="numeric ml-auto text-muted-foreground/75">
             {state.intervals.done}/{state.intervals.total} interval · {Math.round(state.progress.percent)}%
           </span>
         </div>
         <div
-          className="absolute bottom-0 left-0 h-0.5 bg-primary transition-all duration-500"
+          className={cn(
+            "absolute bottom-0 left-0 h-0.5 transition-all duration-500",
+            running ? "bg-primary/90" : state.status === "done" ? "bg-primary/25" : "bg-muted-foreground/20",
+          )}
           style={{ width: `${state.progress.percent}%` }}
         />
       </div>
@@ -140,7 +150,7 @@ export default function App() {
             ))}
           </div>
 
-          <div className="mt-1 border-t border-border pt-3">
+          <div className="mt-1 border-t border-border/60 pt-3">
             <p className="label-xs mb-2">Pipeline smart engine</p>
             <ol className="space-y-1.5">
               {state.stages.map((s, i) => (
@@ -148,18 +158,18 @@ export default function App() {
                   <span
                     className={cn(
                       "numeric mt-px flex size-4 shrink-0 items-center justify-center rounded-full text-[9px]",
-                      s.done ? "bg-primary/20 text-primary" : "bg-surface-2 text-muted-foreground",
+                      s.done ? "bg-primary/12 text-primary/75" : "bg-surface-2 text-muted-foreground",
                     )}
                   >
                     {i + 1}
                   </span>
-                  <span className={s.done ? "text-foreground" : "text-muted-foreground"}>{s.label}</span>
+                  <span className={s.done ? "text-foreground/80" : "text-muted-foreground"}>{s.label}</span>
                 </li>
               ))}
             </ol>
           </div>
 
-          <div className="mt-auto rounded-md bg-surface-2 p-2.5 text-[10.5px] leading-relaxed text-muted-foreground">
+          <div className="mt-auto rounded-md border border-border/35 bg-surface-2/35 p-2.5 text-[10.5px] leading-relaxed text-muted-foreground/75">
             Ground truth tersembunyi selama kalibrasi dan hanya dibuka untuk validasi akhir.
           </div>
         </section>
@@ -243,7 +253,7 @@ export default function App() {
                   onClick={() => setSelected(a.id)}
                   className={cn(
                     "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
-                    selected === a.id ? "border-primary/50 bg-primary/10" : "border-border bg-surface-2 hover:border-primary/30",
+                    selected === a.id ? "border-primary/50 bg-primary/10" : "border-border/55 bg-surface-2/80 hover:border-primary/20",
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -268,7 +278,7 @@ export default function App() {
               </p>
             )}
             {state.status === "done" && state.result && (
-              <p className="mt-3 rounded-md bg-surface-2 p-2 text-[10.5px] text-muted-foreground">
+              <p className="mt-3 rounded-md border border-border/35 bg-surface-2/35 p-2 text-[10.5px] text-muted-foreground/75">
                 {state.result.gate.pass ? "GATE PASS · Validasi P3 selesai." : "GATE REVIEW · Periksa detail engineering."}
               </p>
             )}
