@@ -13,14 +13,14 @@ async function assertVisible(locator, label) {
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
-  await page.getByRole("button", { name: "Feeder", exact: true }).click();
-  if ((await page.getByText("Data & Input · Feeder", { exact: true }).count()) !== 0) {
+  await page.getByRole("button", { name: "Penyulang 20 kV", exact: true }).click();
+  if ((await page.getByText("Data & Input · Penyulang 20 kV", { exact: true }).count()) !== 0) {
     throw new Error("Asset navigation must not auto-open the Data drawer.");
   }
-  await assertVisible(page.getByText("Feeder 20 kV — roll-up", { exact: true }), "selected Feeder view");
+  await assertVisible(page.getByText("Penyulang 20 kV — total", { exact: true }), "selected Penyulang 20 kV view");
 
   await page.getByRole("button", { name: "Data & input", exact: true }).click();
-  await assertVisible(page.getByText("Data & Input · Feeder", { exact: true }), "Feeder data drawer title");
+  await assertVisible(page.getByText("Data & Input · Penyulang 20 kV", { exact: true }), "Penyulang 20 kV data drawer title");
   await assertVisible(page.getByText("SYNTHETIC DEMO", { exact: true }).last(), "Synthetic Demo badge");
 
   for (const tab of ["Overview", "Measurements", "Network", "Processed", "Lineage"]) {
