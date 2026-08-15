@@ -10,14 +10,36 @@ async function assertVisible(locator, label) {
   if (!(await locator.isVisible())) throw new Error(`${label} is not visible.`);
 }
 
+async function assertNoVisibleText(text, label) {
+  const matches = page.getByText(text, { exact: false });
+  const count = await matches.count();
+  for (let index = 0; index < count; index += 1) {
+    if (await matches.nth(index).isVisible()) throw new Error(`${label}: ${text}`);
+  }
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
-  await assertVisible(page.getByText("Data quality", { exact: true }), "operator data-quality heading");
-  await assertVisible(page.getByText("LOW", { exact: true }).first(), "Poor-preset confidence");
-  await assertVisible(page.getByText("Loss rate", { exact: true }), "operation loss-rate KPI");
-  await assertVisible(page.getByText("Confidence", { exact: true }).last(), "operation confidence KPI");
+  await assertVisible(page.getByText("Operator View · Loss Monitoring", { exact: true }), "operator-view identity");
+  await assertVisible(page.getByText("Kualitas data", { exact: true }).first(), "operator data-quality heading");
+  await assertVisible(page.getByText("Data terbatas", { exact: true }), "plain-language poor-data summary");
+  await assertVisible(page.getByText("RENDAH", { exact: true }).first(), "localized poor-preset confidence");
+  await assertVisible(page.getByText("Rasio susut", { exact: true }), "operation loss-rate KPI");
+  await assertVisible(page.getByText("Keandalan", { exact: true }), "operation confidence KPI");
   await assertVisible(page.getByRole("button", { name: "Lihat data & input", exact: true }), "data drawer action");
+  await assertVisible(page.getByRole("button", { name: "Engineering view", exact: true }), "engineering-view boundary action");
+
+  for (const technicalLeak of [
+    "PANDAPOWER 3φ",
+    "High-observability dedicated TM",
+    "SMART CALIBRATION",
+    "BOUNDED_LINE_CALIBRATION",
+    "coverage threshold",
+    "coverage constraint",
+  ]) {
+    await assertNoVisibleText(technicalLeak, "Technical term leaked into Operator View");
+  }
 
   if ((await page.getByText("Pipeline smart engine", { exact: true }).count()) !== 0) {
     throw new Error("Smart Engine pipeline leaked back into the main operation cockpit.");
@@ -32,7 +54,8 @@ try {
     throw new Error("Hidden Ground Truth leaked into the main operation chart.");
   }
 
-  await page.getByRole("button", { name: "Engineering & gate", exact: true }).click();
+  await page.getByRole("button", { name: "Engineering view", exact: true }).click();
+  await assertVisible(page.getByText("Engineering View · Gardu GD-01", { exact: true }), "engineering-view title");
   await assertVisible(page.getByText(/Synthetic validation only/), "engineering-only Ground Truth context");
   await assertVisible(page.getByText("Error konvensional", { exact: true }), "engineering conventional error");
   await assertVisible(page.getByText("Error smart engine", { exact: true }), "engineering smart error");
@@ -41,7 +64,7 @@ try {
   await assertVisible(page.getByText("Timestamp alignment", { exact: true }), "engineering Smart Engine process");
   await assertVisible(page.getByText("Smart model build", { exact: true }), "final Smart Engine process stage");
 
-  console.log("Operation hierarchy gate PASS: operator cockpit is concise and validation mechanics remain available in Engineering View.");
+  console.log("P1 hierarchy gate PASS: Operator View uses plain language while validation, residuals, gates, and engine process stay in Engineering View.");
 } finally {
   await browser.close();
 }

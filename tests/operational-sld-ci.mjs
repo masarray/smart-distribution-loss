@@ -10,6 +10,17 @@ async function assertVisible(locator, label) {
   if (!(await locator.isVisible())) throw new Error(`${label} is not visible.`);
 }
 
+async function assertNoOverlap(first, second, label) {
+  const a = await first.boundingBox();
+  const b = await second.boundingBox();
+  if (!a || !b) throw new Error(`${label}: missing visible bounding box.`);
+  const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  if (overlapX > 0 && overlapY > 0) {
+    throw new Error(`${label}: elements overlap by ${overlapX.toFixed(1)} × ${overlapY.toFixed(1)} px.`);
+  }
+}
+
 async function selectAndAssert(assetName, titlePattern, selectionMarker) {
   await page.getByRole("button", { name: assetName, exact: true }).first().click();
   await assertVisible(page.getByText(titlePattern), `${assetName} selected-asset chart title`);
@@ -34,22 +45,27 @@ try {
   await assertVisible(page.getByText(/CLOSED = tersambung/), "breaker-state legend");
   await assertVisible(page.getByText(/arah aliran/), "power-flow direction legend");
 
+  const busLabel = page.locator('[data-sld-bus-label="true"]');
+  await assertNoOverlap(page.locator('[data-sld-card="spot"]'), busLabel, "Referensi TM card vs LV bus label");
+  await assertNoOverlap(page.locator('[data-sld-card="tm"]'), busLabel, "Pelanggan TM card vs LV bus label");
+  await assertNoOverlap(page.locator('[data-sld-card="spot"]'), page.locator('[data-sld-card="tm"]'), "MV cards");
+
   if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
     throw new Error("Hidden Ground Truth leaked into the main operation chart.");
   }
 
   await page.getByRole("button", { name: "Jalankan simulasi" }).click();
-  await page.waitForFunction(() => document.body.innerText.includes("Analysis complete"), null, { timeout: 600_000 });
+  await page.waitForFunction(() => document.body.innerText.includes("Analisis selesai"), null, { timeout: 600_000 });
 
   const arrows = page.locator('svg [data-flow-arrow="true"]');
   if ((await arrows.count()) < 6) {
     throw new Error(`Expected directional flow arrows after simulation, found ${await arrows.count()}.`);
   }
 
-  await selectAndAssert("Gardu GD-01", /Profil susut teknis · Gardu GD-01/, "gd");
-  await selectAndAssert("Penyulang 20 kV", /Profil susut teknis · Penyulang 20 kV/, "feeder-label");
-  await selectAndAssert("Referensi TM", /Profil susut teknis · Referensi TM/, "spot");
-  await selectAndAssert("Pelanggan TM", /Profil susut teknis · Pelanggan TM/, "tm");
+  await selectAndAssert("Gardu GD-01", /Profil susut · Gardu GD-01/, "gd");
+  await selectAndAssert("Penyulang 20 kV", /Profil susut · Penyulang 20 kV/, "feeder-label");
+  await selectAndAssert("Referensi TM", /Profil susut · Referensi TM/, "spot");
+  await selectAndAssert("Pelanggan TM", /Profil susut · Pelanggan TM/, "tm");
 
   const chart = page.locator('[data-loss-chart-root="true"]');
   const box = await chart.boundingBox();
@@ -75,7 +91,7 @@ try {
     throw new Error("Hidden Ground Truth appeared after switching selected assets.");
   }
 
-  console.log("P0 gate PASS: every selected asset has a visible SLD highlight, chart follows selection, peak/worst interval are exposed, and hover insight works.");
+  console.log("P1 SLD gate PASS: selected assets remain synchronized and MV cards no longer collide with the LV bus annotation.");
 } finally {
   await browser.close();
 }

@@ -183,6 +183,7 @@ function SelectedPlate({
       fillOpacity={selected ? 0.1 : 1}
       stroke={selected ? "var(--color-primary)" : "var(--color-border)"}
       strokeWidth={selected ? 1.5 : 1}
+      data-sld-card={label}
       data-sld-selection={selected ? label : undefined}
       vectorEffect="non-scaling-stroke"
     />
@@ -277,9 +278,9 @@ export function SingleLineDiagram({
               />
             )}
             <RouteRail d="M260 93H900" width={2.4} />
-            <SelectedPlate x={260} y={58} width={228} height={22} selected={selected === "feeder"} label="feeder-label" />
+            <SelectedPlate x={260} y={58} width={205} height={22} selected={selected === "feeder"} label="feeder-label" />
             <text x="270" y="72.5" fill={selected === "feeder" ? "var(--color-primary)" : "currentColor"} fontSize="10.1" fontFamily="var(--font-mono)" fontWeight="600">
-              PENYULANG 20 kV · GD-01 · 3Φ
+              PENYULANG 20 kV · GD-01
             </text>
             {energised && (
               <g filter="url(#flowGlow)">
@@ -299,7 +300,7 @@ export function SingleLineDiagram({
             <RouteRail d="M390 93V136" width={1.8} />
             <CircuitBreaker x={390} y={145} label="QF-11" state="CLOSED" />
             <RouteRail d="M390 154V184" width={1.8} />
-            <MeterSymbol x={390} y={194} label="AMI" />
+            <MeterSymbol x={390} y={194} label="meter" />
             <RouteRail d="M390 204V231" width={1.8} />
             <LoadSymbol x={390} y={242} />
             {energised && (
@@ -310,12 +311,12 @@ export function SingleLineDiagram({
                 <FlowArrow x={390} y={220} direction="down" />
               </g>
             )}
-            <SelectedPlate x={302} y={258} width={176} height={40} selected={selected === "spot"} label="spot" />
-            <text x="314" y="274" fill="var(--color-foreground)" fontSize="11" fontFamily="var(--font-display)">
+            <SelectedPlate x={306} y={253} width={168} height={29} selected={selected === "spot"} label="spot" />
+            <text x="317" y="265" fill="var(--color-foreground)" fontSize="10.6" fontFamily="var(--font-display)">
               Referensi TM
             </text>
-            <text x="314" y="288" fill="var(--color-muted-foreground)" fontSize="8.8" fontFamily="var(--font-mono)">
-              Terukur penuh · {mvLossKwh == null ? "susut —" : `susut ${mvLossKwh.toFixed(2)} kWh/hari`}
+            <text x="317" y="276.5" fill="var(--color-muted-foreground)" fontSize="8.4" fontFamily="var(--font-mono)">
+              {mvLossKwh == null ? "Susut —" : `Susut ${mvLossKwh.toFixed(2)} kWh/hari`}
             </text>
           </g>
 
@@ -323,7 +324,7 @@ export function SingleLineDiagram({
             <RouteRail d="M600 93V136" width={1.8} />
             <CircuitBreaker x={600} y={145} label="QF-21" state="CLOSED" />
             <RouteRail d="M600 154V184" width={1.8} />
-            <MeterSymbol x={600} y={194} label="kWh" />
+            <MeterSymbol x={600} y={194} label="meter" />
             <RouteRail d="M600 204V231" width={1.8} />
             <LoadSymbol x={600} y={242} />
             {energised && (
@@ -334,12 +335,12 @@ export function SingleLineDiagram({
                 <FlowArrow x={600} y={220} direction="down" />
               </g>
             )}
-            <SelectedPlate x={512} y={258} width={176} height={40} selected={selected === "tm"} label="tm" />
-            <text x="524" y="274" fill="var(--color-foreground)" fontSize="11" fontFamily="var(--font-display)">
+            <SelectedPlate x={516} y={253} width={168} height={29} selected={selected === "tm"} label="tm" />
+            <text x="527" y="265" fill="var(--color-foreground)" fontSize="10.6" fontFamily="var(--font-display)">
               Pelanggan TM
             </text>
-            <text x="524" y="288" fill="var(--color-muted-foreground)" fontSize="8.8" fontFamily="var(--font-mono)">
-              {tmLossKwh == null ? "Meter 15 menit · susut —" : `Meter 15 menit · susut ${tmLossKwh.toFixed(2)} kWh/hari`}
+            <text x="527" y="276.5" fill="var(--color-muted-foreground)" fontSize="8.4" fontFamily="var(--font-mono)">
+              {tmLossKwh == null ? "Susut —" : `Susut ${tmLossKwh.toFixed(2)} kWh/hari`}
             </text>
           </g>
 
@@ -362,7 +363,7 @@ export function SingleLineDiagram({
               400 kVA · 20/0.4 kV
             </text>
             <text x="870" y="205" fill={gdLossKwh == null ? "var(--color-muted-foreground)" : HOT} fontSize="8.8" fontFamily="var(--font-mono)">
-              {gdLossKwh == null ? "susut —" : `susut ${gdLossKwh.toFixed(2)} kWh/hari`}
+              {gdLossKwh == null ? "Susut —" : `Susut ${gdLossKwh.toFixed(2)} kWh/hari`}
             </text>
 
             <g color="var(--color-lv)">
@@ -382,8 +383,15 @@ export function SingleLineDiagram({
                 </g>
               )}
             </g>
-            <text x="700" y="270" fill="var(--color-lv)" fontSize="9.5" fontFamily="var(--font-mono)">
-              BUSBAR 0.4 kV · 3Φ4W
+            <text
+              x="858"
+              y="274"
+              fill="var(--color-lv)"
+              fontSize="8.8"
+              fontFamily="var(--font-mono)"
+              data-sld-bus-label="true"
+            >
+              BUSBAR 0.4 kV
             </text>
 
             {[
@@ -418,17 +426,17 @@ export function SingleLineDiagram({
         <g>
           <rect x="24" y="364" width="574" height="48" rx="7" fill="var(--color-surface)" stroke="var(--color-border)" />
           <text x="40" y="382" fill="var(--color-foreground)" fontSize="9.5" fontFamily="var(--font-display)">
-            Konvensi
+            Legenda
           </text>
           <circle cx="103" cy="378" r="3.4" fill="var(--color-mv)" />
           <text x="113" y="382" fill="var(--color-muted-foreground)" fontSize="8.8">20 kV / TM</text>
           <circle cx="188" cy="378" r="3.4" fill="var(--color-lv)" />
           <text x="198" y="382" fill="var(--color-muted-foreground)" fontSize="8.8">0.4 kV / TR-JTR</text>
-          <text x="313" y="382" fill="var(--color-muted-foreground)" fontSize="8.8">solid = topology · dash = live flow</text>
+          <text x="313" y="382" fill="var(--color-muted-foreground)" fontSize="8.8">garis = jaringan · gerak = aliran</text>
 
           <rect x="40" y="393" width="9" height="9" rx="1" fill="var(--color-surface-2)" stroke="var(--color-success)" />
           <path d="M44.5 394.8V400.2" stroke="var(--color-success)" strokeWidth="1.2" strokeLinecap="round" />
-          <text x="56" y="401" fill="var(--color-muted-foreground)" fontSize="8.5">CB: CLOSED = tersambung · OPEN = gap</text>
+          <text x="56" y="401" fill="var(--color-muted-foreground)" fontSize="8.5">CB: CLOSED = tersambung · OPEN = terputus</text>
           <path d="M302 397L307 400L302 403" fill="none" stroke="var(--color-primary)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           <text x="315" y="401" fill="var(--color-muted-foreground)" fontSize="8.5">› arah aliran daya</text>
         </g>

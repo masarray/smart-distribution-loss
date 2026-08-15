@@ -34,8 +34,10 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full border-border bg-surface sm:max-w-xl">
         <SheetHeader className="border-b border-border pb-4">
-          <SheetTitle className="font-display text-lg">{asset.label}</SheetTitle>
-          <SheetDescription>{asset.note}</SheetDescription>
+          <SheetTitle className="font-display text-lg">Engineering View · {asset.short}</SheetTitle>
+          <SheetDescription>
+            Validasi model, residual, gate, parameter, dan proses teknis. {asset.note}
+          </SheetDescription>
         </SheetHeader>
 
         <Tabs defaultValue="loss" className="mt-4 flex h-[calc(100vh-9rem)] flex-col">

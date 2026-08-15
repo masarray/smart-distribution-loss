@@ -36,7 +36,7 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
           className="absolute right-1 top-0 z-10 rounded-md border border-warn/25 bg-surface/90 px-2 py-1 text-[9px] text-muted-foreground backdrop-blur-sm"
           data-manager-worst="true"
         >
-          Worst gap <span className="numeric text-foreground">{summary.worstTime}</span>
+          Selisih terbesar <span className="numeric text-foreground">{summary.worstTime}</span>
           {" · "}<span className="numeric text-warn">{Math.abs(summary.worstDeltaKw).toFixed(3)} kW</span>
         </div>
       )}
@@ -76,10 +76,10 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
               const isWorst = summary.worstTime === point.time;
               const insight =
                 Math.abs(delta) < 0.005
-                  ? "Smart dan konvensional hampir sama pada interval ini."
+                  ? "Kedua estimasi hampir sama pada interval ini."
                   : delta < 0
-                    ? `Smart ${Math.abs(delta).toFixed(3)} kW lebih rendah dari konvensional.`
-                    : `Smart ${Math.abs(delta).toFixed(3)} kW lebih tinggi dari konvensional.`;
+                    ? `Smart ${Math.abs(delta).toFixed(3)} kW lebih rendah dari pembanding.`
+                    : `Smart ${Math.abs(delta).toFixed(3)} kW lebih tinggi dari pembanding.`;
 
               return (
                 <div className="min-w-52 rounded-lg border border-border bg-surface-2 p-2.5 text-[11px] shadow-lg" data-loss-tooltip="true">
@@ -87,14 +87,14 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
                     <span className="font-semibold text-foreground">{String(label)}</span>
                     {(isPeak || isWorst) && (
                       <span className="text-[9px] font-semibold uppercase tracking-wider text-warn">
-                        {isPeak && isWorst ? "Peak · worst gap" : isPeak ? "Peak loss" : "Worst gap"}
+                        {isPeak && isWorst ? "Puncak · selisih terbesar" : isPeak ? "Puncak susut" : "Selisih terbesar"}
                       </span>
                     )}
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-muted-foreground">
-                    <span>Smart engine</span><span className="numeric text-foreground">{smart.toFixed(3)} kW</span>
-                    <span>Konvensional</span><span className="numeric">{conventional.toFixed(3)} kW</span>
-                    <span>Δ model</span><span className="numeric">{signedKw(delta)}</span>
+                    <span>Smart</span><span className="numeric text-foreground">{smart.toFixed(3)} kW</span>
+                    <span>Pembanding</span><span className="numeric">{conventional.toFixed(3)} kW</span>
+                    <span>Selisih</span><span className="numeric">{signedKw(delta)}</span>
                   </div>
                   <p className="mt-2 border-t border-border/60 pt-2 leading-relaxed text-muted-foreground">{insight}</p>
                 </div>
@@ -114,7 +114,7 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
           <Line
             type="monotone"
             dataKey="conventional_loss_kw"
-            name="Konvensional"
+            name="Pembanding"
             stroke="var(--color-chart-2)"
             strokeWidth={1.5}
             strokeDasharray="4 4"
