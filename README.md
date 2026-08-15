@@ -41,14 +41,12 @@ The dependency set is intentionally pinned for Pyodide/WASM compatibility.
 
 P0-A proved real unbalanced three-phase Pandapower execution in a Windows browser Web Worker.
 
-Observed real-browser baseline:
+Observed baseline:
 
 - engine initialization: `9.73 s`
 - first `runpp_3ph()`: `176.5 ms`
 - repeated solve average: `39.77 ms`
 - technical loss: `6.484981 kW`
-- max voltage delta vs official tutorial reference: `3.75e-7 pu`
-- repeated-run delta: `4.35e-8 pu`
 
 See `docs/P0A-GATE.md`.
 
@@ -56,70 +54,78 @@ See `docs/P0A-GATE.md`.
 
 P0-B proved the same browser-only physics architecture at the canonical 90-customer scale.
 
-Observed final-case browser baseline:
+Observed final-case baseline:
 
 - `123` buses
 - `121` lines
 - `90` asymmetric customer loads
-- network build: `766.5 ms`
-- first solve: `116.4 ms`
-- warm solve average: `37.35 ms`
 - 25 warm solves: `933.7 ms`
-- technical loss: `4.515 kW` (`2.828%` of source P)
+- technical loss: `4.515 kW`
 - minimum LV voltage: `0.934944 pu`
-- transformer loading: `58.07%`
 - WASM heap: approximately `215 MB`
 
 See `docs/P0B-GATE.md`.
 
 ## P1 — PASS
 
-P1 turns the validated 90-customer snapshot into an **immutable 24-hour Ground Truth simulator** with 96 × 15-minute unbalanced three-phase power-flow states and noiseless synthetic measurements.
-
-Observed real-browser P1 baseline:
+P1 created the immutable 24-hour Ground Truth simulator:
 
 - `96/96` three-phase intervals converged
-- `90` customers, `8,640` AMI interval-energy values
+- `90` customers
+- `8,640` AMI interval-energy values
 - source energy: `1407.2 kWh`
-- technical loss: `33.30 kWh` (`2.37%`)
-- accounting residual: `0.1680 kWh` (`0.0119%` of source energy)
-- peak source P: `99.5 kW` at `18:45`
-- minimum LV voltage: `0.9611 pu`
-- peak transformer loading: `31.7%`
-- maximum LV unbalance: `0.787%`
+- Ground Truth technical loss: `33.30 kWh` (`2.37%`)
+- accounting residual: `0.0119%`
 - 96-solve runtime: `5.27 s`
-- Ground Truth SHA-256 remained unchanged
+- Ground Truth hash remained unchanged
 
 See `docs/P1-GROUND-TRUTH.md`.
 
-## P2 — Poor preset PASS; Typical canonical gate pending
+## P2 — PASS
 
-P2 creates an **imperfect observable view** from P1 while leaving Ground Truth immutable. A separate conventional, non-smart Pandapower model is then built only from degraded/observed/assumed fields.
+P2 creates an imperfect observable view and a separate conventional model without smart optimization.
 
-The first real-browser validation used the harsher `Poor` preset and passed:
+Canonical **Typical** real-browser baseline:
 
-- phase known `40%`
-- AMI coverage `60%`
-- PF known `20%`
-- mapping known `90%`
-- timestamp aligned `80%`
-- Ground Truth loss `33.30 kWh`
-- conventional loss `35.20 kWh`
-- technical-loss error `+5.72%`
-- source-P NRMSE `1.35%`
-- phase-P residual RMSE approximately `2.873 kW`
-- LV-voltage residual RMSE approximately `0.00158 pu`
-- customer-energy error approximately `-1.49%`
-- validation-only phase-assignment accuracy approximately `63.3%`
+- phase known: `65.6%`
+- AMI coverage: `80.0%`
+- PF known: `40.0%`
+- mapping known: `94.4%`
+- timestamp aligned: `90.0%`
+- Ground Truth loss: `33.30 kWh`
+- conventional loss: `33.07 kWh`
+- loss error: `-0.67%`
+- source-P NRMSE: `1.25%`
+- phase-P RMSE: `2.821 kW`
+- LV-voltage RMSE: `0.00125 pu`
+- validation-only phase accuracy: `75.6%`
 - `96/96` conventional solves converged
-- conventional solver runtime approximately `9.33 s`
-- P1 Ground Truth hash remained unchanged
 
-The useful engineering observation is that aggregate source-P error stays relatively small while technical-loss error is materially larger. This is exactly the observability problem the project is intended to demonstrate: feeder-level agreement does not guarantee correct phase/current distribution or technical-loss estimation.
-
-The documented canonical P2 acceptance scenario is still `Typical` (`35%` unknown phase, `20%` missing AMI, `60%` unknown PF, `5%` wrong mapping, `10%` timestamp mismatch). P3 begins only after that deterministic Typical baseline also passes in a real browser.
+A Poor scenario also passed and produced a larger `+5.72%` loss error while source-P NRMSE remained only `1.35%`, demonstrating why aggregate feeder fit alone is not enough for technical-loss estimation.
 
 See `docs/P2-DATA-DEGRADATION.md`.
+
+## P3 — current phase
+
+P3 is a **deterministic physics-informed Smart Calibration Engine**, not black-box AI.
+
+It uses only the degraded P2 view and noisy measurements during calibration. Hidden P1 Ground Truth is blocked until final synthetic validation.
+
+P3-v1 stages:
+
+1. flagged timestamp correction (`-15 / 0 / +15 min`)
+2. bounded missing-AMI profile reconstruction
+3. unknown-phase coordinate descent against measured phase P
+4. sparse reactive-power physics anchors
+5. bounded unknown-PF calibration against feeder Q
+6. transformer `Pfe` calibration from low-load energy balance
+7. full `96 × runpp_3ph()` smart-model validation
+
+Verified phase/PF values are locked. Weakly identifiable parameters such as suspect branch/pole mapping, individual SR length and transformer `vk/vkr` are explicitly held rather than silently overfit.
+
+P3 uses `64` calibration intervals and `32` hold-out intervals. The gate requires the hold-out multi-signal objective and validation-only technical-loss estimate to improve over the P2 Typical baseline.
+
+See `docs/P3-SMART-CALIBRATION.md`.
 
 ## Run locally
 
@@ -160,15 +166,13 @@ P0-B 90-customer browser scale      PASS
   ↓
 P1 Ground Truth simulator           PASS
   ↓
-P2 Poor preset                      PASS
+P2 data degradation                 PASS
   ↓
-P2 Typical canonical baseline       NEXT
-  ↓
-P3 smart calibration
+P3 smart calibration                CURRENT
   ↓
 confidence / explainability
   ↓
 engineering cockpit
 ```
 
-**P3 may start only after the `Typical` P2 scenario passes in a real browser and establishes a reproducible conventional-model error baseline.**
+Do not relax P3 gates merely to obtain a PASS. If hold-out residuals or validation-only technical-loss accuracy do not improve, audit the calibration strategy instead.
