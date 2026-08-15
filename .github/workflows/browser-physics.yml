@@ -8,11 +8,14 @@ on:
       - "public/engine/**"
       - "src/App.tsx"
       - "src/components/sdl/DataDrawer.tsx"
+      - "src/components/sdl/DetailDrawer.tsx"
+      - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
+      - "tests/operation-hierarchy-ci.mjs"
       - ".github/workflows/browser-physics.yml"
       - "package.json"
       - "vite.config.ts"
@@ -23,11 +26,14 @@ on:
       - "public/engine/**"
       - "src/App.tsx"
       - "src/components/sdl/DataDrawer.tsx"
+      - "src/components/sdl/DetailDrawer.tsx"
+      - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
+      - "tests/operation-hierarchy-ci.mjs"
       - ".github/workflows/browser-physics.yml"
       - "package.json"
       - "vite.config.ts"
@@ -38,7 +44,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + data transparency · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + operation hierarchy · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -83,6 +89,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/data-drawer-ci.mjs
+
+      - name: Prove operator-first hierarchy and Engineering View separation
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/operation-hierarchy-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:
