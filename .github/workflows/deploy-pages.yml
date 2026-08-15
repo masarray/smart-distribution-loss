@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -35,14 +35,16 @@ jobs:
       - name: Security audit
         run: npm run security:audit
 
-      - name: Upload generated lockfile
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-lock-${{ github.sha }}
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 7
+      - name: Brand hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e public/favicon.ico
+          test -f public/favicon.svg
+          if git grep -I -ni "lovable" -- src public index.html package.json README.md; then
+            echo "Forbidden legacy builder branding found in product sources."
+            exit 1
+          fi
 
       - name: Lint
         run: npm run lint
@@ -56,6 +58,7 @@ jobs:
           set -euo pipefail
           test -f dist/index.html
           test -f dist/.nojekyll
+          test -f dist/favicon.svg
           test -f dist/sdl-worker.js
           test -f dist/engine/p0a_engine.py
           test -f dist/engine/p0b_engine.py
@@ -73,10 +76,11 @@ jobs:
 
           echo "Expected Pages base: $expected_base"
           grep -Fq "${expected_base}assets/" dist/index.html
+          grep -Fq "${expected_base}favicon.svg?v=3" dist/index.html
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./dist
 
@@ -99,4 +103,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
