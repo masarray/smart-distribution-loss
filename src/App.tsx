@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, ChevronRight, CircuitBoard, Cpu, Gauge, Play, ShieldCheck, Zap } from "lucide-react";
+import { Activity, CircuitBoard, Cpu, Gauge, Play, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SingleLineDiagram } from "@/components/sdl/SingleLineDiagram";
@@ -21,7 +21,6 @@ export default function App() {
   const profile = PRESET_PROFILE[preset];
   const running = state.status === "running";
   const energised = state.status === "running" || state.status === "done";
-  const gatePassed = state.status === "done" && Boolean(state.result?.gate.pass);
 
   const gdLossKwh = state.result?.comparison.smart.loss_kwh ?? null;
   const mvLossKwh = state.spot?.comparison.smart.loss_kwh ?? null;
@@ -221,46 +220,17 @@ export default function App() {
               <p className="numeric text-xl font-semibold text-primary">
                 {improvement == null ? "—" : `${improvement > 0 ? "−" : "+"}${Math.abs(improvement).toFixed(2)} pp error`}
               </p>
-              <p className="mt-0.5 text-[10.5px] text-muted-foreground">{active?.note}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">{active?.note}</p>
             </div>
 
-            <button
-              type="button"
-              className="gate-cta group mt-3 w-full overflow-hidden rounded-lg border border-primary/45 bg-primary/[0.11] p-2.5 text-left shadow-[0_0_0_1px_color-mix(in_oklab,var(--color-primary)_10%,transparent)] transition-[border-color,background-color,transform] hover:border-primary/75 hover:bg-primary/[0.16] active:translate-y-px"
+            <Button
+              size="sm"
+              className="mt-3 h-9 w-full gap-2 text-xs font-semibold"
               onClick={() => setDrawerOpen(true)}
-              aria-label="Buka detail engineering dan validation gate"
             >
-              <span className="relative z-10 flex items-center gap-2.5">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/15 text-primary">
-                  <ShieldCheck className="size-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="font-display text-xs font-semibold text-foreground">
-                      Detail engineering &amp; validation gate
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded px-1.5 py-0.5 text-[8px] font-bold tracking-[0.12em]",
-                        state.status === "done"
-                          ? gatePassed
-                            ? "bg-success/15 text-success"
-                            : "bg-warn/15 text-warn"
-                          : "bg-primary/15 text-primary",
-                      )}
-                    >
-                      {state.status === "done" ? (gatePassed ? "GATE PASS" : "REVIEW") : "KUNCI VALIDASI"}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
-                    Asumsi · residual · provenance · checks · alasan pass/fail
-                  </span>
-                </span>
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface-2 text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary">
-                  <ChevronRight className="size-3.5" />
-                </span>
-              </span>
-            </button>
+              <ShieldCheck className="size-3.5" />
+              Detail engineering &amp; gate
+            </Button>
           </div>
 
           <div className="panel min-h-0 flex-1 overflow-hidden p-3">
@@ -298,9 +268,8 @@ export default function App() {
               </p>
             )}
             {state.status === "done" && state.result && (
-              <p className="mt-3 rounded-md bg-surface-2 p-2 text-[10.5px] leading-relaxed text-muted-foreground">
-                {state.result.gate.pass ? "GATE PASS · " : "GATE REVIEW · "}
-                {state.result.gate.summary}
+              <p className="mt-3 rounded-md bg-surface-2 p-2 text-[10.5px] text-muted-foreground">
+                {state.result.gate.pass ? "GATE PASS · Validasi P3 selesai." : "GATE REVIEW · Periksa detail engineering."}
               </p>
             )}
           </div>

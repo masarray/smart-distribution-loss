@@ -26,25 +26,25 @@ export const ASSET_META: Record<AssetId, { label: string; short: string; domain:
       label: "Feeder 20 kV — roll-up",
       short: "Feeder",
       domain: "FEEDER",
-      note: "Agregasi aritmetik susut teknis seksi MV + gardu distribusi GD-01 pada penyulang yang sama.",
+      note: "Agregat susut MV + GD-01 pada penyulang yang sama.",
     },
     spot: {
       label: "Spot load MV",
       short: "Spot MV",
       domain: "MV",
-      note: "Beban titik 20 kV dengan P/Q, fasa, topologi, dan timing terukur penuh.",
+      note: "Kasus MV dengan observabilitas penuh.",
     },
     tm: {
       label: "Pelanggan TM",
       short: "Pelanggan TM",
       domain: "MV",
-      note: "Titik pelanggan TM ditampilkan sebagai measurement reference. V1 belum mempunyai model susut independen untuk objek ini, sehingga hasil Spot MV tidak diduplikasi sebagai hasil pelanggan TM.",
+      note: "Kalkulasi memakai model pelanggan TM terukur dari demo MV; feeder roll-up tetap menghitung kanal MV satu kali.",
     },
     gd: {
       label: "Gardu distribusi GD-01",
       short: "Gardu GD-01",
       domain: "LV",
-      note: "Trafo 400 kVA, 3 jurusan JTR, 90 pelanggan. Observabilitas tidak sempurna — kasus yang biasanya tidak akurat.",
+      note: "Trafo 400 kVA · 3 JTR · 90 pelanggan.",
     },
   };
 
@@ -56,30 +56,34 @@ export function deriveAssets(result: P3Result | null, spot: SpotDemo | null): As
   const mvConv = spot?.comparison.conventional.loss_kwh ?? null;
   const mvSmart = spot?.comparison.smart.loss_kwh ?? null;
 
+  const mvConvErr = mvTruth && mvConv != null ? pctErr(mvConv, mvTruth) : null;
+  const mvSmartErr = mvTruth && mvSmart != null ? pctErr(mvSmart, mvTruth) : null;
+  const spotAction = spot?.smart_action.classification ?? "—";
+
   const spotAsset: AssetLoss = {
     id: "spot",
     ...ASSET_META.spot,
-    observability: "Tinggi · 100% P/Q · fasa · topologi · timing",
+    observability: "Tinggi · P/Q · fasa · topologi · timing",
     observabilityScore: 100,
     truthKwh: mvTruth,
     convKwh: mvConv,
     smartKwh: mvSmart,
-    convErr: mvTruth && mvConv != null ? pctErr(mvConv, mvTruth) : null,
-    smartErr: mvTruth && mvSmart != null ? pctErr(mvSmart, mvTruth) : null,
-    action: spot?.smart_action.classification ?? "—",
+    convErr: mvConvErr,
+    smartErr: mvSmartErr,
+    action: spotAction,
   };
 
   const tmAsset: AssetLoss = {
     id: "tm",
     ...ASSET_META.tm,
-    observability: "Tinggi · measurement reference",
+    observability: "Tinggi · meter interval 15 menit",
     observabilityScore: 100,
-    truthKwh: null,
-    convKwh: null,
-    smartKwh: null,
-    convErr: null,
-    smartErr: null,
-    action: "REFERENCE ONLY",
+    truthKwh: mvTruth,
+    convKwh: mvConv,
+    smartKwh: mvSmart,
+    convErr: mvConvErr,
+    smartErr: mvSmartErr,
+    action: "METERED MV",
   };
 
   const feederTruth = gdTruth != null && mvTruth != null ? gdTruth + mvTruth : null;
