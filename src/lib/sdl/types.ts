@@ -1,4 +1,5 @@
 export type Preset = "good" | "typical" | "poor";
+export type OperationalAssetId = "feeder" | "spot" | "tm" | "gd";
 
 export interface Comparison {
   loss_kwh: number;
@@ -28,6 +29,50 @@ export interface SeriesPoint {
   smart_source_kw: number;
 }
 
+export interface LossSeriesPoint {
+  index: number;
+  time: string;
+  truth_loss_kw: number;
+  conventional_loss_kw: number;
+  smart_loss_kw: number;
+}
+
+export interface AssetProvenance {
+  source_type: string;
+  dataset_mode: string;
+  scenario_id?: string;
+  fingerprint?: string;
+  seed?: number | null;
+  generated_by: string;
+  solver: string;
+  truth_policy: string;
+}
+
+export interface OperationalAssetContract {
+  asset_id: OperationalAssetId;
+  label: string;
+  source_kind: "derived_rollup" | "independent_physics_case" | "degraded_field_like_physics_case";
+  child_assets?: OperationalAssetId[];
+  provenance: AssetProvenance;
+}
+
+export interface OperationalDataContract {
+  schema: "smart-distribution-loss-operational-data-v1";
+  dataset_mode: "synthetic_demo";
+  source_label: "Synthetic Demo";
+  canonical_timebase: {
+    intervals: 96;
+    interval_minutes: 15;
+    period_hours: 24;
+    first_interval: "00:00";
+    last_interval: "23:45";
+    timezone: string;
+  };
+  assets: Record<OperationalAssetId, OperationalAssetContract>;
+}
+
+export type AssetSeriesMap = Record<OperationalAssetId, LossSeriesPoint[]>;
+
 export interface MvDemo {
   demo_kind: string;
   scenario_id?: string;
@@ -40,6 +85,7 @@ export interface MvDemo {
     interval_minutes?: number;
     line_length_km?: number;
     profile?: string;
+    pf?: number;
   };
   observability?: Record<string, unknown> & { verdict?: string };
   comparison: {
@@ -47,6 +93,8 @@ export interface MvDemo {
     conventional: Comparison & { line_r_ohm_per_km?: number };
     smart: Comparison & { line_r_ohm_per_km?: number };
   };
+  series?: SeriesPoint[];
+  provenance?: AssetProvenance;
   smart_action: { classification: string; changed: string; held: string; reason: string };
   checks: CheckItem[];
   runtime?: Record<string, unknown>;
@@ -68,6 +116,8 @@ export interface P3Result {
   trace?: unknown[];
   unresolved: { parameter: string; status: string; reason: string }[];
   series: SeriesPoint[];
+  asset_series: AssetSeriesMap;
+  data_contract: OperationalDataContract;
   checks: CheckItem[];
   runtime: Record<string, unknown>;
   versions?: Record<string, string>;
