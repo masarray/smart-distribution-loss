@@ -7,6 +7,7 @@ on:
       - "public/sdl-worker.js"
       - "public/engine/**"
       - "src/lib/sdl/useEngine.ts"
+      - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - ".github/workflows/browser-physics.yml"
@@ -18,6 +19,7 @@ on:
       - "public/sdl-worker.js"
       - "public/engine/**"
       - "src/lib/sdl/useEngine.ts"
+      - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - ".github/workflows/browser-physics.yml"
@@ -30,7 +32,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + MV independence · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + operational data contract · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -79,7 +81,7 @@ jobs:
           SDL_EXPECTED_PANDAPOWER: "3.1.2"
         run: node tests/worker-physics-ci.mjs
 
-      - name: Prove Spot MV and Pelanggan TM are independent
+      - name: Prove unified 15-minute data contract and independent MV assets
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
           SDL_TIMEOUT_MS: "600000"
