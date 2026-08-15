@@ -64,11 +64,12 @@ try {
   await assertVisible(page.getByText("100.0%", { exact: true }).first(), "AMI completeness");
 
   await page.locator('button[data-run-field="true"]').click();
-  await assertVisible(page.getByText("FIELD PHYSICS PASS", { exact: true }), "field physics pass", 600_000);
-  await assertVisible(page.getByText("Technical loss", { exact: true }), "field technical-loss KPI");
-
-  const solved = await page.locator('[data-field-result="true"]').innerText();
+  const resultPanel = page.locator('[data-field-result="true"]');
+  await assertVisible(resultPanel, "field result panel", 600_000);
+  const solved = await resultPanel.innerText();
+  if (!solved.includes("FIELD PHYSICS PASS")) throw new Error("Field physics preview did not pass its engineering gate.");
   if (!solved.includes("96/96 solved")) throw new Error("Field physics preview did not solve all 96 intervals.");
+  await assertVisible(resultPanel.getByText("Technical loss", { exact: true }), "field technical-loss KPI");
 
   console.log("M5 field dataset gate PASS: four CSVs normalize, validate, and run 96 browser-local Pandapower 3φ intervals without hidden truth.");
 } finally {
