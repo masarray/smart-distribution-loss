@@ -47,7 +47,7 @@ try {
   }
 
   await selectAndAssert("Gardu GD-01", /Profil susut teknis · Gardu GD-01/, "gd");
-  await selectAndAssert("Penyulang 20 kV", /Profil susut teknis · Penyulang 20 kV/, "feeder");
+  await selectAndAssert("Penyulang 20 kV", /Profil susut teknis · Penyulang 20 kV/, "feeder-label");
   await selectAndAssert("Referensi TM", /Profil susut teknis · Referensi TM/, "spot");
   await selectAndAssert("Pelanggan TM", /Profil susut teknis · Pelanggan TM/, "tm");
 
