@@ -6,6 +6,7 @@ import { chromium } from "playwright";
 const baseUrl = process.env.SDL_BASE_URL || "http://127.0.0.1:8000/";
 const timeoutMs = Number(process.env.SDL_TIMEOUT_MS || 600_000);
 const artifactDir = process.env.SDL_ARTIFACT_DIR || "artifacts/browser-physics";
+const expectedPandapower = process.env.SDL_EXPECTED_PANDAPOWER || "3.1.2";
 
 fs.mkdirSync(artifactDir, { recursive: true });
 
@@ -37,12 +38,20 @@ try {
       new Promise((resolve, reject) => {
         const workerUrl = new URL("sdl-worker.js", window.location.href).href;
         const worker = new Worker(workerUrl);
-        const progress = [];
+        const runs = [];
+        let runStartedAt = performance.now();
+        let progress = [];
 
         const timer = window.setTimeout(() => {
           worker.terminate();
           reject(new Error(`P0-A browser physics gate timed out after ${timeout} ms`));
         }, timeout);
+
+        const startRun = () => {
+          runStartedAt = performance.now();
+          progress = [];
+          worker.postMessage({ type: "run-p0a" });
+        };
 
         worker.onmessage = (event) => {
           const message = event.data ?? {};
@@ -63,9 +72,20 @@ try {
           }
 
           if (message.type === "result" && message.phase === "p0a") {
+            runs.push({
+              payload: message.payload,
+              progress,
+              durationMs: performance.now() - runStartedAt,
+            });
+
+            if (runs.length === 1) {
+              startRun();
+              return;
+            }
+
             window.clearTimeout(timer);
             worker.terminate();
-            resolve({ payload: message.payload, progress, workerUrl });
+            resolve({ runs, workerUrl });
           }
         };
 
@@ -75,29 +95,42 @@ try {
           reject(new Error(event.message || "Browser worker failed to start"));
         };
 
-        worker.postMessage({ type: "run-p0a" });
+        startRun();
       }),
     { timeout: timeoutMs },
   );
 
-  const payload = result?.payload;
-  if (!payload) throw new Error("P0-A worker returned no payload.");
-  if (!payload.gate?.pass) {
-    throw new Error(`P0-A engineering gate failed: ${payload.gate?.summary || "no summary"}`);
+  if (!Array.isArray(result?.runs) || result.runs.length !== 2) {
+    throw new Error("Expected exactly two P0-A runs in the same warm worker.");
   }
-  if (payload.versions?.pandapower !== "3.1.2") {
-    throw new Error(`Unexpected Pandapower version: ${payload.versions?.pandapower || "missing"}`);
+
+  const first = result.runs[0]?.payload;
+  const second = result.runs[1]?.payload;
+  if (!first || !second) throw new Error("P0-A worker returned an incomplete payload.");
+
+  for (const [index, payload] of [first, second].entries()) {
+    if (!payload.gate?.pass) {
+      throw new Error(`P0-A engineering gate failed on run ${index + 1}: ${payload.gate?.summary || "no summary"}`);
+    }
+    if (payload.versions?.pandapower !== expectedPandapower) {
+      throw new Error(`Unexpected Pandapower version on run ${index + 1}: ${payload.versions?.pandapower || "missing"}`);
+    }
+    if (payload.runtime?.solver !== "pandapower.runpp_3ph") {
+      throw new Error(`Unexpected physics solver on run ${index + 1}: ${payload.runtime?.solver || "missing"}`);
+    }
+    if (!Number.isFinite(Number(payload.electrical?.total_loss_kw)) || payload.electrical.total_loss_kw <= 0) {
+      throw new Error(`Invalid technical loss result on run ${index + 1}: ${payload.electrical?.total_loss_kw}`);
+    }
   }
-  if (payload.runtime?.solver !== "pandapower.runpp_3ph") {
-    throw new Error(`Unexpected physics solver: ${payload.runtime?.solver || "missing"}`);
-  }
-  if (!Number.isFinite(Number(payload.electrical?.total_loss_kw)) || payload.electrical.total_loss_kw <= 0) {
-    throw new Error(`Invalid technical loss result: ${payload.electrical?.total_loss_kw}`);
+
+  const lossDeltaKw = Math.abs(Number(first.electrical.total_loss_kw) - Number(second.electrical.total_loss_kw));
+  if (lossDeltaKw > 1e-9) {
+    throw new Error(`Warm-worker repeat changed technical loss by ${lossDeltaKw} kW.`);
   }
 
   fs.writeFileSync(
     path.join(artifactDir, "p0a-result.json"),
-    `${JSON.stringify(result, null, 2)}\n`,
+    `${JSON.stringify({ ...result, lossDeltaKw }, null, 2)}\n`,
   );
 } catch (error) {
   fatalError = error;
@@ -118,7 +151,13 @@ try {
 }
 
 const wallSeconds = (Date.now() - startedAt) / 1000;
-const payload = result?.payload;
+const firstRun = result?.runs?.[0];
+const warmRun = result?.runs?.[1];
+const payload = firstRun?.payload;
+const coldMs = Number(firstRun?.durationMs || 0);
+const warmMs = Number(warmRun?.durationMs || 0);
+const speedup = coldMs > 0 && warmMs > 0 ? coldMs / warmMs : null;
+
 let summary = "# Browser Physics Gate\n\n";
 summary += `- Base URL: ${baseUrl}\n`;
 summary += `- Wall time: ${wallSeconds.toFixed(1)} s\n`;
@@ -128,6 +167,9 @@ summary += `- Pandapower: ${payload?.versions?.pandapower || "—"}\n`;
 summary += `- Solver: ${payload?.runtime?.solver || "—"}\n`;
 summary += `- Technical loss: ${Number(payload?.electrical?.total_loss_kw || 0).toFixed(6)} kW\n`;
 summary += `- Repeated-run Δ: ${payload?.electrical?.repeat_delta_pu ?? "—"} pu\n`;
+summary += `- Cold worker run: ${coldMs ? coldMs.toFixed(0) : "—"} ms\n`;
+summary += `- Warm worker run: ${warmMs ? warmMs.toFixed(0) : "—"} ms\n`;
+summary += `- Warm-runtime speed-up: ${speedup ? `${speedup.toFixed(2)}×` : "—"}\n`;
 
 if (Array.isArray(payload?.checks)) {
   summary += "\n## Mandatory engineering checks\n\n| Check | Result | Detail |\n|---|---|---|\n";
