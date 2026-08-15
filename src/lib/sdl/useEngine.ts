@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { P3Result, Preset, SpotDemo } from "./types";
+import type { P3Result, Preset, SpotDemo, TmDemo } from "./types";
 
 export interface EngineProgress {
   percent: number;
@@ -13,6 +13,7 @@ export interface EngineState {
   stages: { label: string; detail: string; done: boolean }[];
   intervals: { done: number; total: number };
   spot: SpotDemo | null;
+  tm: TmDemo | null;
   result: P3Result | null;
   error: string | null;
   elapsedMs: number | null;
@@ -34,6 +35,7 @@ const initialState: EngineState = {
   stages: STAGE_LABELS.map((s) => ({ ...s, done: false })),
   intervals: { done: 0, total: 96 },
   spot: null,
+  tm: null,
   result: null,
   error: null,
   elapsedMs: null,
@@ -68,6 +70,8 @@ export function useEngine() {
         }));
       } else if (data.type === "spot-demo") {
         setState((prev) => ({ ...prev, spot: data.payload as SpotDemo }));
+      } else if (data.type === "tm-demo") {
+        setState((prev) => ({ ...prev, tm: data.payload as TmDemo }));
       } else if (data.type === "p3-stage") {
         setState((prev) => ({
           ...prev,
@@ -84,6 +88,7 @@ export function useEngine() {
           status: "done",
           result: data.payload as P3Result,
           spot: (data.payload?.spot_load_demo as SpotDemo) ?? prev.spot,
+          tm: (data.payload?.tm_customer_demo as TmDemo) ?? prev.tm,
           intervals: { done: 96, total: 96 },
           stages: prev.stages.map((s) => ({ ...s, done: true })),
           progress: {
