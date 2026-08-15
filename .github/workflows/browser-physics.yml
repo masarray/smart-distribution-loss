@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload browser physics diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-physics-p0a-${{ github.sha }}
           path: artifacts/browser-physics
