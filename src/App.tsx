@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CircuitBoard, Cpu, Database, Gauge, Percent, Play, ShieldCheck, Zap } from "lucide-react";
+import { CircuitBoard, Database, Gauge, Percent, Play, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SingleLineDiagram } from "@/components/sdl/SingleLineDiagram";
@@ -70,6 +70,23 @@ export default function App() {
   const selectedSummary = useMemo(() => summarizeLossSeries(selectedSeries), [selectedSeries]);
   const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
 
+  const progressTitle =
+    state.status === "running"
+      ? "Analisis berjalan"
+      : state.status === "done"
+        ? "Analisis selesai"
+        : state.status === "error"
+          ? "Analisis gagal"
+          : "Siap dianalisis";
+  const progressDetail =
+    state.status === "running"
+      ? "Memproses profil 24 jam."
+      : state.status === "done"
+        ? "Hasil terbaru siap digunakan."
+        : state.status === "error"
+          ? "Buka detail engineering untuk melihat penyebab."
+          : "Pilih kualitas data lalu jalankan simulasi.";
+
   const selectAsset = (id: AssetId) => {
     setSelected(id);
   };
@@ -83,7 +100,7 @@ export default function App() {
           </span>
           <div className="leading-tight">
             <h1 className="font-display text-sm font-semibold">Smart Distribution Loss</h1>
-            <p className="label-xs">Advanced DMS · Loss Intelligence Cockpit</p>
+            <p className="label-xs">Operator View · Loss Monitoring</p>
           </div>
         </div>
 
@@ -112,7 +129,7 @@ export default function App() {
             aria-label="Kelola dataset"
             className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2 py-1.5 text-[10px] font-semibold tracking-wider text-warn transition-colors hover:border-warn/45 hover:bg-warn/10 lg:flex"
           >
-            <Database className="size-3" /> DATASET · SYNTHETIC DEMO
+            <Database className="size-3" /> DATA · DEMO SINTETIS
           </button>
           <div className="hidden items-center gap-2 lg:flex">
             <span className="label-xs">Kualitas data</span>
@@ -121,15 +138,12 @@ export default function App() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="good">Good</SelectItem>
-                <SelectItem value="typical">Typical</SelectItem>
-                <SelectItem value="poor">Poor</SelectItem>
+                <SelectItem value="good">Baik</SelectItem>
+                <SelectItem value="typical">Cukup</SelectItem>
+                <SelectItem value="poor">Terbatas</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <span className="hidden items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground/80 xl:flex">
-            <Cpu className="size-3 text-primary/80" /> LOCAL COMPUTE · PANDAPOWER 3φ
-          </span>
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => run(preset)} disabled={running}>
             <Play className="size-3.5" />
             {running ? "Menghitung…" : "Jalankan simulasi"}
@@ -151,9 +165,9 @@ export default function App() {
               running ? "text-foreground" : state.status === "done" ? "text-muted-foreground/90" : "text-muted-foreground",
             )}
           >
-            {state.progress.label}
+            {progressTitle}
           </span>
-          <span className="truncate text-muted-foreground/75">{state.progress.detail}</span>
+          <span className="truncate text-muted-foreground/75">{progressDetail}</span>
           <span className="numeric ml-auto text-muted-foreground/75">
             {state.intervals.done}/{state.intervals.total} interval · {Math.round(state.progress.percent)}%
           </span>
@@ -171,8 +185,8 @@ export default function App() {
         <section className="panel flex min-h-0 flex-col p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="label-xs">Data quality</p>
-              <p className="mt-0.5 font-display text-sm">{operational.qualityLabel}</p>
+              <p className="label-xs">Kualitas data</p>
+              <p className="mt-0.5 font-display text-sm">{operatorQualityHeadline(operational.confidence)}</p>
             </div>
             <ConfidenceBadge level={operational.confidence} />
           </div>
@@ -181,7 +195,7 @@ export default function App() {
             {operational.qualityRows.map((metric) => (
               <div key={metric.label}>
                 <div className="flex justify-between gap-3 text-[11px]">
-                  <span className="truncate text-muted-foreground">{metric.label}</span>
+                  <span className="truncate text-muted-foreground">{operatorMetricLabel(metric.label)}</span>
                   <span className="numeric shrink-0">{metric.percent.toFixed(1)}%</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
@@ -199,15 +213,15 @@ export default function App() {
 
           <div className="mt-4 rounded-md border border-border/45 bg-surface-2/45 p-3">
             <div className="flex items-center justify-between">
-              <span className="label-xs">Confidence</span>
+              <span className="label-xs">Keandalan hasil</span>
               <span className={cn("numeric text-sm font-semibold", confidenceTextClass(operational.confidence))}>
-                {operational.confidence}
+                {confidenceLabel(operational.confidence)}
               </span>
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
               {operational.qualityIssueCount === 0
-                ? "Input utama memenuhi coverage threshold."
-                : `${operational.qualityIssueCount} coverage constraint perlu diperhatikan.`}
+                ? "Data utama cukup untuk analisis."
+                : `${operational.qualityIssueCount} bagian data perlu diperhatikan.`}
             </p>
           </div>
 
@@ -225,7 +239,7 @@ export default function App() {
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel relative min-h-0 flex-1 overflow-hidden">
             <div className="absolute left-3 top-3 z-10">
-              <p className="label-xs">Single line diagram · live</p>
+              <p className="label-xs">Jaringan distribusi · live</p>
               <p className="font-display text-sm">Penyulang 20 kV → GD-01 → 3 JTR → 90 pelanggan</p>
             </div>
             <SingleLineDiagram
@@ -241,16 +255,16 @@ export default function App() {
           <div className="panel h-[220px] shrink-0 p-3 pb-1">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="label-xs">Profil susut teknis · {active?.short} · 24 jam · 96 interval</p>
+                <p className="label-xs">Profil susut · {active?.short} · 24 jam · 96 interval</p>
                 {selectedSummary.peakSmartKw != null && selectedSummary.peakTime != null && (
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                     <span data-manager-peak="true">
-                      Peak <span className="numeric text-foreground">{selectedSummary.peakTime}</span>
+                      Puncak <span className="numeric text-foreground">{selectedSummary.peakTime}</span>
                       {" · "}<span className="numeric text-foreground">{selectedSummary.peakSmartKw.toFixed(3)} kW</span>
                     </span>
                     {selectedSummary.worstTime != null && selectedSummary.worstDeltaKw != null && (
                       <span data-manager-worst-summary="true">
-                        Worst gap <span className="numeric text-foreground">{selectedSummary.worstTime}</span>
+                        Selisih terbesar <span className="numeric text-foreground">{selectedSummary.worstTime}</span>
                         {" · "}<span className="numeric text-warn">{Math.abs(selectedSummary.worstDeltaKw).toFixed(3)} kW</span>
                       </span>
                     )}
@@ -258,8 +272,8 @@ export default function App() {
                 )}
               </div>
               <div className="flex shrink-0 gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Konvensional</span>
-                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart engine</span>
+                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Pembanding</span>
+                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart</span>
               </div>
             </div>
             <div className="mt-1 h-[166px]">
@@ -276,20 +290,20 @@ export default function App() {
                 <p className="font-display text-sm">{active?.label}</p>
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   <span className={cn("size-1.5 rounded-full", statusDotClass(operational.status))} />
-                  <span className={statusTextClass(operational.status)}>{operational.status}</span>
-                  <span>· {operational.statusReason}</span>
+                  <span className={statusTextClass(operational.status)}>{statusLabel(operational.status)}</span>
+                  <span>· {operatorStatusReason(operational.status)}</span>
                 </div>
               </div>
               <span className="rounded-md bg-surface-2 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
-                {active?.domain}
+                {operatorDomainLabel(active?.domain)}
               </span>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Kpi icon={<Zap className="size-3.5" />} label="Susut teknis" value={fmt(active?.smartKwh, 2)} unit="kWh/hari" tone="primary" />
-              <Kpi icon={<Gauge className="size-3.5" />} label="Konvensional" value={fmt(active?.convKwh, 2)} unit="kWh/hari" tone="warn" />
-              <Kpi icon={<Percent className="size-3.5" />} label="Loss rate" value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`} unit="smart / supplied energy" tone="primary" />
-              <Kpi icon={<ShieldCheck className="size-3.5" />} label="Confidence" value={operational.confidence} unit="input + engineering gate" tone={confidenceTone(operational.confidence)} />
+              <Kpi icon={<Gauge className="size-3.5" />} label="Pembanding" value={fmt(active?.convKwh, 2)} unit="kWh/hari" tone="warn" />
+              <Kpi icon={<Percent className="size-3.5" />} label="Rasio susut" value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`} unit="dari energi tersalurkan" tone="primary" />
+              <Kpi icon={<ShieldCheck className="size-3.5" />} label="Keandalan" value={confidenceLabel(operational.confidence)} unit="berdasarkan kualitas data" tone={confidenceTone(operational.confidence)} />
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -308,14 +322,14 @@ export default function App() {
                 onClick={() => setEngineeringDrawerOpen(true)}
               >
                 <ShieldCheck className="size-3.5" />
-                Engineering &amp; gate
+                Engineering view
               </Button>
             </div>
           </div>
 
           <div className="panel min-h-0 flex-1 overflow-hidden p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="label-xs">Ledger susut per objek</p>
+              <p className="label-xs">Status susut per aset</p>
               {exceptionCount > 0 && (
                 <span className="rounded-md border border-warn/25 bg-warn/5 px-2 py-1 text-[9px] font-semibold text-warn" data-exception-count="true">
                   {exceptionCount} perlu perhatian
@@ -352,9 +366,9 @@ export default function App() {
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                      <span className="truncate">{a.action}</span>
+                      <span className="truncate">{operatorAssetNote(metric.status)}</span>
                       <span className={cn("shrink-0 font-semibold", statusTextClass(metric.status))}>
-                        {metric.status}
+                        {statusLabel(metric.status)}
                       </span>
                     </div>
                   </button>
@@ -369,7 +383,7 @@ export default function App() {
             )}
             {state.status === "done" && state.result && !state.result.gate.pass && (
               <p className="mt-3 rounded-md border border-destructive/35 bg-destructive/10 p-2 text-[10.5px] text-destructive">
-                GATE REVIEW · Periksa detail engineering.
+                PERLU TINJAU · Buka Engineering View.
               </p>
             )}
           </div>
@@ -408,6 +422,66 @@ function isException(status: AnalysisStatus) {
   return status === "ATTENTION" || status === "REVIEW";
 }
 
+function operatorQualityHeadline(level: ConfidenceLevel) {
+  if (level === "HIGH") return "Data lengkap";
+  if (level === "MEDIUM") return "Data cukup";
+  if (level === "LOW") return "Data terbatas";
+  return "Perlu tinjau";
+}
+
+function operatorMetricLabel(label: string) {
+  const labels: Record<string, string> = {
+    "Load P/Q": "Beban terukur",
+    Fasa: "Data fasa",
+    Topologi: "Pemetaan jaringan",
+    Timing: "Waktu pencatatan",
+    "AMI coverage": "Meter tersedia",
+    "Fasa diketahui": "Data fasa",
+    "PF diketahui": "Faktor daya",
+    "Mapping benar": "Pemetaan pelanggan",
+    "Kanal MV": "Data pelanggan TM",
+    "AMI GD-01": "Meter GD-01",
+    "Fasa GD-01": "Data fasa GD-01",
+    "Mapping GD-01": "Pemetaan GD-01",
+  };
+  return labels[label] ?? label;
+}
+
+function confidenceLabel(level: ConfidenceLevel) {
+  if (level === "HIGH") return "TINGGI";
+  if (level === "MEDIUM") return "SEDANG";
+  if (level === "LOW") return "RENDAH";
+  return "TINJAU";
+}
+
+function statusLabel(status: AnalysisStatus) {
+  if (status === "NORMAL") return "NORMAL";
+  if (status === "ATTENTION") return "PERHATIAN";
+  if (status === "REVIEW") return "TINJAU";
+  return "BELUM DIHITUNG";
+}
+
+function operatorStatusReason(status: AnalysisStatus) {
+  if (status === "NORMAL") return "Hasil stabil.";
+  if (status === "ATTENTION") return "Kualitas data perlu perhatian.";
+  if (status === "REVIEW") return "Perlu pemeriksaan engineering.";
+  return "Menunggu simulasi.";
+}
+
+function operatorAssetNote(status: AnalysisStatus) {
+  if (status === "NORMAL") return "Estimasi tersedia";
+  if (status === "ATTENTION") return "Periksa kualitas data";
+  if (status === "REVIEW") return "Perlu review engineering";
+  return "Menunggu simulasi";
+}
+
+function operatorDomainLabel(domain: string | undefined) {
+  if (domain === "FEEDER") return "20 kV";
+  if (domain === "MV") return "TM";
+  if (domain === "LV") return "TR/JTR";
+  return "—";
+}
+
 function statusDotClass(status: AnalysisStatus) {
   if (status === "NORMAL") return "bg-success";
   if (status === "ATTENTION") return "bg-warn";
@@ -443,7 +517,7 @@ function confidenceTone(level: ConfidenceLevel): "success" | "warn" | "danger" {
 function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
   return (
     <span className={cn("rounded-md border px-2 py-1 text-[10px] font-semibold tracking-wider", confidenceBadgeClass(level))}>
-      {level}
+      {confidenceLabel(level)}
     </span>
   );
 }
