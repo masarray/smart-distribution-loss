@@ -88,7 +88,7 @@ function RouteRail({ d, width = 2.1 }: { d: string; width?: number }) {
   );
 }
 
-function FlowPath({ d, fast, width = 1.7 }: { d: string; fast: boolean; width?: number }) {
+function FlowPath({ d, fast, width = 1.35 }: { d: string; fast: boolean; width?: number }) {
   return (
     <path
       d={d}
@@ -97,6 +97,7 @@ function FlowPath({ d, fast, width = 1.7 }: { d: string; fast: boolean; width?: 
       strokeWidth={width}
       strokeLinecap="round"
       strokeLinejoin="round"
+      opacity="0.72"
       className={fast ? "flow-dash" : "flow-dash-slow"}
       pointerEvents="none"
       vectorEffect="non-scaling-stroke"
@@ -132,7 +133,7 @@ export function SingleLineDiagram({
       >
         <defs>
           <filter id="flowGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="1.15" result="blur" />
+            <feGaussianBlur stdDeviation="0.75" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -171,16 +172,16 @@ export function SingleLineDiagram({
 
         {/* Main 20 kV feeder: static topology always visible; live current is overlay only. */}
         <g className={zone("feeder")} onClick={() => onSelect("feeder")} color="var(--color-mv)">
-          <RouteRail d="M260 93H955" width={3.0} />
+          <RouteRail d="M260 93H955" width={2.4} />
           <text x="266" y="76" fill="currentColor" fontSize="10.3" fontFamily="var(--font-mono)">
             BUS 20 kV · PENYULANG GD-01 · 3Φ
           </text>
           {energised && (
             <g filter="url(#flowGlow)">
-              <FlowPath d="M260 93H390" fast={fastFlow} width={1.85} />
-              <FlowPath d="M390 93H600" fast={fastFlow} width={1.85} />
-              <FlowPath d="M600 93H840" fast={fastFlow} width={1.85} />
-              <FlowPath d="M840 93H955" fast={fastFlow} width={1.85} />
+              <FlowPath d="M260 93H390" fast={fastFlow} width={1.35} />
+              <FlowPath d="M390 93H600" fast={fastFlow} width={1.35} />
+              <FlowPath d="M600 93H840" fast={fastFlow} width={1.35} />
+              <FlowPath d="M840 93H955" fast={fastFlow} width={1.35} />
             </g>
           )}
         </g>
@@ -195,9 +196,9 @@ export function SingleLineDiagram({
           <LoadSymbol x={390} y={242} />
           {energised && (
             <g filter="url(#flowGlow)">
-              <FlowPath d="M390 93V136" fast={fastFlow} width={1.5} />
-              <FlowPath d="M390 154V184" fast={fastFlow} width={1.5} />
-              <FlowPath d="M390 204V231" fast={fastFlow} width={1.5} />
+              <FlowPath d="M390 93V136" fast={fastFlow} width={1.25} />
+              <FlowPath d="M390 154V184" fast={fastFlow} width={1.25} />
+              <FlowPath d="M390 204V231" fast={fastFlow} width={1.25} />
             </g>
           )}
           <rect x="302" y="266" width="176" height="40" rx="6" fill="var(--color-surface-2)" stroke={selected === "spot" ? "var(--color-primary)" : "var(--color-border)"} />
@@ -219,9 +220,9 @@ export function SingleLineDiagram({
           <LoadSymbol x={600} y={242} />
           {energised && (
             <g filter="url(#flowGlow)">
-              <FlowPath d="M600 93V136" fast={fastFlow} width={1.5} />
-              <FlowPath d="M600 154V184" fast={fastFlow} width={1.5} />
-              <FlowPath d="M600 204V231" fast={fastFlow} width={1.5} />
+              <FlowPath d="M600 93V136" fast={fastFlow} width={1.25} />
+              <FlowPath d="M600 154V184" fast={fastFlow} width={1.25} />
+              <FlowPath d="M600 204V231" fast={fastFlow} width={1.25} />
             </g>
           )}
           <rect x="512" y="266" width="176" height="40" rx="6" fill="var(--color-surface-2)" stroke={selected === "tm" ? "var(--color-primary)" : "var(--color-border)"} />
@@ -235,9 +236,9 @@ export function SingleLineDiagram({
 
         {/* Gardu distribusi */}
         <g className={zone("gd")} onClick={() => onSelect("gd")} color="var(--color-mv)">
-          <RouteRail d="M840 93V127" width={2.0} />
+          <RouteRail d="M840 93V127" width={1.9} />
           <CircuitBreaker x={840} y={136} label="QF-31" />
-          <RouteRail d="M840 145V159" width={2.0} />
+          <RouteRail d="M840 145V159" width={1.9} />
           <circle cx="840" cy="176" r="17" fill="var(--color-surface)" stroke="currentColor" strokeWidth="2" />
           <circle cx="840" cy="198" r="17" fill="var(--color-surface)" stroke="var(--color-lv)" strokeWidth="2" />
           {energised && <circle cx="840" cy="187" r="10" fill="var(--color-primary)" opacity="0.18" className="pulse-node" />}
@@ -252,20 +253,20 @@ export function SingleLineDiagram({
           </text>
 
           <g color="var(--color-lv)">
-            <RouteRail d="M840 215V237" width={2.0} />
-            <CircuitBreaker x={840} y={246} label="QF-LV" />
-            <RouteRail d="M840 255V274" width={2.0} />
-            <RouteRail d="M730 274H970" width={3.0} />
+            <RouteRail d="M840 215V243" width={1.9} />
+            <CircuitBreaker x={840} y={252} label="QF-LV" />
+            <RouteRail d="M840 261V282" width={1.9} />
+            <RouteRail d="M730 282H970" width={2.5} />
             {energised && (
               <g filter="url(#flowGlow)">
-                <FlowPath d="M840 215V237" fast={fastFlow} width={1.55} />
-                <FlowPath d="M840 255V274" fast={fastFlow} width={1.55} />
-                <FlowPath d="M840 274H755" fast={fastFlow} width={1.8} />
-                <FlowPath d="M840 274H945" fast={fastFlow} width={1.8} />
+                <FlowPath d="M840 215V243" fast={fastFlow} width={1.2} />
+                <FlowPath d="M840 261V282" fast={fastFlow} width={1.2} />
+                <FlowPath d="M840 282H755" fast={fastFlow} width={1.3} />
+                <FlowPath d="M840 282H945" fast={fastFlow} width={1.3} />
               </g>
             )}
           </g>
-          <text x="730" y="260" fill="var(--color-lv)" fontSize="10" fontFamily="var(--font-mono)">
+          <text x="700" y="270" fill="var(--color-lv)" fontSize="9.7" fontFamily="var(--font-mono)">
             BUSBAR 0.4 kV · 3Φ4W
           </text>
 
@@ -275,13 +276,13 @@ export function SingleLineDiagram({
             { x: 945, name: "JTR-03", cust: 26, qf: "QF-43" },
           ].map((b) => (
             <g key={b.name} color="var(--color-lv)">
-              <RouteRail d={`M${b.x} 274V305`} width={1.75} />
+              <RouteRail d={`M${b.x} 282V305`} width={1.75} />
               <CircuitBreaker x={b.x} y={314} label={b.qf} />
               <RouteRail d={`M${b.x} 323V350`} width={1.75} />
               {energised && (
                 <g filter="url(#flowGlow)">
-                  <FlowPath d={`M${b.x} 274V305`} fast={false} width={1.45} />
-                  <FlowPath d={`M${b.x} 323V350`} fast={false} width={1.45} />
+                  <FlowPath d={`M${b.x} 282V305`} fast={false} width={1.15} />
+                  <FlowPath d={`M${b.x} 323V350`} fast={false} width={1.15} />
                 </g>
               )}
               <RouteRail d={`M${b.x - 28} 350H${b.x + 28}`} width={1.9} />
