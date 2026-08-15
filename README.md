@@ -2,6 +2,8 @@
 
 Browser-only proof of concept for an open-source, physics-informed distribution-loss intelligence platform.
 
+**Canonical product requirements:** [`docs/PRD.md`](docs/PRD.md)
+
 ## Why this project exists
 
 A conventional power-flow solver can be very accurate when the network is well observed. The harder problem appears below a distribution transformer, where customer phase, AMI coverage, PF, mapping, timing and LV parameters are often incomplete.
@@ -226,6 +228,8 @@ The default UI is a public engineering demo rather than an internal regression p
 - Observability Guard / held parameters
 - separate Engineering view for P0–P3 regression and raw diagnostics
 
+The **next UX milestone is P0 UX — SLD-First Public Proof**: both Spot Load and Gardu Distribusi comparison cards must become recognizable real single-line diagrams with known / unknown / calibrated / held states visualized directly on the network. See `docs/PRD.md` Section 18.
+
 Browser CI captures visual artifacts for Overview, PLN proof, Network and Calibration on every regression run.
 
 ## Run locally
@@ -272,6 +276,8 @@ P2 data degradation                 PASS
 P3 smart calibration                PASS
   ↓
 public PLN comparison cockpit       PASS
+  ↓
+P0 UX · SLD-first public proof      NEXT
   ↓
 P4 confidence / observability / explainability
 ```
