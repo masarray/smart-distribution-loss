@@ -10,6 +10,8 @@ const PANDAPOWER_PIN = 'pandapower==3.1.2';
 const DEEPDIFF_PIN = 'deepdiff==8.5.0';
 const GEOJSON_PIN = 'geojson==3.2.0';
 const ORDERLY_SET_PIN = 'orderly-set==5.4.1';
+const CANONICAL_INTERVALS = 96;
+const CANONICAL_INTERVAL_MINUTES = 15;
 
 let pyodide = null;
 let initMs = null;
@@ -19,6 +21,113 @@ const loadedEngines = new Set();
 
 function progress(percent, label, detail = '') {
   self.postMessage({ type: 'progress', percent, label, detail });
+}
+
+function canonicalTime(index) {
+  const totalMinutes = Number(index) * CANONICAL_INTERVAL_MINUTES;
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+}
+
+function normalizeLossSeries(series, label) {
+  if (!Array.isArray(series) || series.length !== CANONICAL_INTERVALS) {
+    throw new Error(`${label} must expose ${CANONICAL_INTERVALS} canonical loss intervals.`);
+  }
+  return series.map((point, index) => {
+    const expectedTime = canonicalTime(index);
+    if (Number(point?.index) !== index || point?.time !== expectedTime) {
+      throw new Error(`${label} timebase mismatch at interval ${index}: expected ${expectedTime}, got ${point?.time ?? 'missing'}.`);
+    }
+    for (const key of ['truth_loss_kw', 'conventional_loss_kw', 'smart_loss_kw']) {
+      if (!Number.isFinite(Number(point?.[key]))) {
+        throw new Error(`${label} contains a non-finite ${key} at interval ${index}.`);
+      }
+    }
+    return {
+      index,
+      time: expectedTime,
+      truth_loss_kw: Number(point.truth_loss_kw),
+      conventional_loss_kw: Number(point.conventional_loss_kw),
+      smart_loss_kw: Number(point.smart_loss_kw),
+    };
+  });
+}
+
+function attachOperationalDataContract(payload, spotPayload, tmPayload) {
+  const spotSeries = normalizeLossSeries(spotPayload?.series, 'Spot MV');
+  const tmSeries = normalizeLossSeries(tmPayload?.series, 'Pelanggan TM');
+  const gdSeries = normalizeLossSeries(payload?.series, 'GD-01');
+
+  const feederSeries = gdSeries.map((gd, index) => ({
+    index,
+    time: gd.time,
+    truth_loss_kw: gd.truth_loss_kw + spotSeries[index].truth_loss_kw + tmSeries[index].truth_loss_kw,
+    conventional_loss_kw: gd.conventional_loss_kw + spotSeries[index].conventional_loss_kw + tmSeries[index].conventional_loss_kw,
+    smart_loss_kw: gd.smart_loss_kw + spotSeries[index].smart_loss_kw + tmSeries[index].smart_loss_kw,
+  }));
+
+  payload.asset_series = {
+    feeder: feederSeries,
+    spot: spotSeries,
+    tm: tmSeries,
+    gd: gdSeries,
+  };
+
+  payload.data_contract = {
+    schema: 'smart-distribution-loss-operational-data-v1',
+    dataset_mode: 'synthetic_demo',
+    source_label: 'Synthetic Demo',
+    canonical_timebase: {
+      intervals: CANONICAL_INTERVALS,
+      interval_minutes: CANONICAL_INTERVAL_MINUTES,
+      period_hours: 24,
+      first_interval: '00:00',
+      last_interval: '23:45',
+      timezone: 'floating-local-demo',
+    },
+    assets: {
+      feeder: {
+        asset_id: 'feeder',
+        label: 'Feeder 20 kV',
+        source_kind: 'derived_rollup',
+        child_assets: ['spot', 'tm', 'gd'],
+        provenance: {
+          source_type: 'derived_rollup',
+          dataset_mode: 'deterministic_synthetic',
+          generated_by: 'sdl-worker.js',
+          solver: 'loss-only arithmetic roll-up of independently solved assets',
+          truth_policy: 'no additional truth is introduced; each child preserves its own validation policy',
+        },
+      },
+      spot: {
+        asset_id: 'spot',
+        label: 'Referensi TM',
+        source_kind: 'independent_physics_case',
+        provenance: spotPayload.provenance || {},
+      },
+      tm: {
+        asset_id: 'tm',
+        label: 'Pelanggan TM',
+        source_kind: 'independent_physics_case',
+        provenance: tmPayload.provenance || {},
+      },
+      gd: {
+        asset_id: 'gd',
+        label: 'Gardu distribusi GD-01',
+        source_kind: 'degraded_field_like_physics_case',
+        provenance: {
+          source_type: 'synthetic_degraded_field_view',
+          dataset_mode: 'deterministic_synthetic',
+          scenario_id: 'gd01-distribution-p3-v1',
+          generated_by: 'p1_ground_truth.py → p2_degradation.py → p3_smart_calibration.py',
+          solver: payload?.runtime?.solver || 'pandapower.runpp_3ph',
+          seed: payload?.runtime?.seed ?? null,
+          truth_policy: 'P1 hidden Ground Truth remains unavailable to P3 calibration and is opened only for final synthetic validation',
+        },
+      },
+    },
+  };
+
+  return payload;
 }
 
 function loadPyodideRuntimeScript() {
@@ -234,7 +343,7 @@ async function runP3(preset = 'typical') {
   await initialize();
   const normalizedPreset = ['good', 'typical', 'poor'].includes(String(preset).toLowerCase()) ? String(preset).toLowerCase() : 'typical';
 
-  progress(70, 'Proving Spot MV case', 'Dedicated 5 km MV spot-load model · complete observability');
+  progress(70, 'Proving Spot MV case', 'Dedicated 5 km MV reference-load model · 96 x 15-minute complete observability');
   const spotPayload = await runSpotDemo();
   if (!spotPayload.gate?.pass) throw new Error('Spot-load accuracy proof failed; public comparison demo is not valid.');
   self.postMessage({ type: 'spot-demo', payload: spotPayload });
@@ -283,17 +392,19 @@ async function runP3(preset = 'typical') {
     if (i === 0 || i === 95 || i % 4 === 0) self.postMessage({ type: 'p3-step', index: i, total: 96, payload: JSON.parse(raw) });
   }
 
-  progress(99, 'Scoring three independent engineering cases', 'Spot MV + Pelanggan TM + distribution-transformer Smart Calibration');
+  progress(99, 'Building traceable operational result', 'Canonical 96 x 15-minute series · provenance · feeder roll-up');
   const finalRaw = await pyodide.runPythonAsync('finish_p3_json()');
   const payload = JSON.parse(finalRaw);
   payload.versions = { pyodide: PYODIDE_VERSION, pandapower: PANDAPOWER_PIN.split('==')[1] };
   payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
   payload.spot_load_demo = spotPayload;
   payload.tm_customer_demo = tmPayload;
+  attachOperationalDataContract(payload, spotPayload, tmPayload);
   payload.pln_discussion_demo = {
-    thesis: 'Same three-phase physics. Independent assets. Different observability.',
+    thesis: 'Same three-phase physics. Independent assets. Shared canonical operational timebase.',
     spot_load: {
-      scenario_id: spotPayload.scenario_id || 'spot-load-v1',
+      scenario_id: spotPayload.scenario_id,
+      fingerprint: spotPayload.fingerprint,
       observability: spotPayload.observability.verdict,
       loss_kwh: spotPayload.comparison.smart.loss_kwh,
       conventional_loss_error_percent: spotPayload.comparison.conventional.loss_error_percent_validation_only,
@@ -321,7 +432,7 @@ async function runP3(preset = 'typical') {
       holdout_objective_after: payload.comparison.smart.objective_validation,
     },
     independence_guard: independentMvProof,
-    synthetic_claim: 'Spot MV and Pelanggan TM are solved as independent MV assets, while Smart Calibration improves the poorly observed distribution model with hidden truth reserved for final validation.',
+    synthetic_claim: 'Spot MV, Pelanggan TM and GD-01 are independently solved and normalized to one 96 x 15-minute operational data contract; feeder loss is an explicit traceable roll-up of those child loss series.',
     field_claim: 'On field data, accuracy must be stated against independent measurements and hold-out residuals, not an unavailable hidden truth.',
   };
   return payload;

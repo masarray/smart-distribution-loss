@@ -1,13 +1,13 @@
-"""Public demo: high-observability MV spot-load loss calculation.
+"""Public demo: high-observability MV reference-load loss calculation.
 
-The purpose of this scenario is deliberately different from P2/P3:
-- the topology, load P/Q, phase state and meter timing are fully observed;
-- a conventional physics model is therefore already expected to be accurate;
-- the Smart Engine makes only a small, measurement-supported line-R correction;
-- hidden synthetic truth is used only to score the finished models.
+This case is intentionally different from the poorly observed distribution model:
+- topology, load P/Q, phase state, mapping and meter timing are fully observed;
+- the conventional physics model should already be accurate;
+- Smart Engine is allowed only a small, measurement-supported line-R correction;
+- hidden synthetic truth is used only to score finished models.
 
-This provides the 'easy spot load' side of the PLN discussion demo while P3
-provides the poorly-observed distribution-transformer side.
+M0 normalizes this asset to the cockpit's canonical operational timebase:
+96 intervals x 15 minutes over one 24-hour day.
 """
 from __future__ import annotations
 
@@ -18,8 +18,11 @@ import time
 import numpy as np
 import pandapower as pp
 
-SPOT_INTERVALS = 24
-SPOT_INTERVAL_HOURS = 1.0
+SPOT_SCENARIO_ID = "spot-mv-reference-v2"
+SPOT_FINGERPRINT = "20KV-SPOT-5KM-96QH-BALANCED-V2"
+SPOT_INTERVAL_MINUTES = 15
+SPOT_INTERVALS = 96
+SPOT_INTERVAL_HOURS = SPOT_INTERVAL_MINUTES / 60.0
 SPOT_SEED = 61850 + 501
 SPOT_LENGTH_KM = 5.0
 SPOT_TRUE_R_OHM_PER_KM = 0.205
@@ -34,6 +37,11 @@ def _f(value, default=0.0):
         return value if math.isfinite(value) else default
     except Exception:
         return default
+
+
+def _time_label(index: int) -> str:
+    total_minutes = int(index) * SPOT_INTERVAL_MINUTES
+    return f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
 
 
 def _line_loss_kw(net):
@@ -61,7 +69,7 @@ def _source_kw(net):
 def _build_spot_network(r_ohm_per_km):
     net = pp.create_empty_network(sn_mva=10.0)
     source = pp.create_bus(net, vn_kv=20.0, name="20 kV Grid")
-    customer = pp.create_bus(net, vn_kv=20.0, name="MV Spot Load")
+    customer = pp.create_bus(net, vn_kv=20.0, name="MV Reference Load")
     pp.create_ext_grid(
         net,
         source,
@@ -84,7 +92,7 @@ def _build_spot_network(r_ohm_per_km):
         x0_ohm_per_km=SPOT_TRUE_X_OHM_PER_KM * 3.0,
         c0_nf_per_km=6.0,
         max_i_ka=0.24,
-        name="MV Feeder to Spot Load",
+        name="MV Feeder to Reference Load",
     )
     load = pp.create_asymmetric_load(
         net,
@@ -96,17 +104,19 @@ def _build_spot_network(r_ohm_per_km):
         q_b_mvar=0.05,
         q_c_mvar=0.05,
         type="wye",
-        name="Observed MV Customer",
+        name="Observed MV Reference Load",
     )
     return net, customer, load
 
 
 def _profile_kw():
-    hours = np.arange(SPOT_INTERVALS, dtype=float)
+    quarter = np.arange(SPOT_INTERVALS, dtype=float)
+    hours = quarter * SPOT_INTERVAL_HOURS
     morning = 210.0 * np.exp(-0.5 * ((hours - 9.0) / 2.5) ** 2)
     afternoon = 300.0 * np.exp(-0.5 * ((hours - 15.5) / 3.2) ** 2)
     evening = 90.0 * np.exp(-0.5 * ((hours - 20.0) / 2.0) ** 2)
-    return 540.0 + morning + afternoon + evening
+    ripple = 8.0 * np.sin(quarter * 2.0 * np.pi / 17.0) + 4.0 * np.sin(quarter * 2.0 * np.pi / 9.0)
+    return np.maximum(540.0 + morning + afternoon + evening + ripple, 500.0)
 
 
 def _apply_load(net, load_index, p_kw):
@@ -138,7 +148,7 @@ def _simulate(r_ohm_per_km, profile, measured_source_kw=None):
         model_source = _source_kw(net)
         records.append({
             "index": i,
-            "time": f"{i:02d}:00",
+            "time": _time_label(i),
             "load_kw": float(p_kw),
             "load_kvar": float(q_kvar),
             "source_kw": float(model_source),
@@ -168,8 +178,7 @@ def run_spot_load_demo():
     conventional_records, conventional_ms = _simulate(conventional_r, profile, measured_source)
 
     # Smart Engine: because load P/Q and topology are fully observed, the only
-    # eligible correction is a bounded aggregate line-R scale. Estimate the
-    # required series resistance from measured source-load energy balance.
+    # eligible correction is a bounded aggregate line-R scale.
     p = np.asarray(profile, dtype=float)
     q = p * math.tan(math.acos(SPOT_PF))
     s_va = np.sqrt(p ** 2 + q ** 2) * 1000.0
@@ -193,10 +202,24 @@ def run_spot_load_demo():
     smart_nrmse = _rmse([r["source_residual_kw"] for r in smart_records]) / peak_measured * 100.0
     min_v = min(r["vm_min_pu"] for r in smart_records)
 
+    series = []
+    for i in range(SPOT_INTERVALS):
+        series.append({
+            "index": i,
+            "time": truth_records[i]["time"],
+            "truth_loss_kw": float(truth_records[i]["loss_kw"]),
+            "conventional_loss_kw": float(conventional_records[i]["loss_kw"]),
+            "smart_loss_kw": float(smart_records[i]["loss_kw"]),
+            "observed_source_kw": float(measured_source[i]),
+            "conventional_source_kw": float(conventional_records[i]["source_kw"]),
+            "smart_source_kw": float(smart_records[i]["source_kw"]),
+        })
+
     checks = [
+        {"name": "canonical 15-minute timebase", "pass": len(series) == 96 and series[-1]["time"] == "23:45", "detail": "96 x 15-minute operational intervals"},
         {"name": "spot-load physics converged", "pass": len(smart_records) == SPOT_INTERVALS, "detail": f"{SPOT_INTERVALS}/{SPOT_INTERVALS} runpp_3ph intervals"},
         {"name": "high-observability conventional model is already accurate", "pass": abs(conventional_error) < 3.0, "detail": f"loss error {conventional_error:+.3f}%"},
-        {"name": "Smart Engine does not over-correct the spot load", "pass": abs(smart_error) <= abs(conventional_error) and abs(smart_error) < 2.0, "detail": f"{conventional_error:+.3f}% → {smart_error:+.3f}%"},
+        {"name": "Smart Engine does not over-correct the reference load", "pass": abs(smart_error) <= abs(conventional_error) and abs(smart_error) < 2.0, "detail": f"{conventional_error:+.3f}% → {smart_error:+.3f}%"},
         {"name": "source measurement fit did not regress", "pass": smart_nrmse <= conventional_nrmse + 1e-9, "detail": f"{conventional_nrmse:.4f}% → {smart_nrmse:.4f}% NRMSE"},
         {"name": "MV voltage remains plausible", "pass": min_v > 0.95, "detail": f"minimum {min_v:.5f} pu"},
     ]
@@ -204,16 +227,21 @@ def run_spot_load_demo():
 
     return {
         "demo_kind": "spot_load",
+        "scenario_id": SPOT_SCENARIO_ID,
+        "fingerprint": SPOT_FINGERPRINT,
         "mode": "synthetic_proof",
         "gate": {
             "pass": gate_pass,
-            "summary": "High-observability spot load is already accurate; Smart Engine applies only a small evidence-based correction." if gate_pass else "Spot-load proof did not meet every accuracy guard.",
+            "summary": "High-observability MV reference load is already accurate; Smart Engine applies only a small evidence-based correction." if gate_pass else "Reference-load proof did not meet every accuracy guard.",
         },
         "scenario": {
-            "name": "MV Spot Load / Pelanggan TM",
-            "topology": "20 kV grid → 5 km MV feeder → one metered 3-phase customer",
+            "name": "Referensi TM / high-observability MV load",
+            "topology": "20 kV grid → 5 km MV feeder → one fully metered 3-phase reference load",
             "intervals": SPOT_INTERVALS,
+            "interval_minutes": SPOT_INTERVAL_MINUTES,
+            "line_length_km": SPOT_LENGTH_KM,
             "pf": SPOT_PF,
+            "profile": "deterministic quarter-hour MV reference-load profile",
         },
         "observability": {
             "load_pq_percent": 100.0,
@@ -237,6 +265,17 @@ def run_spot_load_demo():
                 "source_nrmse_percent": smart_nrmse,
                 "line_r_ohm_per_km": smart_r,
             },
+        },
+        "series": series,
+        "provenance": {
+            "source_type": "synthetic_demo",
+            "dataset_mode": "deterministic_synthetic",
+            "scenario_id": SPOT_SCENARIO_ID,
+            "fingerprint": SPOT_FINGERPRINT,
+            "seed": SPOT_SEED,
+            "generated_by": "demo_spot_load.py",
+            "solver": "pandapower.runpp_3ph",
+            "truth_policy": "hidden synthetic truth is validation-only; calibration receives measured source/load states",
         },
         "smart_action": {
             "classification": "MINIMAL_CORRECTION",
