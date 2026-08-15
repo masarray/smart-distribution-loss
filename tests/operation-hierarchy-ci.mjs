@@ -32,7 +32,7 @@ try {
     throw new Error("Hidden Ground Truth leaked into the main operation chart.");
   }
 
-  await page.getByRole("button", { name: "Detail engineering & gate", exact: true }).click();
+  await page.getByRole("button", { name: "Engineering & gate", exact: true }).click();
   await assertVisible(page.getByText(/Synthetic validation only/), "engineering-only Ground Truth context");
   await assertVisible(page.getByText("Error konvensional", { exact: true }), "engineering conventional error");
   await assertVisible(page.getByText("Error smart engine", { exact: true }), "engineering smart error");
