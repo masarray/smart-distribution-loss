@@ -4,153 +4,390 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Smart Distribution Loss — P3 Smart Calibration</title>
+  <title>Smart Distribution Loss — Distribution Loss Intelligence</title>
+  <meta name="description" content="Physics-informed distribution loss intelligence running entirely in your browser with Pyodide and Pandapower." />
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./p3.css" />
 </head>
 <body>
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">SMART DISTRIBUTION LOSS · P3</p>
-        <h1>Physics-Informed Smart Calibration</h1>
-        <p class="subtitle">Estimate only poorly observed states that measurements can support, validate them with real unbalanced 3-phase power flow, and prove improvement on hold-out intervals — entirely on this device.</p>
+  <main class="app-shell">
+    <header class="top-app-bar">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2.8 5.4 6.6v7.7l6.6 3.8 6.6-3.8V6.6L12 2.8Z"/><path d="M8.7 9.2 12 7.3l3.3 1.9v3.7L12 14.8l-3.3-1.9V9.2Z"/><path d="M12 14.8v3.3M5.4 6.6l3.3 2.6M18.6 6.6l-3.3 2.6"/></svg>
+        </span>
+        <div>
+          <h1>Smart Distribution Loss</h1>
+          <p>Distribution Loss Intelligence</p>
+        </div>
       </div>
-      <div class="hero-badges">
-        <div class="privacy-pill pass-pill">P0-A · PASS</div>
-        <div class="privacy-pill pass-pill">P0-B · PASS</div>
-        <div class="privacy-pill pass-pill">P1 · PASS</div>
-        <div class="privacy-pill pass-pill">P2 · PASS</div>
-        <div class="privacy-pill">LOCAL COMPUTE · NO BACKEND</div>
+
+      <nav class="command-strip" aria-label="Application views">
+        <button class="command-button nav-command is-active" data-nav-target="overview" type="button">
+          <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm10 7h6V11h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>
+          Overview
+        </button>
+        <button class="command-button nav-command" data-nav-target="network" type="button">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="12" cy="19" r="2"/><path d="m6.6 10.6 3.8-4M13.6 6.5l3.8 4M17.4 13.5l-3.8 4M10.4 17.5l-3.8-4"/></svg>
+          Network
+        </button>
+        <button class="command-button nav-command" data-nav-target="calibration" type="button">
+          <svg viewBox="0 0 24 24"><path d="M4 17h3v3H4v-3Zm6-6h3v9h-3v-9Zm6-7h3v16h-3V4Z"/><path d="m3 13 5-5 4 3 7-7"/></svg>
+          Calibration
+        </button>
+        <button class="command-button nav-command" data-nav-target="engineering" type="button">
+          <svg viewBox="0 0 24 24"><path d="M8.5 4.5 4 9l3 3-3 3 4.5 4.5L12 16l3.5 3.5L20 15l-3-3 3-3-4.5-4.5L12 8 8.5 4.5Z"/><circle cx="12" cy="12" r="2.3"/></svg>
+          Engineering
+        </button>
+      </nav>
+
+      <div class="topbar-right">
+        <label class="preset-control topbar-preset">DATA QUALITY
+          <select id="qualityPreset">
+            <option value="good">Good</option>
+            <option value="typical" selected>Typical</option>
+            <option value="poor">Poor</option>
+          </select>
+        </label>
+        <div class="runtime-chip" title="All calculations execute in this browser">
+          <span class="runtime-dot"></span>
+          LOCAL COMPUTE
+        </div>
+        <button id="runButton" class="primary-button top-run-button" type="button">
+          <svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5V7Z"/></svg>
+          Run Smart Analysis
+        </button>
       </div>
     </header>
 
-    <section class="panel control-panel">
-      <div>
-        <div class="label">ENGINE STATUS</div>
-        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready for P3</div>
-        <div id="statusDetail" class="muted">Calibration uses the degraded P2 view and noisy measurements only. Hidden Ground Truth is reserved for final synthetic validation.</div>
+    <section class="global-progress" aria-live="polite">
+      <div class="progress-meta">
+        <span id="progressLabel">Ready</span>
+        <span id="progressLog">Select a data-quality scenario and run the smart analysis.</span>
+        <span id="progressPct">0%</span>
       </div>
-      <div class="control-actions">
-        <div class="button-row regression-row">
-          <button id="runP0AButton" class="secondary-button compact-button">P0-A</button>
-          <button id="runP0BButton" class="secondary-button compact-button">P0-B</button>
-          <button id="runP1Button" class="secondary-button compact-button">P1</button>
-          <button id="runP2Button" class="secondary-button compact-button">P2</button>
-        </div>
-        <div class="p2-run-row">
-          <label class="preset-control">DATA QUALITY
-            <select id="qualityPreset">
-              <option value="good">Good</option>
-              <option value="typical" selected>Typical</option>
-              <option value="poor">Poor</option>
-            </select>
-          </label>
-          <button id="runButton" class="primary-button">Run P3 Smart Calibration</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="progress-wrap panel" aria-live="polite">
-      <div class="progress-head"><span id="progressLabel">Waiting</span><span id="progressPct">0%</span></div>
       <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
-      <div id="progressLog" class="progress-log">No computation is running.</div>
     </section>
 
-    <section id="resultSection" class="hidden">
-      <div class="gate-banner panel">
-        <div>
-          <div class="label">CURRENT GATE</div>
-          <div id="gateTitle" class="gate-title">—</div>
-          <div id="gateReason" class="muted">—</div>
-        </div>
-        <div id="gateBadge" class="gate-badge">—</div>
-      </div>
-
-      <div class="metric-grid">
-        <article class="metric panel"><span id="mLabel1">Preset</span><strong id="m1">—</strong></article>
-        <article class="metric panel"><span id="mLabel2">Truth loss</span><strong id="m2">—</strong></article>
-        <article class="metric panel"><span id="mLabel3">Conventional loss</span><strong id="m3">—</strong></article>
-        <article class="metric panel"><span id="mLabel4">Smart loss</span><strong id="m4">—</strong></article>
-        <article class="metric panel"><span id="mLabel5">Loss error</span><strong id="m5">—</strong></article>
-        <article class="metric panel"><span id="mLabel6">Source P NRMSE</span><strong id="m6">—</strong></article>
-        <article class="metric panel"><span id="mLabel7">Phase P RMSE</span><strong id="m7">—</strong></article>
-        <article class="metric panel"><span id="mLabel8">Hold-out objective</span><strong id="m8">—</strong></article>
-      </div>
-
-      <section id="chartPanel" class="panel chart-panel hidden">
-        <div class="chart-head">
-          <div>
-            <div id="chartTitle" class="section-title">24-HOUR LOSS COMPARISON</div>
-            <div id="chartSubtitle" class="muted">Ground Truth is validation-only.</div>
+    <div class="view-shell public-view" id="publicWorkspace">
+      <section class="public-scroll">
+        <section class="scenario-hero" id="overviewSection">
+          <div class="scenario-copy">
+            <div class="eyebrow">PHYSICS-INFORMED · BROWSER-NATIVE · OPEN SOURCE</div>
+            <h2>See what poor observability does to distribution-loss estimates — then let physics correct the model.</h2>
+            <p>One 20 kV feeder, one 400 kVA distribution transformer, three LV branches and 90 customers. Degrade the data, run a conventional model, then calibrate only the states that measurements can actually support.</p>
           </div>
-          <div id="chartLegend" class="chart-legend"></div>
+          <div class="scenario-meta-card">
+            <div><span>Scenario</span><b>GD-01 Urban LV</b></div>
+            <div><span>Topology</span><b>20 / 0.4 kV · 3 JTR</b></div>
+            <div><span>Customers</span><b>90 · 15-min profiles</b></div>
+            <div><span>Physics</span><b>Pandapower 3φ</b></div>
+          </div>
+        </section>
+
+        <section class="observability-strip panel" aria-label="Data observability">
+          <div class="strip-title">
+            <span class="strip-icon"><svg viewBox="0 0 24 24"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+            <div><small>DATA OBSERVABILITY</small><strong id="demoPresetLabel">Typical field data</strong></div>
+          </div>
+          <article class="obs-stat"><span>AMI coverage</span><b id="demoAmiCoverage">80.0%</b><i><em id="demoAmiBar" style="width:80%"></em></i></article>
+          <article class="obs-stat"><span>Phase known</span><b id="demoPhaseKnown">65.6%</b><i><em id="demoPhaseBar" style="width:65.6%"></em></i></article>
+          <article class="obs-stat"><span>PF known</span><b id="demoPfKnown">40.0%</b><i><em id="demoPfBar" style="width:40%"></em></i></article>
+          <article class="obs-stat"><span>Mapping known</span><b id="demoMappingKnown">94.4%</b><i><em id="demoMappingBar" style="width:94.4%"></em></i></article>
+          <div class="strip-verdict"><span class="quality-orb"></span><div><small>MODEL INPUT</small><b id="demoInputVerdict">Imperfect</b></div></div>
+        </section>
+
+        <div class="workspace-grid" id="networkSection">
+          <section class="sld-stage panel">
+            <header class="panel-header">
+              <div>
+                <small>LIVE DISTRIBUTION MODEL</small>
+                <h3>GD-01 · Single-Line Diagram</h3>
+              </div>
+              <div class="panel-actions">
+                <span class="status-chip muted-chip">90 customers</span>
+                <span class="status-chip live-chip"><span></span> 3φ physics ready</span>
+              </div>
+            </header>
+
+            <div class="sld-canvas" id="distributionSld">
+              <div class="sld-grid-glow"></div>
+              <svg class="distribution-sld" viewBox="0 0 1100 570" role="img" aria-label="20 kV feeder to a 400 kVA distribution transformer feeding three LV JTR branches and 90 customers">
+                <defs>
+                  <linearGradient id="wireGlow" x1="0" x2="1"><stop stop-color="#7df0e2"/><stop offset="1" stop-color="#9bb6ff"/></linearGradient>
+                  <filter id="softGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+
+                <g class="sld-source">
+                  <circle cx="95" cy="285" r="46" class="source-ring"/>
+                  <circle cx="95" cy="285" r="28" class="source-core"/>
+                  <path d="M81 285h28M95 271v28" class="source-mark"/>
+                  <text x="95" y="350" text-anchor="middle" class="sld-title">GRID</text>
+                  <text x="95" y="369" text-anchor="middle" class="sld-sub">20 kV source</text>
+                </g>
+
+                <g class="sld-feeder">
+                  <path d="M141 285H270" class="sld-wire animated-wire"/>
+                  <circle cx="205" cy="285" r="8" class="breaker-node"/>
+                  <rect x="164" y="226" rx="10" width="82" height="33" class="sld-badge"/>
+                  <text x="205" y="247" text-anchor="middle" class="sld-badge-text">250 m TM</text>
+                </g>
+
+                <g class="sld-transformer">
+                  <circle cx="333" cy="285" r="33" class="trafo-ring"/>
+                  <circle cx="365" cy="285" r="33" class="trafo-ring secondary"/>
+                  <path d="M270 285h30M398 285h55" class="sld-wire"/>
+                  <text x="349" y="356" text-anchor="middle" class="sld-title">TR GD-01</text>
+                  <text x="349" y="375" text-anchor="middle" class="sld-sub">400 kVA · Dyn · 20/0.4 kV</text>
+                </g>
+
+                <g class="sld-lv-bus">
+                  <path d="M453 205v160" class="busbar"/>
+                  <text x="453" y="184" text-anchor="middle" class="sld-title">LV MAIN</text>
+                  <text x="453" y="386" text-anchor="middle" class="sld-sub">400 V</text>
+                </g>
+
+                <g class="branch branch-1">
+                  <path d="M453 225H615" class="sld-wire branch-wire animated-wire"/>
+                  <circle cx="526" cy="225" r="7" class="breaker-node"/>
+                  <rect x="627" y="181" width="132" height="88" rx="16" class="branch-card-bg"/>
+                  <text x="645" y="207" class="branch-kicker">JTR-01</text>
+                  <text x="645" y="232" class="branch-title">30 customers</text>
+                  <text x="645" y="251" class="branch-sub">LV radial branch</text>
+                  <path d="M759 225H885" class="customer-spine"/>
+                  <g class="customer-cluster">
+                    <circle cx="902" cy="195" r="7" class="phase-a"/><circle cx="930" cy="195" r="7" class="phase-b"/><circle cx="958" cy="195" r="7" class="phase-c"/>
+                    <circle cx="902" cy="225" r="7" class="phase-b"/><circle cx="930" cy="225" r="7" class="phase-c"/><circle cx="958" cy="225" r="7" class="phase-a"/>
+                    <circle cx="902" cy="255" r="7" class="phase-c"/><circle cx="930" cy="255" r="7" class="phase-a"/><circle cx="958" cy="255" r="7" class="phase-b"/>
+                    <text x="991" y="231" class="cluster-more">+21</text>
+                  </g>
+                </g>
+
+                <g class="branch branch-2">
+                  <path d="M453 285H615" class="sld-wire branch-wire animated-wire"/>
+                  <circle cx="526" cy="285" r="7" class="breaker-node"/>
+                  <rect x="627" y="281" width="132" height="88" rx="16" class="branch-card-bg"/>
+                  <text x="645" y="307" class="branch-kicker">JTR-02</text>
+                  <text x="645" y="332" class="branch-title">30 customers</text>
+                  <text x="645" y="351" class="branch-sub">LV radial branch</text>
+                  <path d="M759 325H885" class="customer-spine"/>
+                  <g class="customer-cluster">
+                    <circle cx="902" cy="295" r="7" class="phase-b"/><circle cx="930" cy="295" r="7" class="phase-c"/><circle cx="958" cy="295" r="7" class="phase-a"/>
+                    <circle cx="902" cy="325" r="7" class="phase-c"/><circle cx="930" cy="325" r="7" class="phase-a"/><circle cx="958" cy="325" r="7" class="phase-b"/>
+                    <circle cx="902" cy="355" r="7" class="phase-a"/><circle cx="930" cy="355" r="7" class="phase-b"/><circle cx="958" cy="355" r="7" class="phase-c"/>
+                    <text x="991" y="331" class="cluster-more">+21</text>
+                  </g>
+                </g>
+
+                <g class="branch branch-3">
+                  <path d="M453 345H615" class="sld-wire branch-wire animated-wire"/>
+                  <circle cx="526" cy="345" r="7" class="breaker-node"/>
+                  <rect x="627" y="381" width="132" height="88" rx="16" class="branch-card-bg"/>
+                  <text x="645" y="407" class="branch-kicker">JTR-03</text>
+                  <text x="645" y="432" class="branch-title">30 customers</text>
+                  <text x="645" y="451" class="branch-sub">LV radial branch</text>
+                  <path d="M759 425H885" class="customer-spine"/>
+                  <g class="customer-cluster">
+                    <circle cx="902" cy="395" r="7" class="phase-c"/><circle cx="930" cy="395" r="7" class="phase-a"/><circle cx="958" cy="395" r="7" class="phase-b"/>
+                    <circle cx="902" cy="425" r="7" class="phase-a"/><circle cx="930" cy="425" r="7" class="phase-b"/><circle cx="958" cy="425" r="7" class="phase-c"/>
+                    <circle cx="902" cy="455" r="7" class="phase-b"/><circle cx="930" cy="455" r="7" class="phase-c"/><circle cx="958" cy="455" r="7" class="phase-a"/>
+                    <text x="991" y="431" class="cluster-more">+21</text>
+                  </g>
+                </g>
+              </svg>
+
+              <div class="sld-floating sld-energy-card">
+                <span>SMART LOSS ESTIMATE</span>
+                <strong id="sldSmartLoss">—</strong>
+                <small id="sldSmartLossSub">Run analysis to calculate</small>
+              </div>
+
+              <div class="sld-floating sld-legend-card">
+                <span><i class="phase-dot phase-a-dot"></i>A</span>
+                <span><i class="phase-dot phase-b-dot"></i>B</span>
+                <span><i class="phase-dot phase-c-dot"></i>C</span>
+                <span><i class="phase-dot unknown-dot"></i>Unknown data</span>
+              </div>
+            </div>
+          </section>
+
+          <aside class="intelligence-rail panel" aria-label="Smart loss intelligence">
+            <header class="rail-header">
+              <span class="rail-icon">
+                <svg viewBox="0 0 24 24"><path d="M9 3h6l1 3 3 1v6l-3 1-1 3H9l-1-3-3-1V7l3-1 1-3Z"/><circle cx="12" cy="10" r="3"/><path d="M9 21h6M12 17v4"/></svg>
+              </span>
+              <div><small>SMART ANALYSIS</small><h3 id="demoRailTitle">Ready to calibrate</h3></div>
+              <span class="rail-state" id="demoRailState">READY</span>
+            </header>
+
+            <section class="loss-hero">
+              <div class="loss-model conventional-model">
+                <small>CONVENTIONAL MODEL</small>
+                <strong id="demoConventionalLoss">—</strong>
+                <span id="demoConventionalError">baseline estimate</span>
+              </div>
+              <div class="loss-arrow"><span>→</span></div>
+              <div class="loss-model smart-model">
+                <small>SMART MODEL</small>
+                <strong id="demoSmartLoss">—</strong>
+                <span id="demoSmartError">calibrated estimate</span>
+              </div>
+            </section>
+
+            <section class="improvement-card">
+              <div class="improvement-orb"><span id="demoLossImprovement">—</span></div>
+              <div><small>ABSOLUTE LOSS-ERROR REDUCTION</small><b id="demoImprovementCopy">Waiting for physics validation</b></div>
+            </section>
+
+            <section class="rail-mini-metrics">
+              <article><span>Source P fit</span><b id="demoSourceFit">—</b><small>NRMSE</small></article>
+              <article><span>Phase fit</span><b id="demoPhaseFit">—</b><small>RMSE</small></article>
+              <article><span>Hold-out</span><b id="demoHoldout">32</b><small>unseen intervals</small></article>
+              <article><span>Validation</span><b id="demoValidation">—</b><small>mandatory checks</small></article>
+            </section>
+
+            <section class="validation-card">
+              <div class="validation-head"><span>Validation reference</span><b id="demoTruthLoss">Hidden</b></div>
+              <p>Synthetic Ground Truth is blocked during calibration and revealed only after the smart model is finished.</p>
+              <div class="truth-lock"><span class="lock-dot"></span><b id="demoTruthAccess">TRUTH ACCESS · BLOCKED</b></div>
+            </section>
+
+            <section class="held-summary">
+              <div><small>OBSERVABILITY GUARD</small><b><span id="demoHeldCount">3</span> parameters intentionally held</b></div>
+              <p id="demoHeldCopy">Smart calibration refuses to invent states that available measurements cannot identify.</p>
+            </section>
+          </aside>
         </div>
-        <div id="profileChart" class="profile-chart"></div>
-      </section>
 
-      <section id="calibrationPanel" class="panel measurement-panel hidden">
-        <div class="section-title">SMART CALIBRATION TRACE</div>
-        <div class="muted measurement-note">Each step records what was changed, what measurement supported it, and what was deliberately left untouched.</div>
-        <div class="table-wrap">
-          <table class="benchmark-table calibration-table">
-            <thead><tr><th>Stage</th><th>Status</th><th>Before</th><th>After</th><th>Evidence / action</th></tr></thead>
-            <tbody id="calibrationRows"></tbody>
-          </table>
+        <section class="calibration-stage panel" id="calibrationSection">
+          <header class="panel-header calibration-header">
+            <div><small>EXPLAINABLE INTELLIGENCE</small><h3>Smart Calibration Pipeline</h3></div>
+            <div class="pipeline-verdict" id="demoPipelineVerdict"><span></span> Waiting for analysis</div>
+          </header>
+          <div class="pipeline-flow" id="demoPipeline">
+            <article class="pipeline-step" data-stage="Timestamp alignment"><span class="step-index">01</span><div><small>TIME</small><b>Timestamp alignment</b><p>Correct flagged ±15 min AMI shifts.</p></div><i class="step-state">WAIT</i></article>
+            <span class="pipeline-link"></span>
+            <article class="pipeline-step" data-stage="Missing-AMI reconstruction"><span class="step-index">02</span><div><small>AMI</small><b>Missing-load reconstruction</b><p>Bounded peer-profile estimation.</p></div><i class="step-state">WAIT</i></article>
+            <span class="pipeline-link"></span>
+            <article class="pipeline-step" data-stage="Unknown-phase inference"><span class="step-index">03</span><div><small>PHASE</small><b>Phase inference</b><p>Reassign only unknown phases.</p></div><i class="step-state">WAIT</i></article>
+            <span class="pipeline-link"></span>
+            <article class="pipeline-step" data-stage="Unknown-PF calibration"><span class="step-index">04</span><div><small>REACTIVE</small><b>PF calibration</b><p>Fit Q using measured feeder behavior.</p></div><i class="step-state">WAIT</i></article>
+            <span class="pipeline-link"></span>
+            <article class="pipeline-step" data-stage="Network-parameter calibration"><span class="step-index">05</span><div><small>ASSET</small><b>Network calibration</b><p>Estimate only identifiable parameters.</p></div><i class="step-state">WAIT</i></article>
+            <span class="pipeline-link"></span>
+            <article class="pipeline-step" data-stage="Physics validation model"><span class="step-index">06</span><div><small>PHYSICS</small><b>3φ validation</b><p>96 Pandapower unbalanced solves.</p></div><i class="step-state">WAIT</i></article>
+          </div>
+        </section>
+
+        <section id="chartPlaceholder" class="panel chart-placeholder">
+          <div class="placeholder-grid"></div>
+          <div class="placeholder-copy"><small>24-HOUR TECHNICAL LOSS</small><h3>Truth · Conventional · Smart</h3><p>Run the analysis to reveal the three physics curves across 96 fifteen-minute intervals.</p></div>
+        </section>
+
+        <section id="chartPanel" class="panel chart-panel hidden">
+          <div class="chart-head">
+            <div>
+              <div id="chartTitle" class="section-title">24-HOUR TECHNICAL-LOSS CALIBRATION</div>
+              <div id="chartSubtitle" class="muted">Ground Truth is validation-only.</div>
+            </div>
+            <div id="chartLegend" class="chart-legend"></div>
+          </div>
+          <div id="profileChart" class="profile-chart"></div>
+        </section>
+
+        <section class="confidence-stage panel">
+          <div class="confidence-copy">
+            <div class="eyebrow">TRUST THE BOUNDARY, NOT JUST THE NUMBER</div>
+            <h3>Observability Guard</h3>
+            <p>The engine reports what it can support and deliberately holds parameters that are not identifiable from the current measurement set.</p>
+          </div>
+          <div class="guard-cards">
+            <article class="guard-card good"><span>CALIBRATED</span><b>Time · AMI · phase · PF · Pfe</b><p>Changed only where measurements provide evidence.</p></article>
+            <article class="guard-card held"><span>HELD</span><b>Mapping · SR length · vk/vkr</b><p>No false precision when observability is insufficient.</p></article>
+            <article class="guard-card physics"><span>VALIDATED</span><b id="demoGuardValidation">Pending run</b><p>Hold-out intervals and full 3-phase power flow protect against overfitting.</p></article>
+          </div>
+        </section>
+
+        <footer class="public-footer">
+          <span>Pyodide + Pandapower · no backend · data stays in this browser</span>
+          <span>Physics-informed calibration · not black-box AI</span>
+        </footer>
+      </section>
+    </div>
+
+    <div class="view-shell engineering-view hidden" id="engineeringWorkspace">
+      <section class="engineering-scroll">
+        <div class="engineering-hero">
+          <div><div class="eyebrow">ENGINEERING VIEW</div><h2>Regression, calibration trace and raw diagnostics</h2><p>Public storytelling is removed here. This view exposes the exact browser-physics gates used by CI.</p></div>
+          <button class="secondary-button" data-nav-target="overview" type="button">← Back to Demo</button>
         </div>
+
+        <section class="panel control-panel">
+          <div>
+            <div class="label">ENGINE STATUS</div>
+            <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready for P3</div>
+            <div id="statusDetail" class="muted">Calibration uses the degraded P2 view and noisy measurements only. Hidden Ground Truth is reserved for final synthetic validation.</div>
+          </div>
+          <div class="control-actions">
+            <div class="button-row regression-row">
+              <button id="runP0AButton" class="secondary-button compact-button">P0-A</button>
+              <button id="runP0BButton" class="secondary-button compact-button">P0-B</button>
+              <button id="runP1Button" class="secondary-button compact-button">P1</button>
+              <button id="runP2Button" class="secondary-button compact-button">P2</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="resultSection" class="hidden">
+          <div class="gate-banner panel">
+            <div><div class="label">CURRENT GATE</div><div id="gateTitle" class="gate-title">—</div><div id="gateReason" class="muted">—</div></div>
+            <div id="gateBadge" class="gate-badge">—</div>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric panel"><span id="mLabel1">Preset</span><strong id="m1">—</strong></article>
+            <article class="metric panel"><span id="mLabel2">Truth loss</span><strong id="m2">—</strong></article>
+            <article class="metric panel"><span id="mLabel3">Conventional loss</span><strong id="m3">—</strong></article>
+            <article class="metric panel"><span id="mLabel4">Smart loss</span><strong id="m4">—</strong></article>
+            <article class="metric panel"><span id="mLabel5">Loss error</span><strong id="m5">—</strong></article>
+            <article class="metric panel"><span id="mLabel6">Source P NRMSE</span><strong id="m6">—</strong></article>
+            <article class="metric panel"><span id="mLabel7">Phase P RMSE</span><strong id="m7">—</strong></article>
+            <article class="metric panel"><span id="mLabel8">Hold-out objective</span><strong id="m8">—</strong></article>
+          </div>
+
+          <section id="calibrationPanel" class="panel measurement-panel hidden">
+            <div class="section-title">SMART CALIBRATION TRACE</div>
+            <div class="muted measurement-note">Every changed state must have measurement evidence; weakly observable parameters stay held.</div>
+            <div class="table-wrap"><table class="benchmark-table calibration-table"><thead><tr><th>Stage</th><th>Status</th><th>Before</th><th>After</th><th>Evidence / action</th></tr></thead><tbody id="calibrationRows"></tbody></table></div>
+          </section>
+
+          <section id="unresolvedPanel" class="panel measurement-panel hidden">
+            <div class="section-title">OBSERVABILITY GUARD · HELD PARAMETERS</div>
+            <div class="muted measurement-note">P3 refuses to solve parameters that the measurement set cannot identify reliably.</div>
+            <div class="table-wrap"><table class="benchmark-table unresolved-table"><thead><tr><th>Parameter</th><th>Status</th><th>Why it is held</th></tr></thead><tbody id="unresolvedRows"></tbody></table></div>
+          </section>
+
+          <section id="degradationPanel" class="panel measurement-panel hidden"><div class="section-title">DEGRADATION INVENTORY</div><div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Data defect</th><th>Target</th><th>Applied</th><th>Conventional action</th></tr></thead><tbody id="degradationRows"></tbody></table></div></section>
+
+          <section id="benchmarkPanel" class="panel benchmark-panel hidden"><div class="section-title">BROWSER SCALE CURVE</div><div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Customers</th><th>Buses</th><th>Lines</th><th>Build</th><th>First solve</th><th>Warm avg</th><th>P loss</th><th>Min V</th><th>Unbalance</th><th>Status</th></tr></thead><tbody id="benchmarkRows"></tbody></table></div></section>
+
+          <div class="two-col">
+            <section class="panel"><div id="factsTitle" class="section-title">SMART MODEL</div><div id="networkFacts" class="fact-list"></div></section>
+            <section class="panel"><div id="checksTitle" class="section-title">P3 CHECKS</div><div id="checkList" class="check-list"></div></section>
+          </div>
+
+          <section id="measurementPanel" class="panel measurement-panel hidden"><div class="section-title">SYNTHETIC MEASUREMENT INVENTORY</div><div class="table-wrap"><table class="benchmark-table measurement-table"><thead><tr><th>Channel</th><th>Records</th><th>Resolution</th><th>Status</th></tr></thead><tbody id="measurementRows"></tbody></table></div></section>
+          <section id="samplePanel" class="panel measurement-panel hidden"><div class="section-title">CONVENTIONAL MODEL INPUT · SAMPLE</div><div class="table-wrap"><table class="benchmark-table sample-table"><thead><tr><th>ID</th><th>Location</th><th>Phase</th><th>PF</th><th>AMI</th><th>Mapping</th><th>Timestamp</th></tr></thead><tbody id="sampleRows"></tbody></table></div></section>
+
+          <section class="panel diagnostic-panel"><div class="section-title diagnostic-title">RUNTIME DIAGNOSTICS</div><pre id="diagnostics" class="diagnostics"></pre></section>
+        </section>
+
+        <section id="errorSection" class="panel error-panel hidden"><div class="section-title">ENGINE ERROR</div><div id="errorMessage" class="error-message"></div><pre id="errorStack" class="diagnostics"></pre></section>
       </section>
-
-      <section id="unresolvedPanel" class="panel measurement-panel hidden">
-        <div class="section-title">OBSERVABILITY GUARD · HELD PARAMETERS</div>
-        <div class="muted measurement-note">P3 refuses to “solve” parameters that the available measurements cannot identify reliably.</div>
-        <div class="table-wrap">
-          <table class="benchmark-table unresolved-table">
-            <thead><tr><th>Parameter</th><th>Status</th><th>Why it is held</th></tr></thead>
-            <tbody id="unresolvedRows"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section id="degradationPanel" class="panel measurement-panel hidden">
-        <div class="section-title">DEGRADATION INVENTORY</div>
-        <div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Data defect</th><th>Target</th><th>Applied</th><th>Conventional action</th></tr></thead><tbody id="degradationRows"></tbody></table></div>
-      </section>
-
-      <section id="benchmarkPanel" class="panel benchmark-panel hidden">
-        <div class="section-title">BROWSER SCALE CURVE</div>
-        <div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Customers</th><th>Buses</th><th>Lines</th><th>Build</th><th>First solve</th><th>Warm avg</th><th>P loss</th><th>Min V</th><th>Unbalance</th><th>Status</th></tr></thead><tbody id="benchmarkRows"></tbody></table></div>
-      </section>
-
-      <div class="two-col">
-        <section class="panel"><div id="factsTitle" class="section-title">SMART MODEL</div><div id="networkFacts" class="fact-list"></div></section>
-        <section class="panel"><div id="checksTitle" class="section-title">P3 CHECKS</div><div id="checkList" class="check-list"></div></section>
-      </div>
-
-      <section id="measurementPanel" class="panel measurement-panel hidden">
-        <div class="section-title">SYNTHETIC MEASUREMENT INVENTORY</div>
-        <div class="table-wrap"><table class="benchmark-table measurement-table"><thead><tr><th>Channel</th><th>Records</th><th>Resolution</th><th>Status</th></tr></thead><tbody id="measurementRows"></tbody></table></div>
-      </section>
-
-      <section id="samplePanel" class="panel measurement-panel hidden">
-        <div class="section-title">CONVENTIONAL MODEL INPUT · SAMPLE</div>
-        <div class="table-wrap"><table class="benchmark-table sample-table"><thead><tr><th>ID</th><th>Location</th><th>Phase</th><th>PF</th><th>AMI</th><th>Mapping</th><th>Timestamp</th></tr></thead><tbody id="sampleRows"></tbody></table></div>
-      </section>
-
-      <section class="panel diagnostic-panel">
-        <div class="section-title diagnostic-title">RUNTIME DIAGNOSTICS</div>
-        <pre id="diagnostics" class="diagnostics"></pre>
-      </section>
-    </section>
-
-    <section id="errorSection" class="panel error-panel hidden">
-      <div class="section-title">ENGINE ERROR</div>
-      <div id="errorMessage" class="error-message"></div>
-      <pre id="errorStack" class="diagnostics"></pre>
-    </section>
-
-    <footer>P3 is physics-informed calibration, not black-box AI. Hidden Ground Truth is forbidden during calibration and used only for final synthetic validation.</footer>
+    </div>
   </main>
   <script src="./app.js"></script>
+  <script src="./demo-ui.js"></script>
 </body>
 </html>
