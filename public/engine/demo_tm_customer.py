@@ -19,6 +19,7 @@ import pandapower as pp
 TM_SCENARIO_ID = "tm-customer-independent-v1"
 TM_FINGERPRINT = "20KV-TM-2P8KM-96QH-ASYM-V1"
 TM_INTERVALS = 96
+TM_INTERVAL_MINUTES = 15
 TM_INTERVAL_HOURS = 0.25
 TM_SEED = 61850 + 907
 TM_LENGTH_KM = 2.8
@@ -219,11 +220,29 @@ def run_tm_customer_demo():
     smart_nrmse = _tm_rmse([r["source_residual_kw"] for r in smart_records]) / peak_measured * 100.0
     min_v = min(r["vm_min_pu"] for r in smart_records)
 
+    series = []
+    for i in range(TM_INTERVALS):
+        series.append({
+            "index": i,
+            "time": truth_records[i]["time"],
+            "truth_loss_kw": float(truth_records[i]["loss_kw"]),
+            "conventional_loss_kw": float(conventional_records[i]["loss_kw"]),
+            "smart_loss_kw": float(smart_records[i]["loss_kw"]),
+            "observed_source_kw": float(measured_source[i]),
+            "conventional_source_kw": float(conventional_records[i]["source_kw"]),
+            "smart_source_kw": float(smart_records[i]["source_kw"]),
+        })
+
     checks = [
         {
             "name": "independent TM identity",
             "pass": TM_SCENARIO_ID == "tm-customer-independent-v1" and TM_INTERVALS == 96,
             "detail": f"{TM_FINGERPRINT} · 96 x 15-minute intervals",
+        },
+        {
+            "name": "canonical 15-minute series",
+            "pass": len(series) == 96 and series[-1]["time"] == "23:45",
+            "detail": "series aligns to the shared operational timebase",
         },
         {
             "name": "independent TM physics converged",
@@ -268,7 +287,7 @@ def run_tm_customer_demo():
             "name": "Pelanggan TM independen",
             "topology": "20 kV feeder → dedicated 2.8 km MV line → one metered asymmetric 3-phase customer",
             "intervals": TM_INTERVALS,
-            "interval_minutes": 15,
+            "interval_minutes": TM_INTERVAL_MINUTES,
             "line_length_km": TM_LENGTH_KM,
             "profile": "independent commercial/industrial quarter-hour demand with measured phase P/Q",
         },
@@ -294,6 +313,17 @@ def run_tm_customer_demo():
                 "source_nrmse_percent": smart_nrmse,
                 "line_r_ohm_per_km": smart_r,
             },
+        },
+        "series": series,
+        "provenance": {
+            "source_type": "synthetic_demo",
+            "dataset_mode": "deterministic_synthetic",
+            "scenario_id": TM_SCENARIO_ID,
+            "fingerprint": TM_FINGERPRINT,
+            "seed": TM_SEED,
+            "generated_by": "demo_tm_customer.py",
+            "solver": "pandapower.runpp_3ph",
+            "truth_policy": "hidden synthetic truth is validation-only; calibration uses dedicated TM measurements and bounded line-R fitting",
         },
         "smart_action": {
             "classification": "BOUNDED_LINE_CALIBRATION",
