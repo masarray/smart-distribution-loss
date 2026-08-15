@@ -25,9 +25,7 @@ function loadPyodideRuntimeScript() {
   if (runtimeScriptLoaded) return;
   progress(5, 'Loading Pyodide runtime script', `Pyodide ${PYODIDE_VERSION}`);
   importScripts(`${PYODIDE_INDEX}pyodide.js`);
-  if (typeof self.loadPyodide !== 'function') {
-    throw new Error('Pyodide runtime loaded but loadPyodide() is unavailable.');
-  }
+  if (typeof self.loadPyodide !== 'function') throw new Error('Pyodide runtime loaded but loadPyodide() is unavailable.');
   runtimeScriptLoaded = true;
 }
 
@@ -54,13 +52,8 @@ async function initialize() {
   loadPyodideRuntimeScript();
   progress(10, 'Initializing Pyodide', 'CPython / WebAssembly runtime');
   pyodide = await self.loadPyodide({ indexURL: PYODIDE_INDEX });
-
   progress(24, 'Loading scientific stack', 'NumPy · pandas · SciPy · NetworkX · lxml');
-  await pyodide.loadPackage([
-    'micropip', 'numpy', 'pandas', 'scipy', 'networkx', 'lxml',
-    'packaging', 'tqdm', 'typing-extensions',
-  ]);
-
+  await pyodide.loadPackage(['micropip', 'numpy', 'pandas', 'scipy', 'networkx', 'lxml', 'packaging', 'tqdm', 'typing-extensions']);
   const micropip = pyodide.pyimport('micropip');
   try {
     progress(40, 'Installing browser-safe dependencies', `${DEEPDIFF_PIN} · ${GEOJSON_PIN}`);
@@ -70,7 +63,6 @@ async function initialize() {
   } finally {
     micropip.destroy();
   }
-
   progress(69, 'Import-checking Pandapower', 'Verifying the browser physics runtime');
   await pyodide.runPythonAsync(`
 import pandapower as _pp_browser_check
@@ -82,12 +74,8 @@ assert _pp_browser_check.__version__ == "3.1.2"
 function commonRuntime() {
   let wasmHeapMb = null;
   try {
-    wasmHeapMb = pyodide?._module?.HEAP8?.buffer?.byteLength
-      ? pyodide._module.HEAP8.buffer.byteLength / (1024 * 1024)
-      : null;
-  } catch (_) {
-    wasmHeapMb = null;
-  }
+    wasmHeapMb = pyodide?._module?.HEAP8?.buffer?.byteLength ? pyodide._module.HEAP8.buffer.byteLength / (1024 * 1024) : null;
+  } catch (_) { wasmHeapMb = null; }
   return {
     worker_init_ms: initMs,
     execution_location: 'browser-web-worker',
@@ -108,21 +96,14 @@ async function buildP1TruthIfNeeded({ emitSteps = false, progressBase = 70, prog
   await ensureP1Engines();
   const ready = await pyodide.runPythonAsync('_P1_SESSION is not None and len(_P1_SESSION.get("records", [])) == 96');
   if (ready) return { reused: true, payload: null };
-
   const startRaw = await pyodide.runPythonAsync('start_p1_session_json()');
   const start = JSON.parse(startRaw);
   if (emitSteps) self.postMessage({ type: 'p1-start', payload: start });
-
   for (let i = 0; i < 96; i += 1) {
-    if (i === 0 || i === 95 || i % 8 === 0) {
-      progress(progressBase + Math.round(((i + 1) / 96) * progressSpan), 'Rebuilding hidden Ground Truth', `${i + 1}/96 intervals`);
-    }
+    if (i === 0 || i === 95 || i % 8 === 0) progress(progressBase + Math.round(((i + 1) / 96) * progressSpan), 'Rebuilding hidden Ground Truth', `${i + 1}/96 intervals`);
     const raw = await pyodide.runPythonAsync(`run_p1_step_json(${i})`);
-    if (emitSteps && (i === 0 || i === 95 || i % 4 === 0)) {
-      self.postMessage({ type: 'p1-step', index: i, total: 96, payload: JSON.parse(raw) });
-    }
+    if (emitSteps && (i === 0 || i === 95 || i % 4 === 0)) self.postMessage({ type: 'p1-step', index: i, total: 96, payload: JSON.parse(raw) });
   }
-
   const finalRaw = await pyodide.runPythonAsync('finish_p1_json()');
   const payload = JSON.parse(finalRaw);
   if (!payload.gate?.pass) throw new Error('P1 Ground Truth regression failed.');
@@ -131,21 +112,14 @@ async function buildP1TruthIfNeeded({ emitSteps = false, progressBase = 70, prog
 
 async function buildP2BaselineIfNeeded(preset = 'typical', { emitSteps = false, progressBase = 80, progressSpan = 8 } = {}) {
   await ensureEngine('p2_degradation.py');
-  const normalized = ['good', 'typical', 'poor'].includes(String(preset).toLowerCase())
-    ? String(preset).toLowerCase()
-    : 'typical';
+  const normalized = ['good', 'typical', 'poor'].includes(String(preset).toLowerCase()) ? String(preset).toLowerCase() : 'typical';
   const ready = await pyodide.runPythonAsync(`_P2_SESSION is not None and _P2_SESSION.get("preset") == ${JSON.stringify(normalized)} and len(_P2_SESSION.get("records", [])) == 96`);
   if (ready) return { reused: true, payload: null };
-
   await pyodide.runPythonAsync(`start_p2_session_json(${JSON.stringify(normalized)})`);
   for (let i = 0; i < 96; i += 1) {
-    if (i === 0 || i === 95 || i % 8 === 0) {
-      progress(progressBase + Math.round(((i + 1) / 96) * progressSpan), 'Rebuilding conventional P2 baseline', `${i + 1}/96 degraded-data power flows`);
-    }
+    if (i === 0 || i === 95 || i % 8 === 0) progress(progressBase + Math.round(((i + 1) / 96) * progressSpan), 'Rebuilding conventional P2 baseline', `${i + 1}/96 degraded-data power flows`);
     const raw = await pyodide.runPythonAsync(`run_p2_step_json(${i})`);
-    if (emitSteps && (i === 0 || i === 95 || i % 4 === 0)) {
-      self.postMessage({ type: 'p2-step', index: i, total: 96, payload: JSON.parse(raw) });
-    }
+    if (emitSteps && (i === 0 || i === 95 || i % 4 === 0)) self.postMessage({ type: 'p2-step', index: i, total: 96, payload: JSON.parse(raw) });
   }
   const finalRaw = await pyodide.runPythonAsync('finish_p2_json()');
   const payload = JSON.parse(finalRaw);
@@ -171,10 +145,7 @@ async function runP0B() {
   await initialize();
   progress(72, 'Loading P0-B network engine', '3 JTR branches · deterministic 90-customer population');
   await ensureEngine('p0b_engine.py');
-  const plan = [
-    { count: 1, repeats: 3 }, { count: 10, repeats: 3 }, { count: 30, repeats: 3 },
-    { count: 60, repeats: 3 }, { count: 90, repeats: 25 },
-  ];
+  const plan = [{ count: 1, repeats: 3 }, { count: 10, repeats: 3 }, { count: 30, repeats: 3 }, { count: 60, repeats: 3 }, { count: 90, repeats: 25 }];
   const cases = [];
   for (let i = 0; i < plan.length; i += 1) {
     const step = plan[i];
@@ -243,10 +214,17 @@ async function runP3(preset = 'typical') {
   await initialize();
   const normalizedPreset = ['good', 'typical', 'poor'].includes(String(preset).toLowerCase()) ? String(preset).toLowerCase() : 'typical';
 
-  progress(70, 'Preparing immutable reference', 'P3 calibration never receives hidden Ground Truth states');
-  await buildP1TruthIfNeeded({ progressBase: 70, progressSpan: 7 });
-  progress(78, 'Preparing conventional baseline', `${normalizedPreset.toUpperCase()} degraded view must be identical to P2`);
-  await buildP2BaselineIfNeeded(normalizedPreset, { progressBase: 78, progressSpan: 7 });
+  progress(70, 'Proving the easy case first', 'MV spot load · complete observability · Smart Engine should make only minimal correction');
+  await ensureEngine('demo_spot_load.py');
+  const spotRaw = await pyodide.runPythonAsync('run_spot_load_demo_json()');
+  const spotPayload = JSON.parse(spotRaw);
+  if (!spotPayload.gate?.pass) throw new Error('Spot-load accuracy proof failed; public comparison demo is not valid.');
+  self.postMessage({ type: 'spot-demo', payload: spotPayload });
+
+  progress(72, 'Preparing immutable distribution reference', 'P3 calibration never receives hidden Ground Truth states');
+  await buildP1TruthIfNeeded({ progressBase: 72, progressSpan: 6 });
+  progress(79, 'Preparing conventional distribution baseline', `${normalizedPreset.toUpperCase()} degraded view must be identical to P2`);
+  await buildP2BaselineIfNeeded(normalizedPreset, { progressBase: 79, progressSpan: 6 });
 
   progress(86, 'Loading P3 Smart Calibration engine', 'Staged deterministic physics-informed inference · no black-box ML');
   await ensureEngine('p3_smart_calibration.py');
@@ -264,26 +242,47 @@ async function runP3(preset = 'typical') {
     ['p3_stage_network_parameters()', 'Loss-consistent network calibration', 'Fit transformer Pfe against the current smart-state three-phase physics'],
     ['p3_build_smart_network()', 'Build smart physics model', 'Rebuild separate Pandapower model from calibrated degraded state'],
   ];
-
   for (let i = 0; i < stages.length; i += 1) {
     const [expr, label, detail] = stages[i];
     progress(87 + Math.round((i / stages.length) * 5), label, detail);
     const raw = await pyodide.runPythonAsync(`json.dumps(${expr}, allow_nan=False)`);
     self.postMessage({ type: 'p3-stage', index: i, total: stages.length, payload: JSON.parse(raw) });
   }
-
   for (let i = 0; i < 96; i += 1) {
     const pct = 92 + Math.round(((i + 1) / 96) * 6);
-    if (i === 0 || i === 95 || i % 4 === 0) progress(pct, 'Validating smart model', `${i + 1}/96 full three-phase hold-out-capable power flows`);
+    if (i === 0 || i === 95 || i % 4 === 0) progress(pct, 'Validating smart distribution model', `${i + 1}/96 full three-phase hold-out-capable power flows`);
     const raw = await pyodide.runPythonAsync(`run_p3_step_json(${i})`);
     if (i === 0 || i === 95 || i % 4 === 0) self.postMessage({ type: 'p3-step', index: i, total: 96, payload: JSON.parse(raw) });
   }
 
-  progress(99, 'Scoring Smart Calibration', 'Calibration vs 32 unseen intervals · conventional vs smart · validation-only Ground Truth');
+  progress(99, 'Scoring both PLN discussion cases', 'Spot load high-observability proof + distribution-transformer Smart Calibration');
   const finalRaw = await pyodide.runPythonAsync('finish_p3_json()');
   const payload = JSON.parse(finalRaw);
   payload.versions = { pyodide: PYODIDE_VERSION, pandapower: PANDAPOWER_PIN.split('==')[1] };
   payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
+  payload.spot_load_demo = spotPayload;
+  payload.pln_discussion_demo = {
+    thesis: 'Same physics. Different observability.',
+    spot_load: {
+      observability: spotPayload.observability.verdict,
+      conventional_loss_error_percent: spotPayload.comparison.conventional.loss_error_percent_validation_only,
+      smart_loss_error_percent: spotPayload.comparison.smart.loss_error_percent_validation_only,
+      smart_action: spotPayload.smart_action.classification,
+    },
+    distribution_transformer: {
+      observability: normalizedPreset.toUpperCase(),
+      conventional_loss_error_percent: payload.comparison.conventional.loss_error_percent_validation_only,
+      smart_loss_error_percent: payload.comparison.smart.loss_error_percent_validation_only,
+      source_nrmse_before_percent: payload.comparison.conventional.source_nrmse_percent,
+      source_nrmse_after_percent: payload.comparison.smart.source_nrmse_percent,
+      phase_rmse_before_kw: payload.comparison.conventional.phase_rmse_kw,
+      phase_rmse_after_kw: payload.comparison.smart.phase_rmse_kw,
+      holdout_objective_before: payload.comparison.conventional.objective_validation,
+      holdout_objective_after: payload.comparison.smart.objective_validation,
+    },
+    synthetic_claim: 'With hidden Ground Truth available only for final validation, Smart Calibration improves the poorly observed distribution model while preserving the already-accurate spot-load case.',
+    field_claim: 'On field data, accuracy must be stated against independent measurements and hold-out residuals, not an unavailable hidden truth.',
+  };
   return payload;
 }
 
