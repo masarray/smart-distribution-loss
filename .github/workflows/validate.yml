@@ -32,6 +32,7 @@ jobs:
           python -m py_compile web/engine/p2_degradation.py
           python -m py_compile web/engine/p3_smart_calibration.py
           python -m py_compile web/engine/p3_loss_consistency.py
+          python -m py_compile web/engine/demo_spot_load.py
 
       - name: Public cockpit contract
         run: |
@@ -42,6 +43,8 @@ jobs:
           grep -q 'id="gateBadge"' web/index.html
           grep -q 'id="diagnostics"' web/index.html
           grep -q './demo-ui.js' web/index.html
+          grep -q 'plnDiscussionProof' web/demo-ui.js
+          grep -q 'spot_load_demo' web/worker.js
 
       - name: Required files
         run: |
@@ -49,6 +52,7 @@ jobs:
           test -f web/styles.css
           test -f web/p3.css
           test -f web/demo-ui.js
+          test -f web/engine/demo_spot_load.py
           test -f docs/P0A-GATE.md
           test -f docs/P0B-GATE.md
           test -f docs/P1-GROUND-TRUTH.md
