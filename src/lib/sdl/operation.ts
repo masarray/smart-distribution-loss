@@ -1,7 +1,16 @@
 import type { AssetId } from "./derive";
-import { PRESET_PROFILE, type P3Result, type Preset, type SeriesPoint, type SpotDemo, type TmDemo } from "./types";
+import {
+  PRESET_PROFILE,
+  type LossSeriesPoint,
+  type P3Result,
+  type Preset,
+  type SeriesPoint,
+  type SpotDemo,
+  type TmDemo,
+} from "./types";
 
 export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW" | "REVIEW";
+export type AnalysisStatus = "NORMAL" | "ATTENTION" | "REVIEW" | "PENDING";
 
 export interface QualityMetric {
   label: string;
@@ -17,6 +26,16 @@ export interface OperationalMetrics {
   confidenceBasis: string;
   sourceEnergyKwh: number | null;
   lossRatePercent: number | null;
+  status: AnalysisStatus;
+  statusReason: string;
+}
+
+export interface LossSeriesSummary {
+  peakSmartKw: number | null;
+  peakConventionalKw: number | null;
+  peakTime: string | null;
+  deltaAtPeakKw: number | null;
+  averageSmartKw: number | null;
 }
 
 function numericObservation(demo: SpotDemo | TmDemo | null, key: string, fallback = 100) {
@@ -52,6 +71,72 @@ function hasFailedGate(assetId: AssetId, result: P3Result | null, spot: SpotDemo
       (spot != null && !spot.gate.pass) ||
       (tm != null && !tm.gate.pass),
   );
+}
+
+function deriveStatus(
+  calculated: boolean,
+  failedGate: boolean,
+  confidence: ConfidenceLevel,
+  qualityIssueCount: number,
+): Pick<OperationalMetrics, "status" | "statusReason"> {
+  if (!calculated) {
+    return { status: "PENDING", statusReason: "Menunggu hasil simulasi." };
+  }
+  if (failedGate || confidence === "REVIEW") {
+    return { status: "REVIEW", statusReason: "Engineering gate memerlukan review." };
+  }
+  if (confidence === "LOW" || qualityIssueCount >= 2) {
+    return {
+      status: "ATTENTION",
+      statusReason: "Hasil tersedia, tetapi kualitas input perlu perhatian.",
+    };
+  }
+  return { status: "NORMAL", statusReason: "Gate lulus dan kualitas input memadai." };
+}
+
+export function summarizeLossSeries(
+  series: Array<LossSeriesPoint | SeriesPoint> | undefined,
+): LossSeriesSummary {
+  if (!series?.length) {
+    return {
+      peakSmartKw: null,
+      peakConventionalKw: null,
+      peakTime: null,
+      deltaAtPeakKw: null,
+      averageSmartKw: null,
+    };
+  }
+
+  let peak: LossSeriesPoint | SeriesPoint | null = null;
+  let smartTotal = 0;
+  let valid = 0;
+  for (const point of series) {
+    const smart = Number(point.smart_loss_kw);
+    if (!Number.isFinite(smart)) continue;
+    smartTotal += smart;
+    valid += 1;
+    if (peak == null || smart > Number(peak.smart_loss_kw)) peak = point;
+  }
+
+  if (!peak || valid === 0) {
+    return {
+      peakSmartKw: null,
+      peakConventionalKw: null,
+      peakTime: null,
+      deltaAtPeakKw: null,
+      averageSmartKw: null,
+    };
+  }
+
+  const peakSmartKw = Number(peak.smart_loss_kw);
+  const peakConventionalKw = Number(peak.conventional_loss_kw);
+  return {
+    peakSmartKw,
+    peakConventionalKw: Number.isFinite(peakConventionalKw) ? peakConventionalKw : null,
+    peakTime: peak.time,
+    deltaAtPeakKw: Number.isFinite(peakConventionalKw) ? peakSmartKw - peakConventionalKw : null,
+    averageSmartKw: smartTotal / valid,
+  };
 }
 
 export function deriveOperationalMetrics(
@@ -119,20 +204,29 @@ export function deriveOperationalMetrics(
       : null;
   }
 
-  if (hasFailedGate(assetId, result, spot, tm)) confidence = "REVIEW";
+  const failedGate = hasFailedGate(assetId, result, spot, tm);
+  if (failedGate) confidence = "REVIEW";
 
+  const qualityIssueCount = qualityRows.filter((row) => row.percent < 85).length;
   const lossRatePercent =
     sourceEnergyKwh != null && smartLossKwh != null && Number.isFinite(smartLossKwh) && sourceEnergyKwh > 0
       ? (smartLossKwh / sourceEnergyKwh) * 100
       : null;
+  const status = deriveStatus(
+    smartLossKwh != null && Number.isFinite(smartLossKwh),
+    failedGate,
+    confidence,
+    qualityIssueCount,
+  );
 
   return {
     qualityLabel,
     qualityRows,
-    qualityIssueCount: qualityRows.filter((row) => row.percent < 85).length,
+    qualityIssueCount,
     confidence,
     confidenceBasis,
     sourceEnergyKwh,
     lossRatePercent,
+    ...status,
   };
 }
