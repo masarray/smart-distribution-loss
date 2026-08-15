@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CircuitBoard, Database, Gauge, Percent, Play, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,13 +30,9 @@ export default function App() {
     () => deriveAssets(state.result, state.spot, state.tm),
     [state.result, state.spot, state.tm],
   );
-  const active = assets.find((a) => a.id === selected) ?? assets[0];
+  const active = assets.find((asset) => asset.id === selected) ?? assets[0];
   const running = state.status === "running";
   const energised = state.status === "running" || state.status === "done";
-
-  const gdLossKwh = state.result?.comparison.smart.loss_kwh ?? null;
-  const mvLossKwh = state.spot?.comparison.smart.loss_kwh ?? null;
-  const tmLossKwh = state.tm?.comparison.smart.loss_kwh ?? null;
 
   const operational = deriveOperationalMetrics(
     selected,
@@ -68,10 +64,10 @@ export default function App() {
     [state.result, selected],
   );
   const selectedSummary = useMemo(() => summarizeLossSeries(selectedSeries), [selectedSeries]);
-  const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
   const validation = validationBenefit(active?.convErr, active?.smartErr);
   const feederComponents = assets.filter((asset) => asset.id !== "feeder");
   const feederFormulaReady = feederComponents.every((asset) => asset.smartKwh != null) && active?.smartKwh != null;
+  const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
 
   const progressTitle =
     state.status === "running"
@@ -83,16 +79,12 @@ export default function App() {
           : "Siap dianalisis";
   const progressDetail =
     state.status === "running"
-      ? "Memproses profil 24 jam."
+      ? "Menghitung profil 24 jam."
       : state.status === "done"
-        ? "Hasil terbaru siap digunakan."
+        ? "Hasil terbaru siap."
         : state.status === "error"
-          ? "Buka detail engineering untuk melihat penyebab."
+          ? "Buka detail teknis untuk melihat penyebab."
           : "Pilih kualitas data lalu jalankan simulasi.";
-
-  const selectAsset = (id: AssetId) => {
-    setSelected(id);
-  };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -103,24 +95,24 @@ export default function App() {
           </span>
           <div className="leading-tight">
             <h1 className="font-display text-sm font-semibold">Smart Distribution Loss</h1>
-            <p className="label-xs">Operator View · Loss Monitoring</p>
+            <p className="label-xs">Monitoring susut distribusi</p>
           </div>
         </div>
 
         <nav className="ml-4 flex items-center gap-1 rounded-lg bg-surface-2 p-1">
-          {assets.map((a) => (
+          {assets.map((asset) => (
             <button
-              key={a.id}
+              key={asset.id}
               type="button"
-              onClick={() => selectAsset(a.id)}
+              onClick={() => setSelected(asset.id)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                selected === a.id
+                selected === asset.id
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {a.short}
+              {asset.short}
             </button>
           ))}
         </nav>
@@ -130,14 +122,14 @@ export default function App() {
             type="button"
             onClick={() => setDatasetManagerOpen(true)}
             aria-label="Kelola dataset"
-            className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2 py-1.5 text-[10px] font-semibold tracking-wider text-warn transition-colors hover:border-warn/45 hover:bg-warn/10 lg:flex"
+            className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-warn transition-colors hover:border-warn/45 hover:bg-warn/10 lg:flex"
           >
-            <Database className="size-3" /> DATA · DEMO SINTETIS
+            <Database className="size-3" /> DEMO SINTETIS
           </button>
           <div className="hidden items-center gap-2 lg:flex">
             <span className="label-xs">Kualitas data</span>
-            <Select value={preset} onValueChange={(v) => setPreset(v as Preset)} disabled={running}>
-              <SelectTrigger className="h-8 w-36 border-border/70 bg-surface-2 text-xs">
+            <Select value={preset} onValueChange={(value) => setPreset(value as Preset)} disabled={running}>
+              <SelectTrigger className="h-8 w-32 border-border/70 bg-surface-2 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -162,14 +154,7 @@ export default function App() {
               running ? "animate-pulse bg-warn" : state.status === "done" ? "bg-success/65" : "bg-muted-foreground/65",
             )}
           />
-          <span
-            className={cn(
-              "font-medium transition-colors",
-              running ? "text-foreground" : state.status === "done" ? "text-muted-foreground/90" : "text-muted-foreground",
-            )}
-          >
-            {progressTitle}
-          </span>
+          <span className={cn("font-medium", running ? "text-foreground" : "text-muted-foreground/90")}>{progressTitle}</span>
           <span className="truncate text-muted-foreground/75">{progressDetail}</span>
           <span className="numeric ml-auto text-muted-foreground/75">
             {state.intervals.done}/{state.intervals.total} interval · {Math.round(state.progress.percent)}%
@@ -177,7 +162,7 @@ export default function App() {
         </div>
         <div
           className={cn(
-            "absolute bottom-0 left-0 h-0.5 transition-all duration-500",
+            "absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out",
             running ? "bg-primary/90" : state.status === "done" ? "bg-primary/25" : "bg-muted-foreground/20",
           )}
           style={{ width: `${state.progress.percent}%` }}
@@ -222,9 +207,7 @@ export default function App() {
               </span>
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              {operational.qualityIssueCount === 0
-                ? "Data utama cukup untuk analisis."
-                : `${operational.qualityIssueCount} bagian data perlu diperhatikan.`}
+              {operational.qualityIssueCount === 0 ? "Data siap dianalisis." : `${operational.qualityIssueCount} bagian data perlu dicek.`}
             </p>
           </div>
 
@@ -235,30 +218,31 @@ export default function App() {
             onClick={() => setDataDrawerOpen(true)}
           >
             <Database className="size-3.5" />
-            Lihat data &amp; input
+            Lihat data
           </Button>
         </section>
 
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel relative min-h-0 flex-1 overflow-hidden">
             <div className="absolute left-3 top-3 z-10">
-              <p className="label-xs">Jaringan distribusi · live</p>
+              <p className="label-xs">Jaringan distribusi</p>
               <p className="font-display text-sm">Penyulang 20 kV → GD-01 → 3 JTR → 90 pelanggan</p>
             </div>
             <SingleLineDiagram
               selected={selected}
-              onSelect={selectAsset}
+              onSelect={setSelected}
               energised={energised}
               intensity={running ? 0.9 : 0.5}
-              gdLossKwh={gdLossKwh}
-              mvLossKwh={mvLossKwh}
-              tmLossKwh={tmLossKwh}
+              gdLossKwh={state.result?.comparison.smart.loss_kwh ?? null}
+              mvLossKwh={state.spot?.comparison.smart.loss_kwh ?? null}
+              tmLossKwh={state.tm?.comparison.smart.loss_kwh ?? null}
             />
           </div>
+
           <div className="panel h-[220px] shrink-0 p-3 pb-1">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="label-xs">Profil susut · {active?.short} · 24 jam · 96 interval</p>
+                <p className="label-xs">Profil susut · {active?.short} · 24 jam</p>
                 {selectedSummary.peakSmartKw != null && selectedSummary.peakTime != null && (
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                     <span data-manager-peak="true">
@@ -275,7 +259,7 @@ export default function App() {
                 )}
               </div>
               <div className="flex shrink-0 gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Tanpa Smart</span>
+                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Model dasar</span>
                 <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart Engine</span>
               </div>
             </div>
@@ -285,12 +269,12 @@ export default function App() {
           </div>
         </section>
 
-        <section className="flex min-h-0 flex-col gap-3">
-          <div className="panel p-3">
+        <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3" data-right-column="true">
+          <div className="panel p-2.5" data-selected-asset-panel="true">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="label-xs">Aset terpilih</p>
-                <p className="font-display text-sm">{active?.label}</p>
+                <p className="truncate font-display text-sm">{active?.label}</p>
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   <span className={cn("size-1.5 rounded-full", statusDotClass(operational.status))} />
                   <span className={statusTextClass(operational.status)}>{statusLabel(operational.status)}</span>
@@ -303,106 +287,116 @@ export default function App() {
             </div>
 
             {selected === "feeder" && (
-              <div className="mt-3 rounded-md border border-border/55 bg-surface-2/55 p-2.5" data-feeder-rollup="true">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="label-xs">Roll-up Penyulang 20 kV</span>
-                  <span className="text-[9px] font-semibold text-primary">3 KOMPONEN · DIHITUNG 1×</span>
+              <div className="mt-2 rounded-md border border-border/55 bg-surface-2/55 p-2" data-feeder-rollup="true">
+                <div className="flex items-center justify-between">
+                  <span className="label-xs">Total Penyulang 20 kV</span>
+                  <span className="text-[9px] font-semibold text-primary">3 aset</span>
                 </div>
-                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                  Total penyulang adalah penjumlahan susut tiga objek di bawah. Referensi TM adalah cabang terukur yang berfungsi sebagai measurement reference, bukan salinan Pelanggan TM.
-                </p>
-                <div className="mt-2 space-y-1">
+                <div className="mt-1.5 space-y-1">
                   {feederComponents.map((component) => (
-                    <div key={component.id} className="flex items-center justify-between gap-2 text-[10px]" data-feeder-component={component.id}>
-                      <span className="min-w-0 truncate text-foreground">{component.short}</span>
-                      <span className="shrink-0 text-muted-foreground">{feederRole(component.id)}</span>
+                    <div key={component.id} className="grid grid-cols-[minmax(0,1fr)_78px_auto] items-center gap-2 text-[10px]" data-feeder-component={component.id}>
+                      <span className="truncate text-foreground">{component.short}</span>
+                      <span className="truncate text-muted-foreground" data-feeder-role={component.id}>{feederRole(component.id)}</span>
                       <span className="numeric shrink-0">{fmt(component.smartKwh, 1)} kWh</span>
-                      <span className="shrink-0 font-semibold text-success" data-feeder-role={component.id}>MASUK TOTAL</span>
                     </div>
                   ))}
                 </div>
-                <p className="numeric mt-2 border-t border-border/50 pt-2 text-[10px] text-foreground" data-feeder-formula="true">
-                  {feederFormulaReady
-                    ? `${feederComponents.map((component) => fmt(component.smartKwh, 1)).join(" + ")} = ${fmt(active?.smartKwh, 1)} kWh/hari`
-                    : "Menunggu hasil simulasi untuk menampilkan formula roll-up."}
-                </p>
+                <div className="mt-1.5 flex items-center justify-between border-t border-border/50 pt-1.5 text-[10px]">
+                  <span className="font-medium text-foreground">Total</span>
+                  <span className="numeric font-semibold text-primary" data-feeder-formula="true">
+                    {feederFormulaReady ? `${fmt(active?.smartKwh, 1)} kWh/hari` : "—"}
+                  </span>
+                </div>
               </div>
             )}
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Kpi icon={<Zap className="size-3.5" />} label="Dengan Smart" value={fmt(active?.smartKwh, 2)} unit="estimasi susut teknis · kWh/hari" tone="primary" />
-              <Kpi icon={<Gauge className="size-3.5" />} label="Tanpa Smart" value={fmt(active?.convKwh, 2)} unit="model dasar · kWh/hari" tone="warn" />
-              <Kpi icon={<Percent className="size-3.5" />} label="Rasio susut" value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`} unit="dari energi tersalurkan" tone="primary" />
-              <Kpi icon={<ShieldCheck className="size-3.5" />} label="Keandalan" value={confidenceLabel(operational.confidence)} unit="berdasarkan kualitas data" tone={confidenceTone(operational.confidence)} />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Kpi
+                icon={<Zap className="size-3.5" />}
+                label="Smart Engine"
+                value={fmt(active?.smartKwh, 2)}
+                unit="kWh/hari"
+                tone="primary"
+                title="Estimasi susut teknis dari Smart Engine."
+              />
+              <Kpi
+                icon={<Gauge className="size-3.5" />}
+                label="Model dasar"
+                value={fmt(active?.convKwh, 2)}
+                unit="kWh/hari"
+                tone="warn"
+                title="Estimasi sebelum koreksi Smart Engine."
+              />
+              <Kpi
+                icon={<Percent className="size-3.5" />}
+                label="Rasio susut"
+                value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`}
+                unit="dari energi tersalurkan"
+                tone="primary"
+              />
+              <Kpi
+                icon={<ShieldCheck className="size-3.5" />}
+                label="Keandalan"
+                value={confidenceLabel(operational.confidence)}
+                unit="kualitas data"
+                tone={confidenceTone(operational.confidence)}
+              />
             </div>
 
-            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-technical-loss-definition="true">
-              Susut teknis = energi yang hilang secara fisik di jaringan/peralatan listrik. “Tanpa Smart” memakai model dasar; “Dengan Smart” memakai hasil Smart Engine yang menyesuaikan parameter yang memang teridentifikasi oleh data.
+            <p className="mt-1.5 text-[9.5px] text-muted-foreground" data-technical-loss-definition="true" title="Energi yang hilang pada penghantar, trafo, dan peralatan jaringan.">
+              Susut teknis: rugi energi pada jaringan dan trafo.
             </p>
 
             {state.status === "done" && validation && (
-              <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5" data-validation-benefit="true">
+              <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2" data-validation-benefit="true">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="label-xs">Validasi demo · manfaat Smart Engine</span>
+                  <span className="label-xs">Akurasi demo</span>
                   <span className={cn("numeric text-[10px] font-semibold", validation.gainPoints >= 0 ? "text-success" : "text-warn")}>
-                    {validation.gainPoints >= 0 ? "+" : ""}{validation.gainPoints.toFixed(2)} poin akurasi
+                    {validation.gainPoints >= 0 ? "+" : ""}{validation.gainPoints.toFixed(2)} poin
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-2 text-[11px]">
-                  <span className="text-muted-foreground">Tanpa Smart</span>
+                <div className="mt-1 flex items-center gap-2 text-[10.5px]">
+                  <span className="text-muted-foreground">Model dasar</span>
                   <span className="numeric font-semibold">{validation.conventionalAccuracy.toFixed(2)}%</span>
                   <span className="text-muted-foreground">→</span>
-                  <span className="text-muted-foreground">Smart Engine</span>
+                  <span className="text-muted-foreground">Smart</span>
                   <span className="numeric font-semibold text-primary">{validation.smartAccuracy.toFixed(2)}%</span>
+                  <span className="ml-auto text-[9px] text-muted-foreground">* demo</span>
                 </div>
-                <p className="mt-1 text-[9.5px] leading-relaxed text-muted-foreground">
-                  Akurasi demo dihitung terhadap acuan validasi tersembunyi yang tidak dipakai untuk kalibrasi. Pada data lapangan tanpa acuan, akurasi absolut tidak boleh diklaim.
-                </p>
               </div>
             )}
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-9 gap-2 text-xs font-semibold"
-                onClick={() => setDataDrawerOpen(true)}
-              >
-                <Database className="size-3.5" />
-                Data &amp; input
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button variant="secondary" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setDataDrawerOpen(true)}>
+                <Database className="size-3.5" /> Data
               </Button>
-              <Button
-                size="sm"
-                className="h-9 gap-2 text-xs font-semibold"
-                onClick={() => setEngineeringDrawerOpen(true)}
-              >
-                <ShieldCheck className="size-3.5" />
-                Engineering view
+              <Button size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setEngineeringDrawerOpen(true)}>
+                <ShieldCheck className="size-3.5" /> Detail teknis
               </Button>
             </div>
           </div>
 
-          <div className="panel min-h-0 flex-1 overflow-hidden p-3">
+          <div className="panel min-h-0 overflow-auto p-2.5" data-asset-status-panel="true">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="label-xs">Status susut per aset</p>
+              <p className="label-xs">Status aset</p>
               {exceptionCount > 0 && (
                 <span className="rounded-md border border-warn/25 bg-warn/5 px-2 py-1 text-[9px] font-semibold text-warn" data-exception-count="true">
-                  {exceptionCount} perlu perhatian
+                  {exceptionCount} perhatian
                 </span>
               )}
             </div>
             <div className="space-y-1.5">
-              {assetMetrics.map(({ asset: a, metric }) => {
-                const selectedRow = selected === a.id;
+              {assetMetrics.map(({ asset, metric }) => {
+                const selectedRow = selected === asset.id;
                 const exception = isException(metric.status);
                 return (
                   <button
-                    key={a.id}
+                    key={asset.id}
                     type="button"
-                    onClick={() => selectAsset(a.id)}
+                    onClick={() => setSelected(asset.id)}
                     data-analysis-status={metric.status}
                     className={cn(
-                      "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
+                      "w-full rounded-md border px-2.5 py-1.5 text-left transition-colors",
                       selectedRow
                         ? "border-primary/50 bg-primary/10"
                         : exception
@@ -413,18 +407,16 @@ export default function App() {
                     <div className="flex items-center justify-between gap-3">
                       <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
                         <i className={cn("size-1.5 shrink-0 rounded-full", statusDotClass(metric.status))} />
-                        <span className="truncate">{a.short}</span>
+                        <span className="truncate">{asset.short}</span>
                       </span>
                       <span className="numeric shrink-0 text-xs">
-                        {fmt(a.smartKwh, 1)} kWh
+                        {fmt(asset.smartKwh, 1)} kWh
                         {metric.lossRatePercent != null ? ` · ${metric.lossRatePercent.toFixed(2)}%` : ""}
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
                       <span className="truncate">{operatorAssetNote(metric.status)}</span>
-                      <span className={cn("shrink-0 font-semibold", statusTextClass(metric.status))}>
-                        {statusLabel(metric.status)}
-                      </span>
+                      <span className={cn("shrink-0 font-semibold", statusTextClass(metric.status))}>{statusLabel(metric.status)}</span>
                     </div>
                   </button>
                 );
@@ -432,13 +424,11 @@ export default function App() {
             </div>
 
             {state.status === "error" && (
-              <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
-                {state.error}
-              </p>
+              <p className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">{state.error}</p>
             )}
             {state.status === "done" && state.result && !state.result.gate.pass && (
-              <p className="mt-3 rounded-md border border-destructive/35 bg-destructive/10 p-2 text-[10.5px] text-destructive">
-                PERLU TINJAU · Buka Engineering View.
+              <p className="mt-2 rounded-md border border-destructive/35 bg-destructive/10 p-2 text-[10.5px] text-destructive">
+                Perlu tinjau · buka Detail teknis.
               </p>
             )}
           </div>
@@ -483,17 +473,13 @@ function validationBenefit(conventionalError: number | null | undefined, smartEr
   }
   const conventionalAccuracy = Math.max(0, 100 - Math.abs(conventionalError));
   const smartAccuracy = Math.max(0, 100 - Math.abs(smartError));
-  return {
-    conventionalAccuracy,
-    smartAccuracy,
-    gainPoints: smartAccuracy - conventionalAccuracy,
-  };
+  return { conventionalAccuracy, smartAccuracy, gainPoints: smartAccuracy - conventionalAccuracy };
 }
 
 function feederRole(id: AssetId) {
-  if (id === "spot") return "REFERENCE UKUR";
-  if (id === "tm" || id === "gd") return "OBJEK INDEPENDEN";
-  return "ROLL-UP";
+  if (id === "spot") return "Data terukur";
+  if (id === "tm" || id === "gd") return "Dihitung sendiri";
+  return "Total";
 }
 
 function operatorQualityHeadline(level: ConfidenceLevel) {
@@ -537,16 +523,16 @@ function statusLabel(status: AnalysisStatus) {
 
 function operatorStatusReason(status: AnalysisStatus) {
   if (status === "NORMAL") return "Hasil stabil.";
-  if (status === "ATTENTION") return "Kualitas data perlu perhatian.";
-  if (status === "REVIEW") return "Perlu pemeriksaan engineering.";
+  if (status === "ATTENTION") return "Cek kualitas data.";
+  if (status === "REVIEW") return "Perlu tinjau teknis.";
   return "Menunggu simulasi.";
 }
 
 function operatorAssetNote(status: AnalysisStatus) {
   if (status === "NORMAL") return "Estimasi tersedia";
-  if (status === "ATTENTION") return "Periksa kualitas data";
-  if (status === "REVIEW") return "Perlu review engineering";
-  return "Menunggu simulasi";
+  if (status === "ATTENTION") return "Cek data";
+  if (status === "REVIEW") return "Tinjau teknis";
+  return "Belum dihitung";
 }
 
 function operatorDomainLabel(domain: string | undefined) {
@@ -577,14 +563,14 @@ function statusBorderClass(status: AnalysisStatus) {
 
 function confidenceTextClass(level: ConfidenceLevel) {
   if (level === "HIGH") return "text-success";
-  if (level === "MEDIUM") return "text-warn";
-  if (level === "LOW" || level === "REVIEW") return "text-destructive";
+  if (level === "MEDIUM" || level === "LOW") return "text-warn";
+  if (level === "REVIEW") return "text-destructive";
   return "text-muted-foreground";
 }
 
 function confidenceTone(level: ConfidenceLevel): "success" | "warn" | "danger" {
   if (level === "HIGH") return "success";
-  if (level === "MEDIUM") return "warn";
+  if (level === "MEDIUM" || level === "LOW") return "warn";
   return "danger";
 }
 
@@ -598,7 +584,7 @@ function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
 
 function confidenceBadgeClass(level: ConfidenceLevel) {
   if (level === "HIGH") return "border-success/30 bg-success/10 text-success";
-  if (level === "MEDIUM") return "border-warn/30 bg-warn/10 text-warn";
+  if (level === "MEDIUM" || level === "LOW") return "border-warn/30 bg-warn/10 text-warn";
   return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
@@ -608,12 +594,14 @@ function Kpi({
   value,
   unit,
   tone,
+  title,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   unit: string;
   tone: "primary" | "warn" | "success" | "danger";
+  title?: string;
 }) {
   const toneClass =
     tone === "primary"
@@ -624,12 +612,10 @@ function Kpi({
           ? "text-success"
           : "text-destructive";
   return (
-    <div className="rounded-md bg-surface-2 p-2.5">
+    <div className="rounded-md bg-surface-2 p-2.5" title={title}>
       <div className={cn("flex items-center gap-1.5", toneClass)}>
         {icon}
-        <span className="label-xs" style={{ color: "inherit" }}>
-          {label}
-        </span>
+        <span className="label-xs" style={{ color: "inherit" }}>{label}</span>
       </div>
       <p className="numeric mt-1 text-base font-semibold leading-tight">{value}</p>
       <p className="text-[10px] text-muted-foreground">{unit}</p>
