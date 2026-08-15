@@ -5,3 +5,25 @@
 .unresolved-table { min-width: 900px; }
 .unresolved-table th:last-child, .unresolved-table td:last-child { text-align: left; min-width: 520px; }
 .calibration-table td:nth-child(2), .unresolved-table td:nth-child(2) { font-weight: 800; letter-spacing: .04em; }
+
+/* External CSS url(#gradient) is not consistently resolved for inline SVG strokes
+   in headless Chromium. Keep the public SLD electrically legible with direct
+   vector colors; glow remains purely decorative. */
+.distribution-sld .sld-wire {
+  stroke: #73e6d8;
+  opacity: .88;
+  filter: drop-shadow(0 0 4px rgba(125, 240, 226, .28));
+}
+.distribution-sld .busbar {
+  stroke: #8ff2e5;
+  opacity: 1;
+  filter: drop-shadow(0 0 7px rgba(125, 240, 226, .34));
+}
+.distribution-sld .customer-spine {
+  stroke: #628f87;
+  opacity: .7;
+  filter: none;
+}
+.distribution-sld .branch-wire {
+  stroke: #6edfd2;
+}
