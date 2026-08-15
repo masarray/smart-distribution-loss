@@ -1,0 +1,97 @@
+name: Pandapower Latest Compatibility Lab
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/pandapower-latest-lab.yml"
+      - "public/sdl-worker.js"
+      - "public/engine/p0a_engine.py"
+      - "tests/worker-physics-ci.mjs"
+      - "package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-browser:
+    name: Experimental · Pandapower 3.5.4 · Chromium 3φ
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Patch candidate solver version only in CI workspace
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("public/sdl-worker.js")
+          text = path.read_text()
+          old_pin = "const PANDAPOWER_PIN = 'pandapower==3.1.2';"
+          old_assert = 'assert _pp_browser_check.__version__ == "3.1.2"'
+          if old_pin not in text or old_assert not in text:
+              raise SystemExit("Production Pandapower pin/assertion changed; review lab patch before continuing.")
+          text = text.replace(old_pin, "const PANDAPOWER_PIN = 'pandapower==3.5.4';")
+          text = text.replace(old_assert, 'assert _pp_browser_check.__version__ == "3.5.4"')
+          path.write_text(text)
+          PY
+
+      - name: Build candidate static application
+        env:
+          VITE_BASE_PATH: /
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start candidate server
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8010 --directory dist > /tmp/sdl-latest-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8010/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sdl-latest-http.log
+          exit 1
+
+      - name: Run candidate browser physics gate + warm benchmark
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8010/
+          SDL_TIMEOUT_MS: "600000"
+          SDL_ARTIFACT_DIR: artifacts/pandapower-latest
+          SDL_EXPECTED_PANDAPOWER: "3.5.4"
+        run: node tests/worker-physics-ci.mjs
+
+      - name: Upload candidate diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pandapower-3.5.4-lab-${{ github.sha }}
+          path: artifacts/pandapower-latest
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Explain lab status
+        if: always()
+        run: |
+          echo "This job is an experimental compatibility lab only." >> "$GITHUB_STEP_SUMMARY"
+          echo "Production remains pinned to Pandapower 3.1.2 until full P0/P1/P2/P3 numerical regression is approved." >> "$GITHUB_STEP_SUMMARY"
