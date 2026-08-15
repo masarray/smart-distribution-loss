@@ -4,14 +4,14 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 function resolveBasePath() {
-  const explicit = process.env.VITE_BASE_PATH;
+  const explicit = process.env["VITE_BASE_PATH"];
   if (explicit) {
     const normalized = explicit.startsWith("/") ? explicit : `/${explicit}`;
     return normalized.endsWith("/") ? normalized : `${normalized}/`;
   }
 
-  if (process.env.GITHUB_ACTIONS === "true") {
-    const [owner, repository] = (process.env.GITHUB_REPOSITORY ?? "").split("/");
+  if (process.env["GITHUB_ACTIONS"] === "true") {
+    const [owner, repository] = (process.env["GITHUB_REPOSITORY"] ?? "").split("/");
     if (repository) {
       return repository === `${owner}.github.io` ? "/" : `/${repository}/`;
     }
@@ -30,6 +30,7 @@ export default defineConfig({
   },
   build: {
     target: "es2022",
-    sourcemap: true,
+    sourcemap: false,
+    reportCompressedSize: true,
   },
 });

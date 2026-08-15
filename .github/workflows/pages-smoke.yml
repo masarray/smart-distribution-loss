@@ -1,0 +1,61 @@
+name: Pages Production Smoke
+
+on:
+  workflow_run:
+    workflows: ["Build & Deploy GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Resolve production URL
+        id: site
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [[ "$repo" == "$owner.github.io" ]]; then
+            url="https://$owner.github.io/"
+          else
+            url="https://$owner.github.io/$repo/"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production URL: $url"
+
+      - name: Wait for Pages propagation
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ steps.site.outputs.url }}"
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error --location --max-time 20 "${base}" -o /tmp/index.html; then
+              if grep -Fq "Smart Distribution Loss" /tmp/index.html; then
+                exit 0
+              fi
+            fi
+            echo "Waiting for deployed site... attempt ${attempt}/20"
+            sleep 6
+          done
+          echo "Production page did not become healthy in time."
+          cat /tmp/index.html 2>/dev/null || true
+          exit 1
+
+      - name: Verify runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ steps.site.outputs.url }}"
+          curl --fail --silent --show-error --location --max-time 30 "${base}sdl-worker.js" | grep -Fq "PANDAPOWER_PIN"
+          curl --fail --silent --show-error --location --max-time 30 "${base}engine/p0a_engine.py" | grep -Fq "pandapower"
+          curl --fail --silent --show-error --location --max-time 30 "${base}engine/p3_smart_calibration.py" | grep -Fq "calibr"
+
+      - name: Report
+        run: echo "GitHub Pages production smoke passed at ${{ steps.site.outputs.url }}"
