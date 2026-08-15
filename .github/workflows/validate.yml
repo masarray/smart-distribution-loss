@@ -20,7 +20,9 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check web/app.js
+          node --check web/demo-ui.js
           node --check web/worker.js
+          node --check tests/browser-ci.mjs
 
       - name: Python syntax
         run: |
@@ -29,11 +31,24 @@ jobs:
           python -m py_compile web/engine/p1_ground_truth.py
           python -m py_compile web/engine/p2_degradation.py
           python -m py_compile web/engine/p3_smart_calibration.py
+          python -m py_compile web/engine/p3_loss_consistency.py
+
+      - name: Public cockpit contract
+        run: |
+          grep -q 'id="runButton"' web/index.html
+          grep -q 'id="qualityPreset"' web/index.html
+          grep -q 'id="distributionSld"' web/index.html
+          grep -q 'id="demoPipeline"' web/index.html
+          grep -q 'id="gateBadge"' web/index.html
+          grep -q 'id="diagnostics"' web/index.html
+          grep -q './demo-ui.js' web/index.html
 
       - name: Required files
         run: |
           test -f web/index.html
           test -f web/styles.css
+          test -f web/p3.css
+          test -f web/demo-ui.js
           test -f docs/P0A-GATE.md
           test -f docs/P0B-GATE.md
           test -f docs/P1-GROUND-TRUTH.md
