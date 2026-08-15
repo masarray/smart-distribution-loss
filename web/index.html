@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Smart Distribution Loss — P2 Data Degradation</title>
+  <title>Smart Distribution Loss — P3 Smart Calibration</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -12,14 +12,15 @@
   <main class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">SMART DISTRIBUTION LOSS · P2</p>
-        <h1>Imperfect Observability</h1>
-        <p class="subtitle">Deliberately degrade phase, AMI, PF, mapping, timing and asset parameters, then quantify the error of a conventional non-smart distribution model — entirely in this browser.</p>
+        <p class="eyebrow">SMART DISTRIBUTION LOSS · P3</p>
+        <h1>Physics-Informed Smart Calibration</h1>
+        <p class="subtitle">Estimate only poorly observed states that measurements can support, validate them with real unbalanced 3-phase power flow, and prove improvement on hold-out intervals — entirely on this device.</p>
       </div>
       <div class="hero-badges">
         <div class="privacy-pill pass-pill">P0-A · PASS</div>
         <div class="privacy-pill pass-pill">P0-B · PASS</div>
         <div class="privacy-pill pass-pill">P1 · PASS</div>
+        <div class="privacy-pill pass-pill">P2 · PASS</div>
         <div class="privacy-pill">LOCAL COMPUTE · NO BACKEND</div>
       </div>
     </header>
@@ -27,14 +28,15 @@
     <section class="panel control-panel">
       <div>
         <div class="label">ENGINE STATUS</div>
-        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready for P2</div>
-        <div id="statusDetail" class="muted">Ground Truth stays immutable. P2 creates a degraded view and a conventional model only; smart calibration begins in P3.</div>
+        <div id="engineStatus" class="status-line"><span class="dot idle"></span> Ready for P3</div>
+        <div id="statusDetail" class="muted">Calibration uses the degraded P2 view and noisy measurements only. Hidden Ground Truth is reserved for final synthetic validation.</div>
       </div>
       <div class="control-actions">
         <div class="button-row regression-row">
           <button id="runP0AButton" class="secondary-button compact-button">P0-A</button>
           <button id="runP0BButton" class="secondary-button compact-button">P0-B</button>
           <button id="runP1Button" class="secondary-button compact-button">P1</button>
+          <button id="runP2Button" class="secondary-button compact-button">P2</button>
         </div>
         <div class="p2-run-row">
           <label class="preset-control">DATA QUALITY
@@ -44,16 +46,13 @@
               <option value="poor">Poor</option>
             </select>
           </label>
-          <button id="runButton" class="primary-button">Run P2 Degradation</button>
+          <button id="runButton" class="primary-button">Run P3 Smart Calibration</button>
         </div>
       </div>
     </section>
 
     <section class="progress-wrap panel" aria-live="polite">
-      <div class="progress-head">
-        <span id="progressLabel">Waiting</span>
-        <span id="progressPct">0%</span>
-      </div>
+      <div class="progress-head"><span id="progressLabel">Waiting</span><span id="progressPct">0%</span></div>
       <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
       <div id="progressLog" class="progress-log">No computation is running.</div>
     </section>
@@ -70,78 +69,71 @@
 
       <div class="metric-grid">
         <article class="metric panel"><span id="mLabel1">Preset</span><strong id="m1">—</strong></article>
-        <article class="metric panel"><span id="mLabel2">Phase known</span><strong id="m2">—</strong></article>
-        <article class="metric panel"><span id="mLabel3">AMI coverage</span><strong id="m3">—</strong></article>
-        <article class="metric panel"><span id="mLabel4">PF known</span><strong id="m4">—</strong></article>
-        <article class="metric panel"><span id="mLabel5">Ground Truth loss</span><strong id="m5">—</strong></article>
-        <article class="metric panel"><span id="mLabel6">Conventional loss</span><strong id="m6">—</strong></article>
-        <article class="metric panel"><span id="mLabel7">Loss error</span><strong id="m7">—</strong></article>
-        <article class="metric panel"><span id="mLabel8">Source P NRMSE</span><strong id="m8">—</strong></article>
+        <article class="metric panel"><span id="mLabel2">Truth loss</span><strong id="m2">—</strong></article>
+        <article class="metric panel"><span id="mLabel3">Conventional loss</span><strong id="m3">—</strong></article>
+        <article class="metric panel"><span id="mLabel4">Smart loss</span><strong id="m4">—</strong></article>
+        <article class="metric panel"><span id="mLabel5">Loss error</span><strong id="m5">—</strong></article>
+        <article class="metric panel"><span id="mLabel6">Source P NRMSE</span><strong id="m6">—</strong></article>
+        <article class="metric panel"><span id="mLabel7">Phase P RMSE</span><strong id="m7">—</strong></article>
+        <article class="metric panel"><span id="mLabel8">Hold-out objective</span><strong id="m8">—</strong></article>
       </div>
 
       <section id="chartPanel" class="panel chart-panel hidden">
         <div class="chart-head">
           <div>
-            <div id="chartTitle" class="section-title">24-HOUR MODEL DIVERGENCE</div>
-            <div id="chartSubtitle" class="muted">Ground Truth versus conventional estimate.</div>
+            <div id="chartTitle" class="section-title">24-HOUR LOSS COMPARISON</div>
+            <div id="chartSubtitle" class="muted">Ground Truth is validation-only.</div>
           </div>
           <div id="chartLegend" class="chart-legend"></div>
         </div>
         <div id="profileChart" class="profile-chart"></div>
       </section>
 
-      <section id="degradationPanel" class="panel measurement-panel hidden">
-        <div class="section-title">DEGRADATION INVENTORY</div>
-        <div class="muted measurement-note">These defects are deterministic for a given preset/seed so P3 can later be evaluated against exactly the same imperfect input.</div>
+      <section id="calibrationPanel" class="panel measurement-panel hidden">
+        <div class="section-title">SMART CALIBRATION TRACE</div>
+        <div class="muted measurement-note">Each step records what was changed, what measurement supported it, and what was deliberately left untouched.</div>
         <div class="table-wrap">
-          <table class="benchmark-table degradation-table">
-            <thead><tr><th>Data defect</th><th>Target</th><th>Applied</th><th>Conventional action</th></tr></thead>
-            <tbody id="degradationRows"></tbody>
+          <table class="benchmark-table calibration-table">
+            <thead><tr><th>Stage</th><th>Status</th><th>Before</th><th>After</th><th>Evidence / action</th></tr></thead>
+            <tbody id="calibrationRows"></tbody>
           </table>
         </div>
+      </section>
+
+      <section id="unresolvedPanel" class="panel measurement-panel hidden">
+        <div class="section-title">OBSERVABILITY GUARD · HELD PARAMETERS</div>
+        <div class="muted measurement-note">P3 refuses to “solve” parameters that the available measurements cannot identify reliably.</div>
+        <div class="table-wrap">
+          <table class="benchmark-table unresolved-table">
+            <thead><tr><th>Parameter</th><th>Status</th><th>Why it is held</th></tr></thead>
+            <tbody id="unresolvedRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="degradationPanel" class="panel measurement-panel hidden">
+        <div class="section-title">DEGRADATION INVENTORY</div>
+        <div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Data defect</th><th>Target</th><th>Applied</th><th>Conventional action</th></tr></thead><tbody id="degradationRows"></tbody></table></div>
       </section>
 
       <section id="benchmarkPanel" class="panel benchmark-panel hidden">
         <div class="section-title">BROWSER SCALE CURVE</div>
-        <div class="table-wrap">
-          <table class="benchmark-table">
-            <thead><tr><th>Customers</th><th>Buses</th><th>Lines</th><th>Build</th><th>First solve</th><th>Warm avg</th><th>P loss</th><th>Min V</th><th>Unbalance</th><th>Status</th></tr></thead>
-            <tbody id="benchmarkRows"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Customers</th><th>Buses</th><th>Lines</th><th>Build</th><th>First solve</th><th>Warm avg</th><th>P loss</th><th>Min V</th><th>Unbalance</th><th>Status</th></tr></thead><tbody id="benchmarkRows"></tbody></table></div>
       </section>
 
       <div class="two-col">
-        <section class="panel">
-          <div id="factsTitle" class="section-title">IMPERFECT MODEL</div>
-          <div id="networkFacts" class="fact-list"></div>
-        </section>
-        <section class="panel">
-          <div id="checksTitle" class="section-title">P2 CHECKS</div>
-          <div id="checkList" class="check-list"></div>
-        </section>
+        <section class="panel"><div id="factsTitle" class="section-title">SMART MODEL</div><div id="networkFacts" class="fact-list"></div></section>
+        <section class="panel"><div id="checksTitle" class="section-title">P3 CHECKS</div><div id="checkList" class="check-list"></div></section>
       </div>
 
       <section id="measurementPanel" class="panel measurement-panel hidden">
         <div class="section-title">SYNTHETIC MEASUREMENT INVENTORY</div>
-        <div class="muted measurement-note">P1 Ground Truth measurement inventory.</div>
-        <div class="table-wrap">
-          <table class="benchmark-table measurement-table">
-            <thead><tr><th>Channel</th><th>Records</th><th>Resolution</th><th>Status</th></tr></thead>
-            <tbody id="measurementRows"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap"><table class="benchmark-table measurement-table"><thead><tr><th>Channel</th><th>Records</th><th>Resolution</th><th>Status</th></tr></thead><tbody id="measurementRows"></tbody></table></div>
       </section>
 
       <section id="samplePanel" class="panel measurement-panel hidden">
         <div class="section-title">CONVENTIONAL MODEL INPUT · SAMPLE</div>
-        <div class="muted measurement-note">Only degraded/observed/assumed fields are shown. Hidden Ground Truth fields are not part of the conventional-model input schema.</div>
-        <div class="table-wrap">
-          <table class="benchmark-table sample-table">
-            <thead><tr><th>ID</th><th>Location</th><th>Phase</th><th>PF</th><th>AMI</th><th>Mapping</th><th>Timestamp</th></tr></thead>
-            <tbody id="sampleRows"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap"><table class="benchmark-table sample-table"><thead><tr><th>ID</th><th>Location</th><th>Phase</th><th>PF</th><th>AMI</th><th>Mapping</th><th>Timestamp</th></tr></thead><tbody id="sampleRows"></tbody></table></div>
       </section>
 
       <section class="panel diagnostic-panel">
@@ -156,9 +148,7 @@
       <pre id="errorStack" class="diagnostics"></pre>
     </section>
 
-    <footer>
-      P2 quantifies model error caused by imperfect observability. No smart calibration or hidden-truth access is allowed in the conventional model; correction begins in P3.
-    </footer>
+    <footer>P3 is physics-informed calibration, not black-box AI. Hidden Ground Truth is forbidden during calibration and used only for final synthetic validation.</footer>
   </main>
   <script src="./app.js"></script>
 </body>
