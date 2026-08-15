@@ -69,6 +69,9 @@ export default function App() {
   );
   const selectedSummary = useMemo(() => summarizeLossSeries(selectedSeries), [selectedSeries]);
   const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
+  const validation = validationBenefit(active?.convErr, active?.smartErr);
+  const feederComponents = assets.filter((asset) => asset.id !== "feeder");
+  const feederFormulaReady = feederComponents.every((asset) => asset.smartKwh != null) && active?.smartKwh != null;
 
   const progressTitle =
     state.status === "running"
@@ -272,8 +275,8 @@ export default function App() {
                 )}
               </div>
               <div className="flex shrink-0 gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Pembanding</span>
-                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart</span>
+                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Tanpa Smart</span>
+                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart Engine</span>
               </div>
             </div>
             <div className="mt-1 h-[166px]">
@@ -299,12 +302,64 @@ export default function App() {
               </span>
             </div>
 
+            {selected === "feeder" && (
+              <div className="mt-3 rounded-md border border-border/55 bg-surface-2/55 p-2.5" data-feeder-rollup="true">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="label-xs">Roll-up Penyulang 20 kV</span>
+                  <span className="text-[9px] font-semibold text-primary">3 KOMPONEN · DIHITUNG 1×</span>
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                  Total penyulang adalah penjumlahan susut tiga objek di bawah. Referensi TM adalah cabang terukur yang berfungsi sebagai measurement reference, bukan salinan Pelanggan TM.
+                </p>
+                <div className="mt-2 space-y-1">
+                  {feederComponents.map((component) => (
+                    <div key={component.id} className="flex items-center justify-between gap-2 text-[10px]" data-feeder-component={component.id}>
+                      <span className="min-w-0 truncate text-foreground">{component.short}</span>
+                      <span className="shrink-0 text-muted-foreground">{feederRole(component.id)}</span>
+                      <span className="numeric shrink-0">{fmt(component.smartKwh, 1)} kWh</span>
+                      <span className="shrink-0 font-semibold text-success" data-feeder-role={component.id}>MASUK TOTAL</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="numeric mt-2 border-t border-border/50 pt-2 text-[10px] text-foreground" data-feeder-formula="true">
+                  {feederFormulaReady
+                    ? `${feederComponents.map((component) => fmt(component.smartKwh, 1)).join(" + ")} = ${fmt(active?.smartKwh, 1)} kWh/hari`
+                    : "Menunggu hasil simulasi untuk menampilkan formula roll-up."}
+                </p>
+              </div>
+            )}
+
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Kpi icon={<Zap className="size-3.5" />} label="Susut teknis" value={fmt(active?.smartKwh, 2)} unit="kWh/hari" tone="primary" />
-              <Kpi icon={<Gauge className="size-3.5" />} label="Pembanding" value={fmt(active?.convKwh, 2)} unit="kWh/hari" tone="warn" />
+              <Kpi icon={<Zap className="size-3.5" />} label="Dengan Smart" value={fmt(active?.smartKwh, 2)} unit="estimasi susut teknis · kWh/hari" tone="primary" />
+              <Kpi icon={<Gauge className="size-3.5" />} label="Tanpa Smart" value={fmt(active?.convKwh, 2)} unit="model dasar · kWh/hari" tone="warn" />
               <Kpi icon={<Percent className="size-3.5" />} label="Rasio susut" value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`} unit="dari energi tersalurkan" tone="primary" />
               <Kpi icon={<ShieldCheck className="size-3.5" />} label="Keandalan" value={confidenceLabel(operational.confidence)} unit="berdasarkan kualitas data" tone={confidenceTone(operational.confidence)} />
             </div>
+
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-technical-loss-definition="true">
+              Susut teknis = energi yang hilang secara fisik di jaringan/peralatan listrik. “Tanpa Smart” memakai model dasar; “Dengan Smart” memakai hasil Smart Engine yang menyesuaikan parameter yang memang teridentifikasi oleh data.
+            </p>
+
+            {state.status === "done" && validation && (
+              <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5" data-validation-benefit="true">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="label-xs">Validasi demo · manfaat Smart Engine</span>
+                  <span className={cn("numeric text-[10px] font-semibold", validation.gainPoints >= 0 ? "text-success" : "text-warn")}>
+                    {validation.gainPoints >= 0 ? "+" : ""}{validation.gainPoints.toFixed(2)} poin akurasi
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+                  <span className="text-muted-foreground">Tanpa Smart</span>
+                  <span className="numeric font-semibold">{validation.conventionalAccuracy.toFixed(2)}%</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground">Smart Engine</span>
+                  <span className="numeric font-semibold text-primary">{validation.smartAccuracy.toFixed(2)}%</span>
+                </div>
+                <p className="mt-1 text-[9.5px] leading-relaxed text-muted-foreground">
+                  Akurasi demo dihitung terhadap acuan validasi tersembunyi yang tidak dipakai untuk kalibrasi. Pada data lapangan tanpa acuan, akurasi absolut tidak boleh diklaim.
+                </p>
+              </div>
+            )}
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button
@@ -420,6 +475,25 @@ export default function App() {
 
 function isException(status: AnalysisStatus) {
   return status === "ATTENTION" || status === "REVIEW";
+}
+
+function validationBenefit(conventionalError: number | null | undefined, smartError: number | null | undefined) {
+  if (conventionalError == null || smartError == null || !Number.isFinite(conventionalError) || !Number.isFinite(smartError)) {
+    return null;
+  }
+  const conventionalAccuracy = Math.max(0, 100 - Math.abs(conventionalError));
+  const smartAccuracy = Math.max(0, 100 - Math.abs(smartError));
+  return {
+    conventionalAccuracy,
+    smartAccuracy,
+    gainPoints: smartAccuracy - conventionalAccuracy,
+  };
+}
+
+function feederRole(id: AssetId) {
+  if (id === "spot") return "REFERENCE UKUR";
+  if (id === "tm" || id === "gd") return "OBJEK INDEPENDEN";
+  return "ROLL-UP";
 }
 
 function operatorQualityHeadline(level: ConfidenceLevel) {

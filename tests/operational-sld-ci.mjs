@@ -45,6 +45,11 @@ try {
   await assertVisible(page.getByText(/CLOSED = tersambung/), "breaker-state legend");
   await assertVisible(page.getByText(/arah aliran/), "power-flow direction legend");
 
+  const transformerWindingCircles = page.locator('[data-transformer-symbol="true"] > circle');
+  if ((await transformerWindingCircles.count()) !== 2) {
+    throw new Error(`Transformer symbol should contain only the two winding circles; found ${await transformerWindingCircles.count()}.`);
+  }
+
   const busLabel = page.locator('[data-sld-bus-label="true"]');
   await assertNoOverlap(page.locator('[data-sld-card="spot"]'), busLabel, "Referensi TM card vs LV bus label");
   await assertNoOverlap(page.locator('[data-sld-card="tm"]'), busLabel, "Pelanggan TM card vs LV bus label");
@@ -63,7 +68,26 @@ try {
   }
 
   await selectAndAssert("Gardu GD-01", /Profil susut · Gardu GD-01/, "gd");
+  await assertVisible(page.locator('[data-validation-benefit="true"]'), "Smart Engine validation benefit on GD-01");
+
   await selectAndAssert("Penyulang 20 kV", /Profil susut · Penyulang 20 kV/, "feeder-label");
+  await assertVisible(page.locator('[data-feeder-rollup="true"]'), "explicit feeder roll-up panel");
+  for (const component of ["spot", "tm", "gd"]) {
+    await assertVisible(page.locator(`[data-feeder-component="${component}"]`), `${component} feeder component`);
+    await assertVisible(page.locator(`[data-feeder-role="${component}"]`), `${component} inclusion marker`);
+  }
+  await assertVisible(page.getByText("REFERENCE UKUR", { exact: true }), "measurement-reference role");
+  if ((await page.getByText("OBJEK INDEPENDEN", { exact: true }).count()) !== 2) {
+    throw new Error("Feeder roll-up should expose exactly two independent objects: Pelanggan TM and GD-01.");
+  }
+  const formula = await page.locator('[data-feeder-formula="true"]').innerText();
+  if (!formula.includes("+") || !formula.includes("=") || !formula.includes("kWh/hari")) {
+    throw new Error(`Feeder roll-up formula is not explicit enough: ${formula}`);
+  }
+  await assertVisible(page.locator('[data-validation-benefit="true"]'), "Smart Engine validation benefit on feeder");
+  await assertVisible(page.getByText("Tanpa Smart", { exact: true }).first(), "baseline method label");
+  await assertVisible(page.getByText("Smart Engine", { exact: true }).first(), "Smart Engine method label");
+
   await selectAndAssert("Referensi TM", /Profil susut · Referensi TM/, "spot");
   await selectAndAssert("Pelanggan TM", /Profil susut · Pelanggan TM/, "tm");
 
@@ -91,7 +115,7 @@ try {
     throw new Error("Hidden Ground Truth appeared after switching selected assets.");
   }
 
-  console.log("P1 SLD gate PASS: selected assets remain synchronized and MV cards no longer collide with the LV bus annotation.");
+  console.log("P2 SLD gate PASS: feeder roll-up roles are explicit, Smart benefit is visible, and transformer/SVG collisions stay clean.");
 } finally {
   await browser.close();
 }
