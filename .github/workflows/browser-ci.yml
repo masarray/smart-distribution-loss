@@ -1,0 +1,73 @@
+name: Browser Physics Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'tests/browser-ci.mjs'
+      - '.github/workflows/browser-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'tests/browser-ci.mjs'
+      - '.github/workflows/browser-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p3-typical-browser:
+    name: P3 Typical · Chromium/Pyodide/Pandapower
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start static site
+        run: |
+          python3 -m http.server 8000 --directory web > /tmp/sdl-http.log 2>&1 &
+          echo $! > /tmp/sdl-http.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sdl-http.log
+          exit 1
+
+      - name: Run P3 Typical browser gate
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_PRESET: typical
+          SDL_TIMEOUT_MS: '1200000'
+          SDL_ARTIFACT_DIR: artifacts/browser-ci
+        run: node tests/browser-ci.mjs
+
+      - name: Upload browser benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-distribution-loss-p3-typical-${{ github.sha }}
+          path: artifacts/browser-ci
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Show static server log on failure
+        if: failure()
+        run: cat /tmp/sdl-http.log || true
