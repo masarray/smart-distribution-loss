@@ -164,6 +164,26 @@ async function runP0B() {
   };
 }
 
+async function runSpotDemo() {
+  await initialize();
+  await ensureEngine('demo_spot_load.py');
+  const raw = await pyodide.runPythonAsync('run_spot_load_demo_json()');
+  const payload = JSON.parse(raw);
+  payload.versions = { pyodide: PYODIDE_VERSION, pandapower: PANDAPOWER_PIN.split('==')[1] };
+  payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
+  return payload;
+}
+
+async function runTmDemo() {
+  await initialize();
+  await ensureEngine('demo_tm_customer.py');
+  const raw = await pyodide.runPythonAsync('run_tm_customer_demo_json()');
+  const payload = JSON.parse(raw);
+  payload.versions = { pyodide: PYODIDE_VERSION, pandapower: PANDAPOWER_PIN.split('==')[1] };
+  payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
+  return payload;
+}
+
 async function runP1() {
   await initialize();
   progress(70, 'Loading validated 90-customer topology', 'Reusing the P0-B distribution-network engine');
@@ -214,17 +234,25 @@ async function runP3(preset = 'typical') {
   await initialize();
   const normalizedPreset = ['good', 'typical', 'poor'].includes(String(preset).toLowerCase()) ? String(preset).toLowerCase() : 'typical';
 
-  progress(70, 'Proving the easy case first', 'MV spot load · complete observability · Smart Engine should make only minimal correction');
-  await ensureEngine('demo_spot_load.py');
-  const spotRaw = await pyodide.runPythonAsync('run_spot_load_demo_json()');
-  const spotPayload = JSON.parse(spotRaw);
+  progress(70, 'Proving Spot MV case', 'Dedicated 5 km MV spot-load model · complete observability');
+  const spotPayload = await runSpotDemo();
   if (!spotPayload.gate?.pass) throw new Error('Spot-load accuracy proof failed; public comparison demo is not valid.');
   self.postMessage({ type: 'spot-demo', payload: spotPayload });
 
-  progress(72, 'Preparing immutable distribution reference', 'P3 calibration never receives hidden Ground Truth states');
-  await buildP1TruthIfNeeded({ progressBase: 72, progressSpan: 6 });
-  progress(79, 'Preparing conventional distribution baseline', `${normalizedPreset.toUpperCase()} degraded view must be identical to P2`);
-  await buildP2BaselineIfNeeded(normalizedPreset, { progressBase: 79, progressSpan: 6 });
+  progress(72, 'Solving independent Pelanggan TM', 'Dedicated 2.8 km feeder · 96 x 15-minute asymmetric P/Q measurements');
+  const tmPayload = await runTmDemo();
+  if (!tmPayload.gate?.pass) throw new Error('Independent Pelanggan TM proof failed; public comparison demo is not valid.');
+  const independentMvProof =
+    tmPayload.demo_kind !== spotPayload.demo_kind &&
+    tmPayload.scenario_id !== spotPayload.scenario_id &&
+    Math.abs(Number(tmPayload.comparison?.smart?.loss_kwh) - Number(spotPayload.comparison?.smart?.loss_kwh)) > 0.25;
+  if (!independentMvProof) throw new Error('Pelanggan TM independence guard failed: TM still resembles the Spot MV result channel.');
+  self.postMessage({ type: 'tm-demo', payload: tmPayload });
+
+  progress(74, 'Preparing immutable distribution reference', 'P3 calibration never receives hidden Ground Truth states');
+  await buildP1TruthIfNeeded({ progressBase: 74, progressSpan: 5 });
+  progress(80, 'Preparing conventional distribution baseline', `${normalizedPreset.toUpperCase()} degraded view must be identical to P2`);
+  await buildP2BaselineIfNeeded(normalizedPreset, { progressBase: 80, progressSpan: 5 });
 
   progress(86, 'Loading P3 Smart Calibration engine', 'Staged deterministic physics-informed inference · no black-box ML');
   await ensureEngine('p3_smart_calibration.py');
@@ -255,19 +283,31 @@ async function runP3(preset = 'typical') {
     if (i === 0 || i === 95 || i % 4 === 0) self.postMessage({ type: 'p3-step', index: i, total: 96, payload: JSON.parse(raw) });
   }
 
-  progress(99, 'Scoring both PLN discussion cases', 'Spot load high-observability proof + distribution-transformer Smart Calibration');
+  progress(99, 'Scoring three independent engineering cases', 'Spot MV + Pelanggan TM + distribution-transformer Smart Calibration');
   const finalRaw = await pyodide.runPythonAsync('finish_p3_json()');
   const payload = JSON.parse(finalRaw);
   payload.versions = { pyodide: PYODIDE_VERSION, pandapower: PANDAPOWER_PIN.split('==')[1] };
   payload.runtime = { ...(payload.runtime || {}), ...commonRuntime() };
   payload.spot_load_demo = spotPayload;
+  payload.tm_customer_demo = tmPayload;
   payload.pln_discussion_demo = {
-    thesis: 'Same physics. Different observability.',
+    thesis: 'Same three-phase physics. Independent assets. Different observability.',
     spot_load: {
+      scenario_id: spotPayload.scenario_id || 'spot-load-v1',
       observability: spotPayload.observability.verdict,
+      loss_kwh: spotPayload.comparison.smart.loss_kwh,
       conventional_loss_error_percent: spotPayload.comparison.conventional.loss_error_percent_validation_only,
       smart_loss_error_percent: spotPayload.comparison.smart.loss_error_percent_validation_only,
       smart_action: spotPayload.smart_action.classification,
+    },
+    tm_customer: {
+      scenario_id: tmPayload.scenario_id,
+      fingerprint: tmPayload.fingerprint,
+      observability: tmPayload.observability.verdict,
+      loss_kwh: tmPayload.comparison.smart.loss_kwh,
+      conventional_loss_error_percent: tmPayload.comparison.conventional.loss_error_percent_validation_only,
+      smart_loss_error_percent: tmPayload.comparison.smart.loss_error_percent_validation_only,
+      smart_action: tmPayload.smart_action.classification,
     },
     distribution_transformer: {
       observability: normalizedPreset.toUpperCase(),
@@ -280,7 +320,8 @@ async function runP3(preset = 'typical') {
       holdout_objective_before: payload.comparison.conventional.objective_validation,
       holdout_objective_after: payload.comparison.smart.objective_validation,
     },
-    synthetic_claim: 'With hidden Ground Truth available only for final validation, Smart Calibration improves the poorly observed distribution model while preserving the already-accurate spot-load case.',
+    independence_guard: independentMvProof,
+    synthetic_claim: 'Spot MV and Pelanggan TM are solved as independent MV assets, while Smart Calibration improves the poorly observed distribution model with hidden truth reserved for final validation.',
     field_claim: 'On field data, accuracy must be stated against independent measurements and hold-out residuals, not an unavailable hidden truth.',
   };
   return payload;
@@ -291,6 +332,8 @@ self.onmessage = async (event) => {
   try {
     if (type === 'run-p0a') self.postMessage({ type: 'result', phase: 'p0a', payload: await runP0A() });
     else if (type === 'run-p0b') self.postMessage({ type: 'result', phase: 'p0b', payload: await runP0B() });
+    else if (type === 'run-spot-demo') self.postMessage({ type: 'result', phase: 'spot-demo', payload: await runSpotDemo() });
+    else if (type === 'run-tm-demo') self.postMessage({ type: 'result', phase: 'tm-demo', payload: await runTmDemo() });
     else if (type === 'run-p1') self.postMessage({ type: 'result', phase: 'p1', payload: await runP1() });
     else if (type === 'run-p2') self.postMessage({ type: 'result', phase: 'p2', payload: await runP2(event.data?.preset || 'typical') });
     else if (type === 'run-p3') self.postMessage({ type: 'result', phase: 'p3', payload: await runP3(event.data?.preset || 'typical') });
