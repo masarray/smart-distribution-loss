@@ -8,6 +8,7 @@ interface Props {
   intensity: number;
   gdLossKwh: number | null;
   mvLossKwh: number | null;
+  tmLossKwh: number | null;
 }
 
 const HOT = "var(--color-warn)";
@@ -112,6 +113,7 @@ export function SingleLineDiagram({
   intensity,
   gdLossKwh,
   mvLossKwh,
+  tmLossKwh,
 }: Props) {
   const fastFlow = intensity > 0.6;
 
@@ -232,7 +234,7 @@ export function SingleLineDiagram({
               Pelanggan TM
             </text>
             <text x="524" y="288" fill="var(--color-muted-foreground)" fontSize="9" fontFamily="var(--font-mono)">
-              {mvLossKwh == null ? "meter interval · 15 menit" : `meter 15 menit · susut ${mvLossKwh.toFixed(2)} kWh/hari`}
+              {tmLossKwh == null ? "meter interval · 15 menit" : `meter 15 menit · susut ${tmLossKwh.toFixed(2)} kWh/hari`}
             </text>
           </g>
 

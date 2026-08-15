@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check, X } from "lucide-react";
 import { fmt, fmtSigned, type AssetLoss } from "@/lib/sdl/derive";
-import type { P3Result, SpotDemo } from "@/lib/sdl/types";
+import type { P3Result, SpotDemo, TmDemo } from "@/lib/sdl/types";
 
 interface Props {
   open: boolean;
@@ -11,6 +11,7 @@ interface Props {
   asset: AssetLoss;
   result: P3Result | null;
   spot: SpotDemo | null;
+  tm: TmDemo | null;
 }
 
 function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
@@ -22,8 +23,9 @@ function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
   );
 }
 
-export function DetailDrawer({ open, onOpenChange, asset, result, spot }: Props) {
-  const checks = asset.domain === "MV" ? (spot?.checks ?? []) : (result?.checks ?? []);
+export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm }: Props) {
+  const mvDemo = asset.id === "tm" ? tm : asset.id === "spot" ? spot : null;
+  const checks = mvDemo?.checks ?? (asset.domain === "MV" ? [] : (result?.checks ?? []));
   const conv = result?.comparison.conventional;
   const smart = result?.comparison.smart;
 
@@ -52,10 +54,14 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot }: Props)
               <Row k="Error smart engine" v={fmtSigned(asset.smartErr, 3)} />
               <Row k="Aksi smart engine" v={asset.action} mono={false} />
               <Row k="Kelas observabilitas" v={asset.observability} mono={false} />
-              {asset.domain === "MV" && spot && (
-                <p className="mt-4 rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-muted-foreground">
-                  {spot.smart_action.reason} Diubah: {spot.smart_action.changed}. Dipertahankan: {spot.smart_action.held}.
-                </p>
+              {mvDemo && (
+                <>
+                  {mvDemo.scenario_id && <Row k="Scenario ID" v={mvDemo.scenario_id} />}
+                  {mvDemo.fingerprint && <Row k="Fingerprint" v={mvDemo.fingerprint} />}
+                  <p className="mt-4 rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-muted-foreground">
+                    {mvDemo.smart_action.reason} Diubah: {mvDemo.smart_action.changed}. Dipertahankan: {mvDemo.smart_action.held}.
+                  </p>
+                </>
               )}
             </TabsContent>
 
@@ -79,12 +85,21 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot }: Props)
                 <>
                   <Row
                     k="Source NRMSE"
-                    v={`${fmt(spot?.comparison.conventional.source_nrmse_percent, 4)}% → ${fmt(spot?.comparison.smart.source_nrmse_percent, 4)}%`}
+                    v={`${fmt(mvDemo?.comparison.conventional.source_nrmse_percent, 4)}% → ${fmt(mvDemo?.comparison.smart.source_nrmse_percent, 4)}%`}
                   />
                   <Row
                     k="Resistansi saluran"
-                    v={`${fmt(spot?.comparison.conventional.line_r_ohm_per_km, 4)} → ${fmt(spot?.comparison.smart.line_r_ohm_per_km, 4)} Ω/km`}
+                    v={`${fmt(mvDemo?.comparison.conventional.line_r_ohm_per_km, 4)} → ${fmt(mvDemo?.comparison.smart.line_r_ohm_per_km, 4)} Ω/km`}
                   />
+                  {mvDemo?.scenario?.intervals && (
+                    <Row
+                      k="Resolusi model"
+                      v={`${mvDemo.scenario.intervals} interval${mvDemo.scenario.interval_minutes ? ` · ${mvDemo.scenario.interval_minutes} menit` : ""}`}
+                    />
+                  )}
+                  {mvDemo?.scenario?.line_length_km != null && (
+                    <Row k="Panjang saluran" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />
+                  )}
                 </>
               )}
             </TabsContent>
@@ -111,19 +126,31 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot }: Props)
             </TabsContent>
 
             <TabsContent value="held" className="mt-0">
-              <p className="pb-3 text-xs text-muted-foreground">
-                Parameter yang sengaja TIDAK dikalibrasi karena tidak teridentifikasi oleh pengukuran yang tersedia —
-                batas kejujuran engine.
-              </p>
-              {(result?.unresolved ?? []).map((u) => (
-                <div key={u.parameter} className="border-b border-border/60 py-2.5 last:border-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground">{u.parameter}</span>
-                    <span className="label-xs text-warn">{u.status}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{u.reason}</p>
-                </div>
-              ))}
+              {mvDemo ? (
+                <>
+                  <p className="pb-3 text-xs text-muted-foreground">
+                    Batas kalibrasi aset MV ini dijaga per skenario agar tidak mengambil state dari aset MV lain.
+                  </p>
+                  <Row k="Diubah" v={mvDemo.smart_action.changed} mono={false} />
+                  <Row k="Dipertahankan" v={mvDemo.smart_action.held} mono={false} />
+                </>
+              ) : (
+                <>
+                  <p className="pb-3 text-xs text-muted-foreground">
+                    Parameter yang sengaja TIDAK dikalibrasi karena tidak teridentifikasi oleh pengukuran yang tersedia —
+                    batas kejujuran engine.
+                  </p>
+                  {(result?.unresolved ?? []).map((u) => (
+                    <div key={u.parameter} className="border-b border-border/60 py-2.5 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-foreground">{u.parameter}</span>
+                        <span className="label-xs text-warn">{u.status}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{u.reason}</p>
+                    </div>
+                  ))}
+                </>
+              )}
             </TabsContent>
           </ScrollArea>
         </Tabs>

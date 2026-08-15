@@ -28,9 +28,19 @@ export interface SeriesPoint {
   smart_source_kw: number;
 }
 
-export interface SpotDemo {
+export interface MvDemo {
   demo_kind: string;
+  scenario_id?: string;
+  fingerprint?: string;
   gate: { pass: boolean; summary?: string };
+  scenario?: {
+    name?: string;
+    topology?: string;
+    intervals?: number;
+    interval_minutes?: number;
+    line_length_km?: number;
+    profile?: string;
+  };
   observability?: Record<string, unknown> & { verdict?: string };
   comparison: {
     truth: { loss_kwh: number };
@@ -39,7 +49,11 @@ export interface SpotDemo {
   };
   smart_action: { classification: string; changed: string; held: string; reason: string };
   checks: CheckItem[];
+  runtime?: Record<string, unknown>;
 }
+
+export type SpotDemo = MvDemo;
+export type TmDemo = MvDemo;
 
 export interface P3Result {
   gate: { pass: boolean; summary: string };
@@ -58,6 +72,7 @@ export interface P3Result {
   runtime: Record<string, unknown>;
   versions?: Record<string, string>;
   spot_load_demo: SpotDemo;
+  tm_customer_demo: TmDemo;
 }
 
 export interface StageEvent {

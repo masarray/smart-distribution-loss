@@ -16,7 +16,10 @@ export default function App() {
   const [selected, setSelected] = useState<AssetId>("gd");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const assets = useMemo(() => deriveAssets(state.result, state.spot), [state.result, state.spot]);
+  const assets = useMemo(
+    () => deriveAssets(state.result, state.spot, state.tm),
+    [state.result, state.spot, state.tm],
+  );
   const active = assets.find((a) => a.id === selected) ?? assets[0];
   const profile = PRESET_PROFILE[preset];
   const running = state.status === "running";
@@ -24,6 +27,7 @@ export default function App() {
 
   const gdLossKwh = state.result?.comparison.smart.loss_kwh ?? null;
   const mvLossKwh = state.spot?.comparison.smart.loss_kwh ?? null;
+  const tmLossKwh = state.tm?.comparison.smart.loss_kwh ?? null;
 
   const improvement =
     active?.convErr != null && active?.smartErr != null
@@ -188,6 +192,7 @@ export default function App() {
               intensity={running ? 0.9 : 0.5}
               gdLossKwh={gdLossKwh}
               mvLossKwh={mvLossKwh}
+              tmLossKwh={tmLossKwh}
             />
           </div>
           <div className="panel h-[176px] shrink-0 p-3 pb-1">
@@ -293,6 +298,7 @@ export default function App() {
           asset={active}
           result={state.result}
           spot={state.spot}
+          tm={state.tm}
         />
       )}
     </div>
