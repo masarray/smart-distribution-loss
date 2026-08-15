@@ -25,8 +25,11 @@ try {
   await assertVisible(page.getByText("Kualitas data", { exact: true }).first(), "operator data-quality heading");
   await assertVisible(page.getByText("Data terbatas", { exact: true }), "plain-language poor-data summary");
   await assertVisible(page.getByText("RENDAH", { exact: true }).first(), "localized poor-preset confidence");
+  await assertVisible(page.getByText("Dengan Smart", { exact: true }), "Smart Engine operator KPI");
+  await assertVisible(page.getByText("Tanpa Smart", { exact: true }).first(), "baseline operator KPI");
   await assertVisible(page.getByText("Rasio susut", { exact: true }), "operation loss-rate KPI");
   await assertVisible(page.getByText("Keandalan", { exact: true }), "operation confidence KPI");
+  await assertVisible(page.locator('[data-technical-loss-definition="true"]'), "plain technical-loss definition");
   await assertVisible(page.getByRole("button", { name: "Lihat data & input", exact: true }), "data drawer action");
   await assertVisible(page.getByRole("button", { name: "Engineering view", exact: true }), "engineering-view boundary action");
 
@@ -64,7 +67,7 @@ try {
   await assertVisible(page.getByText("Timestamp alignment", { exact: true }), "engineering Smart Engine process");
   await assertVisible(page.getByText("Smart model build", { exact: true }), "final Smart Engine process stage");
 
-  console.log("P1 hierarchy gate PASS: Operator View uses plain language while validation, residuals, gates, and engine process stay in Engineering View.");
+  console.log("P2 hierarchy gate PASS: operator sees Dengan Smart vs Tanpa Smart and a plain technical-loss definition while validation mechanics stay in Engineering View.");
 } finally {
   await browser.close();
 }

@@ -76,10 +76,10 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
               const isWorst = summary.worstTime === point.time;
               const insight =
                 Math.abs(delta) < 0.005
-                  ? "Kedua estimasi hampir sama pada interval ini."
+                  ? "Dengan Smart dan Tanpa Smart hampir sama pada interval ini."
                   : delta < 0
-                    ? `Smart ${Math.abs(delta).toFixed(3)} kW lebih rendah dari pembanding.`
-                    : `Smart ${Math.abs(delta).toFixed(3)} kW lebih tinggi dari pembanding.`;
+                    ? `Smart Engine ${Math.abs(delta).toFixed(3)} kW lebih rendah dari model dasar.`
+                    : `Smart Engine ${Math.abs(delta).toFixed(3)} kW lebih tinggi dari model dasar.`;
 
               return (
                 <div className="min-w-52 rounded-lg border border-border bg-surface-2 p-2.5 text-[11px] shadow-lg" data-loss-tooltip="true">
@@ -92,9 +92,9 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
                     )}
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-muted-foreground">
-                    <span>Smart</span><span className="numeric text-foreground">{smart.toFixed(3)} kW</span>
-                    <span>Pembanding</span><span className="numeric">{conventional.toFixed(3)} kW</span>
-                    <span>Selisih</span><span className="numeric">{signedKw(delta)}</span>
+                    <span>Smart Engine</span><span className="numeric text-foreground">{smart.toFixed(3)} kW</span>
+                    <span>Tanpa Smart</span><span className="numeric">{conventional.toFixed(3)} kW</span>
+                    <span>Selisih estimasi</span><span className="numeric">{signedKw(delta)}</span>
                   </div>
                   <p className="mt-2 border-t border-border/60 pt-2 leading-relaxed text-muted-foreground">{insight}</p>
                 </div>
@@ -104,7 +104,7 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
           <Area
             type="monotone"
             dataKey="smart_loss_kw"
-            name="Smart loss"
+            name="Smart Engine"
             stroke="var(--color-chart-1)"
             fill="url(#smartFill)"
             strokeWidth={2}
@@ -114,7 +114,7 @@ export function LossProfileChart({ series }: { series: ChartPoint[] }) {
           <Line
             type="monotone"
             dataKey="conventional_loss_kw"
-            name="Pembanding"
+            name="Tanpa Smart"
             stroke="var(--color-chart-2)"
             strokeWidth={1.5}
             strokeDasharray="4 4"
