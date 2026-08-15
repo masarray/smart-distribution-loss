@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, CircuitBoard, Cpu, Database, Gauge, Play, ShieldCheck, Zap } from "lucide-react";
+import { CircuitBoard, Cpu, Database, Gauge, Percent, Play, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SingleLineDiagram } from "@/components/sdl/SingleLineDiagram";
@@ -7,8 +7,9 @@ import { LossProfileChart } from "@/components/sdl/LossProfileChart";
 import { DataDrawer } from "@/components/sdl/DataDrawer";
 import { DetailDrawer } from "@/components/sdl/DetailDrawer";
 import { useEngine } from "@/lib/sdl/useEngine";
-import { deriveAssets, fmt, fmtSigned, type AssetId } from "@/lib/sdl/derive";
-import { PRESET_PROFILE, type Preset } from "@/lib/sdl/types";
+import { deriveAssets, fmt, type AssetId } from "@/lib/sdl/derive";
+import { deriveOperationalMetrics, type ConfidenceLevel } from "@/lib/sdl/operation";
+import type { Preset } from "@/lib/sdl/types";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -23,7 +24,6 @@ export default function App() {
     [state.result, state.spot, state.tm],
   );
   const active = assets.find((a) => a.id === selected) ?? assets[0];
-  const profile = PRESET_PROFILE[preset];
   const running = state.status === "running";
   const energised = state.status === "running" || state.status === "done";
 
@@ -31,10 +31,14 @@ export default function App() {
   const mvLossKwh = state.spot?.comparison.smart.loss_kwh ?? null;
   const tmLossKwh = state.tm?.comparison.smart.loss_kwh ?? null;
 
-  const improvement =
-    active?.convErr != null && active?.smartErr != null
-      ? Math.abs(active.convErr) - Math.abs(active.smartErr)
-      : null;
+  const operational = deriveOperationalMetrics(
+    selected,
+    preset,
+    state.result,
+    state.spot,
+    state.tm,
+    active?.smartKwh,
+  );
 
   const selectAsset = (id: AssetId, openData = true) => {
     setSelected(id);
@@ -133,59 +137,59 @@ export default function App() {
 
       {/* ---------- BODY ---------- */}
       <main className="grid min-h-0 flex-1 grid-cols-[248px_minmax(0,1fr)_336px] gap-3 p-3">
-        {/* LEFT: observability */}
-        <section className="panel flex min-h-0 flex-col gap-3 p-3">
-          <div>
-            <p className="label-xs">Skenario</p>
-            <p className="font-display text-sm">{profile.label}</p>
+        {/* LEFT: operator-facing data quality */}
+        <section className="panel flex min-h-0 flex-col p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="label-xs">Data quality</p>
+              <p className="mt-0.5 font-display text-sm">{operational.qualityLabel}</p>
+            </div>
+            <ConfidenceBadge level={operational.confidence} />
           </div>
-          <div className="space-y-2.5">
-            {[
-              { k: "AMI coverage", v: profile.ami },
-              { k: "Fasa diketahui", v: profile.phase },
-              { k: "PF diketahui", v: profile.pf },
-              { k: "Mapping benar", v: profile.mapping },
-            ].map((m) => (
-              <div key={m.k}>
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-muted-foreground">{m.k}</span>
-                  <span className="numeric">{m.v.toFixed(1)}%</span>
+
+          <div className="mt-4 space-y-2.5">
+            {operational.qualityRows.map((metric) => (
+              <div key={metric.label}>
+                <div className="flex justify-between gap-3 text-[11px]">
+                  <span className="truncate text-muted-foreground">{metric.label}</span>
+                  <span className="numeric shrink-0">{metric.percent.toFixed(1)}%</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
                   <div
                     className={cn(
                       "h-full rounded-full",
-                      m.v > 85 ? "bg-success" : m.v > 55 ? "bg-warn" : "bg-destructive",
+                      metric.percent > 85 ? "bg-success" : metric.percent > 55 ? "bg-warn" : "bg-destructive",
                     )}
-                    style={{ width: `${m.v}%` }}
+                    style={{ width: `${metric.percent}%` }}
                   />
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="mt-1 border-t border-border/60 pt-3">
-            <p className="label-xs mb-2">Pipeline smart engine</p>
-            <ol className="space-y-1.5">
-              {state.stages.map((s, i) => (
-                <li key={s.label} className="flex items-start gap-2 text-[11px]">
-                  <span
-                    className={cn(
-                      "numeric mt-px flex size-4 shrink-0 items-center justify-center rounded-full text-[9px]",
-                      s.done ? "bg-primary/12 text-primary/75" : "bg-surface-2 text-muted-foreground",
-                    )}
-                  >
-                    {i + 1}
-                  </span>
-                  <span className={s.done ? "text-foreground/80" : "text-muted-foreground"}>{s.label}</span>
-                </li>
-              ))}
-            </ol>
+          <div className="mt-4 rounded-md border border-border/45 bg-surface-2/45 p-3">
+            <div className="flex items-center justify-between">
+              <span className="label-xs">Confidence</span>
+              <span className={cn("numeric text-sm font-semibold", confidenceTextClass(operational.confidence))}>
+                {operational.confidence}
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {operational.qualityIssueCount === 0
+                ? "Input utama memenuhi coverage threshold."
+                : `${operational.qualityIssueCount} coverage constraint perlu diperhatikan.`}
+            </p>
           </div>
 
-          <div className="mt-auto rounded-md border border-border/35 bg-surface-2/35 p-2.5 text-[10.5px] leading-relaxed text-muted-foreground/75">
-            Ground truth tersembunyi selama kalibrasi dan hanya dibuka untuk validasi akhir.
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-3 h-8 w-full gap-2 text-xs"
+            onClick={() => setDataDrawerOpen(true)}
+          >
+            <Database className="size-3.5" />
+            Lihat data &amp; input
+          </Button>
         </section>
 
         {/* CENTER: SLD + chart */}
@@ -220,7 +224,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* RIGHT: KPI + asset ledger */}
+        {/* RIGHT: operation KPI + asset ledger */}
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel p-3">
             <div className="flex items-center justify-between">
@@ -234,18 +238,10 @@ export default function App() {
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Kpi icon={<Zap className="size-3.5" />} label="Susut smart" value={`${fmt(active?.smartKwh, 2)}`} unit="kWh/hari" tone="primary" />
-              <Kpi icon={<Gauge className="size-3.5" />} label="Konvensional" value={`${fmt(active?.convKwh, 2)}`} unit="kWh/hari" tone="warn" />
-              <Kpi icon={<Activity className="size-3.5" />} label="Err. konvensional" value={fmtSigned(active?.convErr)} unit="vs truth" tone="warn" />
-              <Kpi icon={<ShieldCheck className="size-3.5" />} label="Err. smart" value={fmtSigned(active?.smartErr)} unit="vs truth" tone="success" />
-            </div>
-
-            <div className="mt-3 rounded-md border border-primary/30 bg-primary/10 p-2.5">
-              <p className="label-xs text-primary">Perbaikan akurasi</p>
-              <p className="numeric text-xl font-semibold text-primary">
-                {improvement == null ? "—" : `${improvement > 0 ? "−" : "+"}${Math.abs(improvement).toFixed(2)} pp error`}
-              </p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">{active?.note}</p>
+              <Kpi icon={<Zap className="size-3.5" />} label="Susut teknis" value={fmt(active?.smartKwh, 2)} unit="kWh/hari" tone="primary" />
+              <Kpi icon={<Gauge className="size-3.5" />} label="Konvensional" value={fmt(active?.convKwh, 2)} unit="kWh/hari" tone="warn" />
+              <Kpi icon={<Percent className="size-3.5" />} label="Loss rate" value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`} unit="smart / supplied energy" tone="primary" />
+              <Kpi icon={<ShieldCheck className="size-3.5" />} label="Confidence" value={operational.confidence} unit="input + engineering gate" tone={confidenceTone(operational.confidence)} />
             </div>
 
             <Button
@@ -261,30 +257,31 @@ export default function App() {
           <div className="panel min-h-0 flex-1 overflow-hidden p-3">
             <p className="label-xs mb-2">Ledger susut per objek</p>
             <div className="space-y-1.5">
-              {assets.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => selectAsset(a.id)}
-                  className={cn(
-                    "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
-                    selected === a.id ? "border-primary/50 bg-primary/10" : "border-border/55 bg-surface-2/80 hover:border-primary/20",
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium">{a.short}</span>
-                    <span className="numeric text-xs">{fmt(a.smartKwh, 1)} kWh</span>
-                  </div>
-                  <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>{a.action}</span>
-                    <span className="numeric">
-                      <span className="text-warn">{fmtSigned(a.convErr, 2)}</span>
-                      <span className="mx-1">→</span>
-                      <span className="text-success">{fmtSigned(a.smartErr, 2)}</span>
-                    </span>
-                  </div>
-                </button>
-              ))}
+              {assets.map((a) => {
+                const metric = deriveOperationalMetrics(a.id, preset, state.result, state.spot, state.tm, a.smartKwh);
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => selectAsset(a.id)}
+                    className={cn(
+                      "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
+                      selected === a.id ? "border-primary/50 bg-primary/10" : "border-border/55 bg-surface-2/80 hover:border-primary/20",
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">{a.short}</span>
+                      <span className="numeric text-xs">{fmt(a.smartKwh, 1)} kWh</span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                      <span className="truncate">{a.action}</span>
+                      <span className={cn("shrink-0 font-semibold", confidenceTextClass(metric.confidence))}>
+                        {metric.lossRatePercent == null ? metric.confidence : `${metric.lossRatePercent.toFixed(2)}% · ${metric.confidence}`}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {state.status === "error" && (
@@ -319,11 +316,39 @@ export default function App() {
             result={state.result}
             spot={state.spot}
             tm={state.tm}
+            stages={state.stages}
           />
         </>
       )}
     </div>
   );
+}
+
+function confidenceTextClass(level: ConfidenceLevel) {
+  if (level === "HIGH") return "text-success";
+  if (level === "MEDIUM") return "text-warn";
+  if (level === "LOW" || level === "REVIEW") return "text-destructive";
+  return "text-muted-foreground";
+}
+
+function confidenceTone(level: ConfidenceLevel): "success" | "warn" | "danger" {
+  if (level === "HIGH") return "success";
+  if (level === "MEDIUM") return "warn";
+  return "danger";
+}
+
+function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
+  return (
+    <span className={cn("rounded-md border px-2 py-1 text-[10px] font-semibold tracking-wider", confidenceBadgeClass(level))}>
+      {level}
+    </span>
+  );
+}
+
+function confidenceBadgeClass(level: ConfidenceLevel) {
+  if (level === "HIGH") return "border-success/30 bg-success/10 text-success";
+  if (level === "MEDIUM") return "border-warn/30 bg-warn/10 text-warn";
+  return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
 function Kpi({
@@ -337,10 +362,16 @@ function Kpi({
   label: string;
   value: string;
   unit: string;
-  tone: "primary" | "warn" | "success";
+  tone: "primary" | "warn" | "success" | "danger";
 }) {
   const toneClass =
-    tone === "primary" ? "text-primary" : tone === "warn" ? "text-warn" : "text-success";
+    tone === "primary"
+      ? "text-primary"
+      : tone === "warn"
+        ? "text-warn"
+        : tone === "success"
+          ? "text-success"
+          : "text-destructive";
   return (
     <div className="rounded-md bg-surface-2 p-2.5">
       <div className={cn("flex items-center gap-1.5", toneClass)}>
