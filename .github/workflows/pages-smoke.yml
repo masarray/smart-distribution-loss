@@ -53,9 +53,17 @@ jobs:
         run: |
           set -euo pipefail
           base="${{ steps.site.outputs.url }}"
-          curl --fail --silent --show-error --location --max-time 30 "${base}sdl-worker.js" | grep -Fq "PANDAPOWER_PIN"
-          curl --fail --silent --show-error --location --max-time 30 "${base}engine/p0a_engine.py" | grep -Fq "pandapower"
-          curl --fail --silent --show-error --location --max-time 30 "${base}engine/p3_smart_calibration.py" | grep -Fq "calibr"
+
+          curl --fail --silent --show-error --location --max-time 30 \
+            "${base}sdl-worker.js" -o /tmp/sdl-worker.js
+          curl --fail --silent --show-error --location --max-time 30 \
+            "${base}engine/p0a_engine.py" -o /tmp/p0a_engine.py
+          curl --fail --silent --show-error --location --max-time 30 \
+            "${base}engine/p3_smart_calibration.py" -o /tmp/p3_smart_calibration.py
+
+          grep -Fq "PANDAPOWER_PIN" /tmp/sdl-worker.js
+          grep -Fq "pandapower" /tmp/p0a_engine.py
+          grep -Fq "calibr" /tmp/p3_smart_calibration.py
 
       - name: Report
         run: echo "GitHub Pages production smoke passed at ${{ steps.site.outputs.url }}"
