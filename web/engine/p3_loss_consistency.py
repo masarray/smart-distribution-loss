@@ -1,16 +1,21 @@
 """P3 loss-consistency calibration extension.
 
-This module is loaded after p3_smart_calibration.py and intentionally overrides
-only p3_stage_network_parameters().  The goal is to keep the successful P/Q/
-phase calibration from P3-v1 while preventing transformer no-load loss (Pfe)
-from being estimated with a stale conventional-loss decomposition.
+Loaded after p3_smart_calibration.py.  It overrides two P3 stages:
+1) missing-AMI reconstruction jointly estimates missing-load category scales and
+   a constant transformer no-load-loss intercept instead of forcing all feeder-P
+   mismatch into customer profiles;
+2) network-parameter calibration re-estimates Pfe with an independent
+   three-phase Pandapower probe using the final smart P/Q/phase state.
 
 Calibration isolation:
-- uses only the degraded P2 view, reconstructed P3 states and noisy feeder P;
-- uses calibration intervals only (the 32 hold-out intervals stay untouched);
-- never reads hidden P1 technical loss, customer truth, phase truth or PF truth.
+- only degraded P2 model inputs + noisy P3 measurements are consumed;
+- only the 64 calibration intervals are used for parameter fitting;
+- the 32 hold-out intervals remain untouched until finish_p3();
+- hidden P1 technical loss/customer/phase/PF truth is never read here.
 """
 from __future__ import annotations
+
+import time
 
 import numpy as np
 import pandapower as pp
@@ -19,6 +24,8 @@ P3_PFE_MIN_KW = 0.45
 P3_PFE_MAX_KW = 1.10
 P3_PFE_LOW_LOAD_QUANTILE = 0.40
 P3_PFE_TRIM_FRACTION = 0.10
+P3_MISSING_SCALE_MIN = 0.65
+P3_MISSING_SCALE_MAX = 1.35
 
 
 def _p3_trimmed_mean(values, trim_fraction=P3_PFE_TRIM_FRACTION):
@@ -34,8 +41,109 @@ def _p3_trimmed_mean(values, trim_fraction=P3_PFE_TRIM_FRACTION):
     return float(np.mean(arr))
 
 
+def p3_stage_load_reconstruction():
+    """Jointly reconstruct missing AMI and separate the constant-loss intercept.
+
+    P3-v1 first subtracted a *fixed conventional loss profile* and then fitted
+    only missing-load scales.  Any error in transformer core loss therefore had
+    no independent degree of freedom and leaked into the reconstructed customer
+    profiles.  The resulting customer profiles were then used to estimate Pfe,
+    creating a circular bias.
+
+    Here the observable feeder-P equation on calibration intervals is written as:
+
+      P_source ~= P_known + s_res*P_missing_res + s_com*P_missing_com
+                  + P_noncore_conventional + Pfe
+
+    The category scales and constant Pfe intercept are solved together.  This is
+    still only an initialization; after phase/PF calibration the separate physics
+    probe in p3_stage_network_parameters() performs the final Pfe correction.
+    """
+    session = _P3_SESSION
+    if session is None:
+        raise RuntimeError("P3 session is not initialized")
+
+    p = session["p"]
+    obs = np.array([r["source_kw"] for r in session["observed_system"]], dtype=float)
+    idx = np.asarray(P3_CALIBRATION_INDICES, dtype=int)
+
+    prior_pfe = 0.75 * (1.0 + session["config"]["trafo_pfe_error_fraction"])
+    conventional_loss = np.array(
+        [float(r["conventional_loss_kw"]) for r in session["baseline_records"]],
+        dtype=float,
+    )
+    conventional_noncore = np.maximum(conventional_loss - prior_pfe, 0.0)
+
+    missing_ids = set(_P2_SESSION["selections"]["missing_ami_ids"])
+    missing_rows = [cid - 1 for cid in missing_ids]
+    known_rows = [i for i in range(P2_CUSTOMERS) if i not in missing_rows]
+    known_sum = np.sum(p[known_rows], axis=0) if known_rows else np.zeros(P3_INTERVALS)
+
+    columns = []
+    categories = []
+    category_rows = {}
+    for category in ("residential", "small_commercial"):
+        rows = [
+            int(r["customer_id"]) - 1
+            for r in session["view"]
+            if int(r["customer_id"]) in missing_ids and r["category"] == category
+        ]
+        category_rows[category] = rows
+        if rows:
+            columns.append(np.sum(p[rows], axis=0))
+            categories.append(category)
+
+    old_total = _customer_total(p).copy()
+    before_proxy = old_total + conventional_noncore + prior_pfe - obs
+    before = _rmse(before_proxy[idx])
+
+    # Fit missing-load multipliers plus an explicit constant core-loss intercept.
+    if columns:
+        X_columns = [column[idx] for column in columns]
+        X_columns.append(np.ones(len(idx), dtype=float))
+        X = np.vstack(X_columns).T
+        y = (obs - known_sum - conventional_noncore)[idx]
+        coeff, *_ = np.linalg.lstsq(X, y, rcond=None)
+        raw_scales = coeff[:-1]
+        raw_pfe = float(coeff[-1])
+    else:
+        raw_scales = np.array([], dtype=float)
+        raw_pfe = prior_pfe
+
+    for category, raw_scale in zip(categories, raw_scales.tolist()):
+        scale = float(np.clip(raw_scale, P3_MISSING_SCALE_MIN, P3_MISSING_SCALE_MAX))
+        session["missing_scale"][category] = scale
+        for row in category_rows[category]:
+            p[row] *= scale
+
+    joint_pfe = float(np.clip(raw_pfe, P3_PFE_MIN_KW, P3_PFE_MAX_KW))
+    session["pfe_kw"] = joint_pfe
+    session["joint_pfe_kw"] = joint_pfe
+
+    new_total = _customer_total(p)
+    after_proxy = new_total + conventional_noncore + joint_pfe - obs
+    after = _rmse(after_proxy[idx])
+
+    scales = " · ".join(
+        f"{key}×{value:.3f}" for key, value in session["missing_scale"].items()
+    )
+    item = {
+        "stage": "Missing-AMI reconstruction",
+        "status": "CALIBRATED",
+        "before": before,
+        "after": after,
+        "unit": "kW source-balance proxy",
+        "detail": (
+            f"joint bounded fit: {scales} · provisional Pfe {joint_pfe:.3f} kW · "
+            "constant loss is separated from customer-profile reconstruction"
+        ),
+    }
+    session["trace"].append(item)
+    return item
+
+
 def _p3_apply_external_interval(net, model_meta, session, interval_index):
-    """Apply the already-calibrated P/Q/phase state to an independent network."""
+    """Apply already-calibrated P/Q/phase state to an independent network."""
     i = int(interval_index)
     for row, record in enumerate(session["view"]):
         cid = int(record["customer_id"])
@@ -49,12 +157,7 @@ def _p3_apply_external_interval(net, model_meta, session, interval_index):
 
 
 def _p3_pfe_probe(session, pfe_kw, indices):
-    """Run an isolated physics probe and return source-P residuals.
-
-    Residual sign is observed - model, therefore a positive robust center means
-    the candidate Pfe should increase, and a negative center means it should
-    decrease.  This is an actual runpp_3ph probe, not a fixed loss surrogate.
-    """
+    """Run independent runpp_3ph probes and return observed-model source-P residual."""
     net, meta = _build_conventional_network(session["view"], session["config"])
     net.trafo.at[net.trafo.index[0], "pfe_kw"] = float(pfe_kw)
     residuals = []
@@ -82,59 +185,44 @@ def _p3_pfe_probe(session, pfe_kw, indices):
 
 
 def p3_stage_network_parameters():
-    """Calibrate transformer Pfe against the *current* smart physics state.
-
-    P3-v1 subtracted conventional non-core losses from a smart reconstructed
-    customer load.  That mixed two different electrical states and allowed Pfe
-    to absorb their mismatch.  Here we first run a separate Pandapower model
-    using the already-calibrated P, Q and phase assignment.  Pfe is then the
-    single constant intercept fitted to feeder-P residual on calibration data.
-
-    The 32 hold-out intervals are not touched here; finish_p3() remains the
-    independent validation gate.
-    """
+    """Fine-calibrate Pfe using the current smart three-phase electrical state."""
     session = _P3_SESSION
     if session is None:
         raise RuntimeError("P3 session is not initialized")
 
-    baseline_pfe = 0.75 * (1.0 + session["config"]["trafo_pfe_error_fraction"])
+    prior_pfe = 0.75 * (1.0 + session["config"]["trafo_pfe_error_fraction"])
+    start_pfe = float(session.get("joint_pfe_kw", prior_pfe))
     cal = np.asarray(P3_CALIBRATION_INDICES, dtype=int)
 
-    # Probe the complete calibration set with the current smart P/Q/phase state.
-    baseline_residual, probe_ms = _p3_pfe_probe(session, baseline_pfe, cal)
+    baseline_residual, probe_ms = _p3_pfe_probe(session, start_pfe, cal)
     before_rmse = _rmse(baseline_residual)
 
-    # A constant Pfe behaves as the intercept of observed_source - modeled_source.
-    # Use a trimmed mean so bounded meter noise averages out without a few large
-    # residuals (e.g. unresolved mapping) dominating the estimate.
     all_delta = _p3_trimmed_mean(baseline_residual)
-
-    # Low-load intervals are a diagnostic where I²R uncertainty is naturally
-    # weaker.  They are deliberately not a separate truth-like target.
     observed_cal = np.array(
         [float(session["observed_system"][i]["source_kw"]) for i in cal],
         dtype=float,
     )
     cutoff = float(np.quantile(observed_cal, P3_PFE_LOW_LOAD_QUANTILE))
     low_mask = observed_cal <= cutoff
-    low_delta = _p3_trimmed_mean(baseline_residual[low_mask]) if np.any(low_mask) else all_delta
+    low_delta = (
+        _p3_trimmed_mean(baseline_residual[low_mask])
+        if np.any(low_mask)
+        else all_delta
+    )
 
-    # Prefer the all-interval intercept for statistical precision, but softly
-    # anchor it to the low-load intercept so load-dependent copper-loss mismatch
-    # is not silently converted into a constant core-loss parameter.
-    delta = 0.75 * all_delta + 0.25 * low_delta
-    candidate = float(np.clip(baseline_pfe + delta, P3_PFE_MIN_KW, P3_PFE_MAX_KW))
+    # Most statistical weight comes from all 64 points.  The low-load term is a
+    # small stabilizer against load-dependent copper-loss/model-location error.
+    delta = 0.90 * all_delta + 0.10 * low_delta
+    candidate = float(np.clip(start_pfe + delta, P3_PFE_MIN_KW, P3_PFE_MAX_KW))
 
-    # Re-probe calibration intervals with the candidate.  Reject the update if
-    # the actual three-phase physics fit does not improve; no hidden truth is
-    # involved in this decision.
     candidate_residual, verify_ms = _p3_pfe_probe(session, candidate, cal)
     after_rmse = _rmse(candidate_residual)
     accepted = bool(after_rmse + 1e-9 < before_rmse)
-    estimate = candidate if accepted else baseline_pfe
+    estimate = candidate if accepted else start_pfe
     session["pfe_kw"] = float(estimate)
     session["pfe_calibration"] = {
-        "baseline_kw": float(baseline_pfe),
+        "prior_kw": float(prior_pfe),
+        "joint_start_kw": float(start_pfe),
         "estimate_kw": float(estimate),
         "candidate_kw": float(candidate),
         "all_interval_delta_kw": float(all_delta),
@@ -150,11 +238,11 @@ def p3_stage_network_parameters():
     item = {
         "stage": "Network-parameter calibration",
         "status": "CALIBRATED" if accepted else "HELD",
-        "before": float(baseline_pfe),
+        "before": float(prior_pfe),
         "after": float(estimate),
         "unit": "transformer Pfe kW",
         "detail": (
-            f"smart-state physics intercept on {len(cal)} calibration intervals: "
+            f"joint start {start_pfe:.3f} kW; smart-state physics probe on {len(cal)} calibration intervals: "
             f"source-P RMSE {before_rmse:.3f}→{(after_rmse if accepted else before_rmse):.3f} kW · "
             f"all Δ{all_delta:+.3f} kW · low-load Δ{low_delta:+.3f} kW · "
             "vk/vkr, individual SR length and suspect mapping remain HELD"
