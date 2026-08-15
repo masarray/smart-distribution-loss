@@ -1,0 +1,7 @@
+.legend-line.smart { background: #b89cff; }
+.chart-line.smart { stroke: #b89cff; stroke-width: 3; }
+.calibration-table { min-width: 1050px; }
+.calibration-table th:last-child, .calibration-table td:last-child { text-align: left; min-width: 430px; }
+.unresolved-table { min-width: 900px; }
+.unresolved-table th:last-child, .unresolved-table td:last-child { text-align: left; min-width: 520px; }
+.calibration-table td:nth-child(2), .unresolved-table td:nth-child(2) { font-weight: 800; letter-spacing: .04em; }
