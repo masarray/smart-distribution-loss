@@ -12,7 +12,20 @@ page.on('requestfailed', (request) => errors.push(`requestfailed: ${request.url(
 
 try {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('#runP0AButton', { timeout: 30000 });
+
+  // Public-demo contract must render before entering the internal engineering view.
+  await page.waitForSelector('#distributionSld', { state: 'visible', timeout: 30000 });
+  await page.waitForSelector('#runButton', { state: 'visible', timeout: 30000 });
+  await page.waitForSelector('#demoPipeline', { state: 'visible', timeout: 30000 });
+  const publicTitle = (await page.locator('.brand-lockup h1').textContent())?.trim();
+  if (publicTitle !== 'Smart Distribution Loss') {
+    throw new Error(`Unexpected public cockpit title: ${publicTitle || 'EMPTY'}`);
+  }
+
+  // P0-A stays an engineering regression control; navigate to it explicitly.
+  await page.click('[data-nav-target="engineering"]');
+  await page.waitForSelector('#engineeringWorkspace:not(.hidden)', { timeout: 10000 });
+  await page.waitForSelector('#runP0AButton', { state: 'visible', timeout: 10000 });
   await page.click('#runP0AButton');
 
   await page.waitForFunction(() => {
@@ -30,11 +43,11 @@ try {
   }
 
   const gate = (await page.locator('#gateBadge').textContent())?.trim();
-  const title = (await page.locator('h1').textContent())?.trim();
   const diagnostics = JSON.parse((await page.locator('#diagnostics').textContent()) || '{}');
 
   console.log(`Pages URL: ${url}`);
-  console.log(`Application: ${title}`);
+  console.log(`Application: ${publicTitle}`);
+  console.log('Public cockpit: PASS');
   console.log(`P0-A gate: ${gate}`);
   console.log(`Pyodide: ${diagnostics?.versions?.pyodide || '—'}`);
   console.log(`Pandapower: ${diagnostics?.versions?.pandapower || '—'}`);
