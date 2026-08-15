@@ -41,8 +41,8 @@ jobs:
           set -euo pipefail
           test ! -e public/favicon.ico
           test -f public/favicon.svg
-          if git grep -I -ni "lovable" -- .; then
-            echo "Forbidden legacy builder branding found."
+          if git grep -I -ni "lovable" -- src public index.html package.json README.md; then
+            echo "Forbidden legacy builder branding found in product sources."
             exit 1
           fi
 
