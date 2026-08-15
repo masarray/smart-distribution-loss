@@ -1,22 +1,25 @@
-name: Deploy GitHub Pages
+name: Build & Deploy GitHub Pages
 
 on:
   push:
+    branches: ["main"]
+  pull_request:
     branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: "pages-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  quality-build:
+    name: Quality gate & static build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -29,24 +32,59 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Build static site
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck and build
         run: npm run build
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Validate GitHub Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          test -f dist/.nojekyll
+          test -f dist/sdl-worker.js
+          test -f dist/engine/p0a_engine.py
+          test -f dist/engine/p0b_engine.py
+          test -f dist/engine/p1_ground_truth.py
+          test -f dist/engine/p2_degradation.py
+          test -f dist/engine/p3_smart_calibration.py
+
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [[ "$repo" == "$owner.github.io" ]]; then
+            expected_base="/"
+          else
+            expected_base="/$repo/"
+          fi
+
+          echo "Expected Pages base: $expected_base"
+          grep -Fq "${expected_base}assets/" dist/index.html
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
 
   deploy:
+    name: Deploy production
+    if: github.event_name != 'pull_request'
+    needs: quality-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
+
     steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
