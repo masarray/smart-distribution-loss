@@ -26,13 +26,13 @@ export const ASSET_META: Record<AssetId, { label: string; short: string; domain:
       label: "Feeder 20 kV — roll-up",
       short: "Feeder",
       domain: "FEEDER",
-      note: "Agregat susut Spot MV + Pelanggan TM + GD-01 pada penyulang yang sama.",
+      note: "Agregat susut Referensi TM + Pelanggan TM + GD-01 pada penyulang yang sama.",
     },
     spot: {
-      label: "Spot load MV",
-      short: "Spot MV",
+      label: "Referensi TM — beban terukur",
+      short: "Referensi TM",
       domain: "MV",
-      note: "Kasus Spot MV observabilitas penuh dengan profil dan saluran tersendiri.",
+      note: "Beban referensi TM dengan observabilitas penuh, profil 15 menit, dan saluran tersendiri.",
     },
     tm: {
       label: "Pelanggan TM",
