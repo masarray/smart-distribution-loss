@@ -28,6 +28,9 @@ try {
   if ((await page.getByText("Err. smart", { exact: true }).count()) !== 0) {
     throw new Error("Hidden-truth smart error KPI leaked back into the main operation cockpit.");
   }
+  if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
+    throw new Error("Hidden Ground Truth leaked into the main operation chart.");
+  }
 
   await page.getByRole("button", { name: "Detail engineering & gate", exact: true }).click();
   await assertVisible(page.getByText(/Synthetic validation only/), "engineering-only Ground Truth context");
