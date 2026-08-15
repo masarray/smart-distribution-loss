@@ -41,7 +41,7 @@ try {
     const errorPanel = document.querySelector('#errorSection');
     const hasError = errorPanel && !errorPanel.classList.contains('hidden');
     return gate === 'PASS' || gate === 'FAIL' || hasError;
-  }, { timeout: timeoutMs });
+  }, null, { timeout: timeoutMs, polling: 250 });
 
   const errorVisible = await page.locator('#errorSection').evaluate((node) => !node.classList.contains('hidden'));
   if (errorVisible) {
