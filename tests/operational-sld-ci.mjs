@@ -21,6 +21,16 @@ async function assertNoOverlap(first, second, label) {
   }
 }
 
+async function assertFitsViewport(locator, label) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error(`${label}: missing bounding box.`);
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error(`${label}: viewport unavailable.`);
+  if (box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) {
+    throw new Error(`${label}: clipped outside viewport (${JSON.stringify(box)} within ${JSON.stringify(viewport)}).`);
+  }
+}
+
 async function selectAndAssert(assetName, titlePattern, selectionMarker) {
   await page.getByRole("button", { name: assetName, exact: true }).first().click();
   await assertVisible(page.getByText(titlePattern), `${assetName} selected-asset chart title`);
@@ -32,22 +42,23 @@ async function selectAndAssert(assetName, titlePattern, selectionMarker) {
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
-  await assertVisible(page.getByText("Referensi TM", { exact: true }).first(), "operational Referensi TM identity");
+  await assertVisible(page.getByText("Referensi TM", { exact: true }).first(), "Referensi TM identity");
   await assertVisible(page.getByText("Pelanggan TM", { exact: true }).first(), "Pelanggan TM identity");
   await assertVisible(page.getByText("TR GD-01", { exact: true }), "GD-01 transformer identity");
-  await assertVisible(page.getByText(/PENYULANG 20 kV · GD-01/), "Penyulang 20 kV SLD identity");
+  await assertVisible(page.getByText(/PENYULANG 20 kV · GD-01/), "Penyulang 20 kV identity");
 
-  const closedStates = page.getByText("CLOSED", { exact: true });
-  if ((await closedStates.count()) < 4) {
-    throw new Error(`Expected multiple visible CLOSED breaker states, found ${await closedStates.count()}.`);
+  const closedBreakers = page.locator('svg [data-breaker-state="CLOSED"]');
+  if ((await closedBreakers.count()) < 7) {
+    throw new Error(`Expected closed breaker semantics without repeated text noise; found ${await closedBreakers.count()}.`);
   }
-
-  await assertVisible(page.getByText(/CLOSED = tersambung/), "breaker-state legend");
-  await assertVisible(page.getByText(/arah aliran/), "power-flow direction legend");
+  if ((await page.getByText("CLOSED", { exact: true }).count()) !== 0) {
+    throw new Error("Repeated CLOSED labels should not be visible in the operator SLD.");
+  }
+  await assertVisible(page.getByText("aliran daya", { exact: true }), "compact flow legend");
 
   const transformerWindingCircles = page.locator('[data-transformer-symbol="true"] > circle');
   if ((await transformerWindingCircles.count()) !== 2) {
-    throw new Error(`Transformer symbol should contain only the two winding circles; found ${await transformerWindingCircles.count()}.`);
+    throw new Error(`Transformer symbol should contain only two winding circles; found ${await transformerWindingCircles.count()}.`);
   }
 
   const busLabel = page.locator('[data-sld-bus-label="true"]');
@@ -56,7 +67,7 @@ try {
   await assertNoOverlap(page.locator('[data-sld-card="spot"]'), page.locator('[data-sld-card="tm"]'), "MV cards");
 
   if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
-    throw new Error("Hidden Ground Truth leaked into the main operation chart.");
+    throw new Error("Ground Truth leaked into the operator chart.");
   }
 
   await page.getByRole("button", { name: "Jalankan simulasi" }).click();
@@ -68,25 +79,34 @@ try {
   }
 
   await selectAndAssert("Gardu GD-01", /Profil susut · Gardu GD-01/, "gd");
-  await assertVisible(page.locator('[data-validation-benefit="true"]'), "Smart Engine validation benefit on GD-01");
+  await assertVisible(page.locator('[data-validation-benefit="true"]'), "Smart Engine demo accuracy on GD-01");
 
   await selectAndAssert("Penyulang 20 kV", /Profil susut · Penyulang 20 kV/, "feeder-label");
-  await assertVisible(page.locator('[data-feeder-rollup="true"]'), "explicit feeder roll-up panel");
+  await assertVisible(page.locator('[data-feeder-rollup="true"]'), "compact feeder roll-up");
   for (const component of ["spot", "tm", "gd"]) {
     await assertVisible(page.locator(`[data-feeder-component="${component}"]`), `${component} feeder component`);
-    await assertVisible(page.locator(`[data-feeder-role="${component}"]`), `${component} inclusion marker`);
+    await assertVisible(page.locator(`[data-feeder-role="${component}"]`), `${component} feeder role`);
   }
-  await assertVisible(page.getByText("REFERENCE UKUR", { exact: true }), "measurement-reference role");
-  if ((await page.getByText("OBJEK INDEPENDEN", { exact: true }).count()) !== 2) {
-    throw new Error("Feeder roll-up should expose exactly two independent objects: Pelanggan TM and GD-01.");
+  await assertVisible(page.getByText("Data terukur", { exact: true }), "measurement-reference user label");
+  if ((await page.getByText("Dihitung sendiri", { exact: true }).count()) !== 2) {
+    throw new Error("Pelanggan TM and GD-01 should be shown as independently calculated assets.");
   }
-  const formula = await page.locator('[data-feeder-formula="true"]').innerText();
-  if (!formula.includes("+") || !formula.includes("=") || !formula.includes("kWh/hari")) {
-    throw new Error(`Feeder roll-up formula is not explicit enough: ${formula}`);
+  const totalText = await page.locator('[data-feeder-formula="true"]').innerText();
+  if (!/\d+(?:\.\d+)?\s*kWh\/hari/.test(totalText)) {
+    throw new Error(`Feeder total is not clear: ${totalText}`);
   }
-  await assertVisible(page.locator('[data-validation-benefit="true"]'), "Smart Engine validation benefit on feeder");
-  await assertVisible(page.getByText("Tanpa Smart", { exact: true }).first(), "baseline method label");
-  await assertVisible(page.getByText("Smart Engine", { exact: true }).first(), "Smart Engine method label");
+  await assertVisible(page.getByText("Model dasar", { exact: true }).first(), "baseline label");
+  await assertVisible(page.getByText("Smart Engine", { exact: true }).first(), "Smart Engine label");
+  await assertVisible(page.locator('[data-validation-benefit="true"]'), "compact Smart Engine demo accuracy");
+
+  const statusPanel = page.locator('[data-asset-status-panel="true"]');
+  await assertVisible(statusPanel, "asset-status panel");
+  await assertFitsViewport(page.locator('[data-selected-asset-panel="true"]'), "selected-asset panel");
+  await assertFitsViewport(statusPanel, "asset-status panel");
+  const statusOverflow = await statusPanel.evaluate((element) => element.scrollHeight - element.clientHeight);
+  if (statusOverflow > 2) {
+    throw new Error(`Asset-status panel should fit without hidden rows at 1440x900; overflow=${statusOverflow}px.`);
+  }
 
   await selectAndAssert("Referensi TM", /Profil susut · Referensi TM/, "spot");
   await selectAndAssert("Pelanggan TM", /Profil susut · Pelanggan TM/, "tm");
@@ -95,27 +115,26 @@ try {
   const box = await chart.boundingBox();
   if (!box) throw new Error("Selected-asset trend chart has no visible bounding box.");
   await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.55);
-  await assertVisible(page.locator('[data-loss-tooltip="true"]'), "short interval insight tooltip");
+  await assertVisible(page.locator('[data-loss-tooltip="true"]'), "interval tooltip");
+  if ((await page.locator('[data-manager-worst="true"]').count()) !== 0) {
+    throw new Error("Duplicate floating worst-gap badge should be removed; summary belongs in the chart header only.");
+  }
 
   const attentionRows = page.locator('button[data-analysis-status="ATTENTION"]');
   if ((await attentionRows.count()) < 1) {
-    throw new Error("Poor-data scenario should surface at least one ATTENTION asset without marking healthy assets as exceptions.");
+    throw new Error("Poor-data scenario should surface at least one ATTENTION asset.");
   }
   const normalRows = page.locator('button[data-analysis-status="NORMAL"]');
   if ((await normalRows.count()) < 1) {
-    throw new Error("High-observability MV assets should remain NORMAL after a passing analysis.");
+    throw new Error("High-observability MV assets should remain NORMAL after passing analysis.");
   }
 
   const ledgerValues = await page.locator('button[data-analysis-status] .numeric').allTextContents();
   if (!ledgerValues.some((value) => /kWh\s*·\s*\d/.test(value))) {
-    throw new Error(`Ledger does not expose kWh + loss-rate pairing: ${ledgerValues.join(" | ")}`);
+    throw new Error(`Status list does not expose kWh + loss-rate pairing: ${ledgerValues.join(" | ")}`);
   }
 
-  if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
-    throw new Error("Hidden Ground Truth appeared after switching selected assets.");
-  }
-
-  console.log("P2 SLD gate PASS: feeder roll-up roles are explicit, Smart benefit is visible, and transformer/SVG collisions stay clean.");
+  console.log("P0 visual-fit gate PASS: no SLD text clutter/collision, feeder roll-up is concise, and right-side panels fit at 1440x900.");
 } finally {
   await browser.close();
 }
