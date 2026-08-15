@@ -14,7 +14,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
 const consoleLines = [];
 const startedAt = Date.now();
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
 
 page.on('console', (message) => {
   consoleLines.push(`[console:${message.type()}] ${message.text()}`);
@@ -30,9 +30,29 @@ let payload = null;
 let gateText = 'UNKNOWN';
 let fatalError = null;
 
+async function capturePublicCockpit() {
+  const screenshots = [
+    ['cockpit-overview', '#overviewSection'],
+    ['cockpit-network', '#networkSection'],
+    ['cockpit-calibration', '#calibrationSection'],
+  ];
+  for (const [name, selector] of screenshots) {
+    const locator = page.locator(selector);
+    if (await locator.count()) {
+      await locator.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(250);
+      await locator.screenshot({ path: path.join(artifactDir, `${name}-${preset}.png`) });
+    }
+  }
+  await page.locator('#overviewSection').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: path.join(artifactDir, `p3-${preset}.png`) });
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.waitForSelector('#runButton', { timeout: 30_000 });
+  await page.waitForSelector('#distributionSld', { timeout: 30_000 });
   await page.selectOption('#qualityPreset', preset);
   await page.click('#runButton');
 
@@ -55,7 +75,17 @@ try {
   if (!diagnosticsText) throw new Error('P3 completed but diagnostics JSON is empty.');
   payload = JSON.parse(diagnosticsText);
 
-  await page.screenshot({ path: path.join(artifactDir, `p3-${preset}.png`), fullPage: true });
+  // Public-demo contract: result mirroring must be visible and numerically populated.
+  const smartLossText = (await page.locator('#demoSmartLoss').textContent())?.trim() || '';
+  const validationText = (await page.locator('#demoValidation').textContent())?.trim() || '';
+  if (!smartLossText.includes('kWh') || smartLossText === '—') {
+    throw new Error(`Public cockpit did not mirror Smart loss result: ${smartLossText}`);
+  }
+  if (!/^\d+\/\d+$/.test(validationText)) {
+    throw new Error(`Public cockpit validation summary is not populated: ${validationText}`);
+  }
+
+  await capturePublicCockpit();
   fs.writeFileSync(path.join(artifactDir, `p3-${preset}.json`), `${JSON.stringify(payload, null, 2)}\n`);
 } catch (error) {
   fatalError = error;
@@ -85,6 +115,7 @@ markdown += `- **Preset:** ${preset}\n`;
 markdown += `- **Base URL:** ${baseUrl}\n`;
 markdown += `- **Gate:** ${gateText}\n`;
 markdown += `- **Wall time:** ${wallSeconds.toFixed(1)} s\n`;
+markdown += `- **Public cockpit visual artifacts:** overview · network · calibration\n`;
 if (payload) {
   markdown += `- **Pyodide/Pandapower:** ${payload.versions?.pyodide || '—'} / ${payload.versions?.pandapower || '—'}\n`;
   markdown += `- **Truth used by calibration:** ${runtime.truth_used_by_calibration ? 'YES (INVALID)' : 'NO'}\n\n`;
@@ -122,7 +153,6 @@ if (fatalError) {
 
 fs.appendFileSync(summaryFile, markdown);
 fs.writeFileSync(path.join(artifactDir, 'summary.md'), markdown);
-
 console.log(markdown);
 
 if (fatalError) {
