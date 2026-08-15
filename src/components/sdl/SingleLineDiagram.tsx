@@ -89,7 +89,7 @@ function LoadSymbol({ x, y }: { x: number; y: number }) {
   );
 }
 
-function RouteRail({ d, width = 4.6 }: { d: string; width?: number }) {
+function RouteRail({ d, width = 2.6 }: { d: string; width?: number }) {
   return (
     <path
       d={d}
@@ -98,8 +98,33 @@ function RouteRail({ d, width = 4.6 }: { d: string; width?: number }) {
       strokeWidth={width}
       strokeLinecap="round"
       strokeLinejoin="round"
-      opacity="0.16"
+      opacity="0.72"
       pointerEvents="none"
+      vectorEffect="non-scaling-stroke"
+    />
+  );
+}
+
+function FlowPath({
+  d,
+  fast,
+  width = 2,
+}: {
+  d: string;
+  fast: boolean;
+  width?: number;
+}) {
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={fast ? "flow-dash" : "flow-dash-slow"}
+      pointerEvents="none"
+      vectorEffect="non-scaling-stroke"
     />
   );
 }
@@ -112,14 +137,14 @@ export function SingleLineDiagram({
   gdLossKwh,
   mvLossKwh,
 }: Props) {
-  const flowClass = energised ? (intensity > 0.6 ? "flow-dash" : "flow-dash-slow") : "";
+  const fastFlow = intensity > 0.6;
 
   const zone = (id: AssetId) =>
     cn(
       "cursor-pointer transition-opacity duration-150",
       selected === id || selected === "feeder"
         ? "opacity-100"
-        : "opacity-90 hover:opacity-100",
+        : "opacity-[0.92] hover:opacity-100",
     );
 
   return (
@@ -133,10 +158,10 @@ export function SingleLineDiagram({
         shapeRendering="geometricPrecision"
       >
         <defs>
-          <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="3" result="b" />
+          <filter id="flowGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.35" result="blur" />
             <feMerge>
-              <feMergeNode in="b" />
+              <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
@@ -173,24 +198,25 @@ export function SingleLineDiagram({
             Grid / upstream source
           </text>
 
-          <RouteRail d="M168 93H260" />
-          <path d="M168 93H202" stroke="currentColor" strokeWidth="2.5" />
+          {/* Static topology rail is always visible. Live current is a separate overlay. */}
+          <RouteRail d="M168 93H260" width={2.8} />
           <CircuitBreaker x={216} y={93} label="QF-01 / PMT" />
-          <path d="M228 93H260" stroke="currentColor" strokeWidth="2.5" />
+          {energised && (
+            <g filter="url(#flowGlow)">
+              <FlowPath d="M168 93H260" fast={fastFlow} width={2.1} />
+            </g>
+          )}
         </g>
 
-        {/* Main 20 kV busbar / feeder backbone */}
-        <g
-          className={zone("feeder")}
-          onClick={() => onSelect("feeder")}
-          color="var(--color-mv)"
-        >
+        {/* Main 20 kV busbar / feeder backbone. The base conductor never disappears. */}
+        <g className={zone("feeder")} onClick={() => onSelect("feeder")} color="var(--color-mv)">
           <path
             d="M260 93H955"
             stroke="currentColor"
-            strokeWidth="6"
+            strokeWidth="5.5"
             strokeLinecap="round"
-            filter="url(#glow)"
+            opacity="0.88"
+            vectorEffect="non-scaling-stroke"
           />
           <text
             x="266"
@@ -202,37 +228,25 @@ export function SingleLineDiagram({
             BUS 20 kV · PENYULANG GD-01 · 3Φ
           </text>
           {energised && (
-            <path
-              d="M260 93H955"
-              stroke="currentColor"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              className={flowClass}
-            />
+            <g filter="url(#flowGlow)">
+              {/* Edge-wise flow, matching the electrical source → load direction like ADS. */}
+              <FlowPath d="M260 93H390" fast={fastFlow} width={2.45} />
+              <FlowPath d="M390 93H600" fast={fastFlow} width={2.45} />
+              <FlowPath d="M600 93H840" fast={fastFlow} width={2.45} />
+            </g>
           )}
         </g>
 
         {/* Spot MV load branch */}
-        <g
-          className={zone("spot")}
-          onClick={() => onSelect("spot")}
-          color="var(--color-mv)"
-        >
+        <g className={zone("spot")} onClick={() => onSelect("spot")} color="var(--color-mv)">
           <RouteRail d="M390 93V252" />
-          <path d="M390 93V134" stroke="currentColor" strokeWidth="2.2" />
           <CircuitBreaker x={390} y={145} label="QF-11" />
-          <path d="M390 154V181" stroke="currentColor" strokeWidth="2.2" />
           <MeterSymbol x={390} y={194} label="AMI" />
-          <path d="M390 205V228" stroke="currentColor" strokeWidth="2.2" />
           <LoadSymbol x={390} y={242} />
           {energised && (
-            <path
-              d="M390 93V228"
-              stroke="currentColor"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-              className={flowClass}
-            />
+            <g filter="url(#flowGlow)">
+              <FlowPath d="M390 93V228" fast={fastFlow} width={1.9} />
+            </g>
           )}
           <rect
             x="302"
@@ -243,47 +257,24 @@ export function SingleLineDiagram({
             fill="var(--color-surface-2)"
             stroke={selected === "spot" ? "var(--color-primary)" : "var(--color-border)"}
           />
-          <text
-            x="314"
-            y="282"
-            fill="var(--color-foreground)"
-            fontSize="11"
-            fontFamily="var(--font-display)"
-          >
+          <text x="314" y="282" fill="var(--color-foreground)" fontSize="11" fontFamily="var(--font-display)">
             Spot load TM
           </text>
-          <text
-            x="314"
-            y="296"
-            fill="var(--color-muted-foreground)"
-            fontSize="9"
-            fontFamily="var(--font-mono)"
-          >
+          <text x="314" y="296" fill="var(--color-muted-foreground)" fontSize="9" fontFamily="var(--font-mono)">
             OBS 100% · {mvLossKwh == null ? "susut —" : `susut ${mvLossKwh.toFixed(2)} kWh/hari`}
           </text>
         </g>
 
         {/* MV customer branch */}
-        <g
-          className={zone("tm")}
-          onClick={() => onSelect("tm")}
-          color="var(--color-mv)"
-        >
+        <g className={zone("tm")} onClick={() => onSelect("tm")} color="var(--color-mv)">
           <RouteRail d="M600 93V252" />
-          <path d="M600 93V134" stroke="currentColor" strokeWidth="2.2" />
           <CircuitBreaker x={600} y={145} label="QF-21" />
-          <path d="M600 154V181" stroke="currentColor" strokeWidth="2.2" />
           <MeterSymbol x={600} y={194} label="kWh" />
-          <path d="M600 205V228" stroke="currentColor" strokeWidth="2.2" />
           <LoadSymbol x={600} y={242} />
           {energised && (
-            <path
-              d="M600 93V228"
-              stroke="currentColor"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-              className={flowClass}
-            />
+            <g filter="url(#flowGlow)">
+              <FlowPath d="M600 93V228" fast={fastFlow} width={1.9} />
+            </g>
           )}
           <rect
             x="512"
@@ -294,74 +285,27 @@ export function SingleLineDiagram({
             fill="var(--color-surface-2)"
             stroke={selected === "tm" ? "var(--color-primary)" : "var(--color-border)"}
           />
-          <text
-            x="524"
-            y="282"
-            fill="var(--color-foreground)"
-            fontSize="11"
-            fontFamily="var(--font-display)"
-          >
+          <text x="524" y="282" fill="var(--color-foreground)" fontSize="11" fontFamily="var(--font-display)">
             Pelanggan TM
           </text>
-          <text
-            x="524"
-            y="296"
-            fill="var(--color-muted-foreground)"
-            fontSize="9"
-            fontFamily="var(--font-mono)"
-          >
+          <text x="524" y="296" fill="var(--color-muted-foreground)" fontSize="9" fontFamily="var(--font-mono)">
             meter interval · 15 menit
           </text>
         </g>
 
         {/* Distribution transformer branch */}
         <g className={zone("gd")} onClick={() => onSelect("gd")} color="var(--color-mv)">
-          <RouteRail d="M840 93V274" width={5.2} />
-          <path d="M840 93V124" stroke="currentColor" strokeWidth="2.6" />
+          <RouteRail d="M840 93V217" width={2.9} />
           <CircuitBreaker x={840} y={136} label="QF-31" />
-          <path d="M840 145V159" stroke="currentColor" strokeWidth="2.6" />
-          <circle
-            cx="840"
-            cy="176"
-            r="18"
-            fill="var(--color-surface)"
-            stroke="currentColor"
-            strokeWidth="2.2"
-          />
-          <circle
-            cx="840"
-            cy="199"
-            r="18"
-            fill="var(--color-surface)"
-            stroke="var(--color-lv)"
-            strokeWidth="2.2"
-          />
+          <circle cx="840" cy="176" r="18" fill="var(--color-surface)" stroke="currentColor" strokeWidth="2.2" />
+          <circle cx="840" cy="199" r="18" fill="var(--color-surface)" stroke="var(--color-lv)" strokeWidth="2.2" />
           {energised && (
-            <circle
-              cx="840"
-              cy="188"
-              r="11"
-              fill="var(--color-primary)"
-              opacity="0.18"
-              className="pulse-node"
-            />
+            <circle cx="840" cy="188" r="11" fill="var(--color-primary)" opacity="0.18" className="pulse-node" />
           )}
-          <text
-            x="870"
-            y="176"
-            fill="var(--color-foreground)"
-            fontSize="11.5"
-            fontFamily="var(--font-display)"
-          >
+          <text x="870" y="176" fill="var(--color-foreground)" fontSize="11.5" fontFamily="var(--font-display)">
             TR GD-01
           </text>
-          <text
-            x="870"
-            y="191"
-            fill="var(--color-muted-foreground)"
-            fontSize="9.5"
-            fontFamily="var(--font-mono)"
-          >
+          <text x="870" y="191" fill="var(--color-muted-foreground)" fontSize="9.5" fontFamily="var(--font-mono)">
             400 kVA · 20/0.4 kV
           </text>
           <text
@@ -375,36 +319,29 @@ export function SingleLineDiagram({
           </text>
 
           {/* LV main protection and busbar */}
-          <path d="M840 217V234" stroke="var(--color-lv)" strokeWidth="2.6" />
           <g color="var(--color-lv)">
+            <RouteRail d="M840 217V274" width={2.9} />
             <CircuitBreaker x={840} y={246} label="QF-LV" />
-          </g>
-          <path d="M840 255V274" stroke="var(--color-lv)" strokeWidth="2.6" />
-          <path
-            d="M730 274H970"
-            stroke="var(--color-lv)"
-            strokeWidth="6"
-            strokeLinecap="round"
-            filter="url(#glow)"
-          />
-          <text
-            x="730"
-            y="260"
-            fill="var(--color-lv)"
-            fontSize="10"
-            fontFamily="var(--font-mono)"
-          >
-            BUSBAR 0.4 kV · 3Φ4W
-          </text>
-          {energised && (
             <path
               d="M730 274H970"
-              stroke="var(--color-lv)"
-              strokeWidth="2.4"
+              stroke="currentColor"
+              strokeWidth="5.5"
               strokeLinecap="round"
-              className={flowClass}
+              opacity="0.88"
+              vectorEffect="non-scaling-stroke"
             />
-          )}
+            {energised && (
+              <g filter="url(#flowGlow)">
+                <FlowPath d="M840 217V274" fast={fastFlow} width={2.1} />
+                {/* Current leaves the transformer in both busbar directions. */}
+                <FlowPath d="M840 274H755" fast={fastFlow} width={2.25} />
+                <FlowPath d="M840 274H945" fast={fastFlow} width={2.25} />
+              </g>
+            )}
+          </g>
+          <text x="730" y="260" fill="var(--color-lv)" fontSize="10" fontFamily="var(--font-mono)">
+            BUSBAR 0.4 kV · 3Φ4W
+          </text>
 
           {/* Three LV/JTR outgoing feeders */}
           {[
@@ -413,52 +350,23 @@ export function SingleLineDiagram({
             { x: 945, name: "JTR-03", cust: 26, qf: "QF-43" },
           ].map((b) => (
             <g key={b.name} color="var(--color-lv)">
-              <RouteRail d={`M${b.x} 274V350`} width={4.2} />
-              <path d={`M${b.x} 274V303`} stroke="currentColor" strokeWidth="2" />
+              <RouteRail d={`M${b.x} 274V350`} width={2.35} />
               <CircuitBreaker x={b.x} y={314} label={b.qf} />
-              <path d={`M${b.x} 323V350`} stroke="currentColor" strokeWidth="2" />
               {energised && (
-                <path
-                  d={`M${b.x} 274V350`}
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  className="flow-dash-slow"
-                />
+                <g filter="url(#flowGlow)">
+                  <FlowPath d={`M${b.x} 274V350`} fast={false} width={1.7} />
+                </g>
               )}
-              <path
-                d={`M${b.x - 28} 350H${b.x + 28}`}
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              />
+              <path d={`M${b.x - 28} 350H${b.x + 28}`} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
               <path
                 d={`M${b.x - 18} 350V371M${b.x} 350V371M${b.x + 18} 350V371`}
                 stroke="currentColor"
                 strokeWidth="1.2"
                 opacity="0.9"
               />
-              <circle
-                cx={b.x - 18}
-                cy="378"
-                r="5"
-                fill="var(--color-surface-2)"
-                stroke="currentColor"
-              />
-              <circle
-                cx={b.x}
-                cy="378"
-                r="5"
-                fill="var(--color-surface-2)"
-                stroke="currentColor"
-              />
-              <circle
-                cx={b.x + 18}
-                cy="378"
-                r="5"
-                fill="var(--color-surface-2)"
-                stroke="currentColor"
-              />
+              <circle cx={b.x - 18} cy="378" r="5" fill="var(--color-surface-2)" stroke="currentColor" />
+              <circle cx={b.x} cy="378" r="5" fill="var(--color-surface-2)" stroke="currentColor" />
+              <circle cx={b.x + 18} cy="378" r="5" fill="var(--color-surface-2)" stroke="currentColor" />
               <text
                 x={b.x}
                 y="402"
@@ -475,34 +383,16 @@ export function SingleLineDiagram({
 
         {/* Engineering legend */}
         <g>
-          <rect
-            x="24"
-            y="344"
-            width="630"
-            height="90"
-            rx="8"
-            fill="var(--color-surface)"
-            stroke="var(--color-border)"
-          />
-          <text
-            x="42"
-            y="365"
-            fill="var(--color-foreground)"
-            fontSize="10.5"
-            fontFamily="var(--font-display)"
-          >
+          <rect x="24" y="344" width="630" height="90" rx="8" fill="var(--color-surface)" stroke="var(--color-border)" />
+          <text x="42" y="365" fill="var(--color-foreground)" fontSize="10.5" fontFamily="var(--font-display)">
             Konvensi SLD
           </text>
           <circle cx="45" cy="383" r="4" fill="var(--color-mv)" />
-          <text x="57" y="387" fill="var(--color-muted-foreground)" fontSize="9.5">
-            20 kV / TM
-          </text>
+          <text x="57" y="387" fill="var(--color-muted-foreground)" fontSize="9.5">20 kV / TM</text>
           <circle cx="155" cy="383" r="4" fill="var(--color-lv)" />
-          <text x="167" y="387" fill="var(--color-muted-foreground)" fontSize="9.5">
-            0.4 kV / TR-JTR
-          </text>
+          <text x="167" y="387" fill="var(--color-muted-foreground)" fontSize="9.5">0.4 kV / TR-JTR</text>
           <text x="275" y="387" fill="var(--color-muted-foreground)" fontSize="9.5">
-            Upstream → busbar → protection → transformer/load → outgoing feeder
+            Garis solid = topology · dash bergerak = arah current hasil simulasi
           </text>
           <text x="42" y="407" fill="var(--color-muted-foreground)" fontSize="9.5">
             QF = circuit breaker / PMT · M = metering point · dua lingkaran = trafo dua-belitan
