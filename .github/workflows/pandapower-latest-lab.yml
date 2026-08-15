@@ -19,7 +19,6 @@ jobs:
     name: Experimental · Pandapower 3.5.4 · Chromium 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -74,6 +73,8 @@ jobs:
           exit 1
 
       - name: Run candidate browser physics gate + warm benchmark
+        id: candidate
+        continue-on-error: true
         env:
           SDL_BASE_URL: http://127.0.0.1:8010/
           SDL_TIMEOUT_MS: "600000"
@@ -90,8 +91,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Explain lab status
+      - name: Publish compatibility verdict
         if: always()
+        shell: bash
+        env:
+          CANDIDATE_OUTCOME: ${{ steps.candidate.outcome }}
         run: |
-          echo "This job is an experimental compatibility lab only." >> "$GITHUB_STEP_SUMMARY"
-          echo "Production remains pinned to Pandapower 3.1.2 until full P0/P1/P2/P3 numerical regression is approved." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Pandapower 3.5.4 browser compatibility lab"
+            echo
+            if [[ "$CANDIDATE_OUTCOME" == "success" ]]; then
+              echo "- Candidate runtime: **COMPATIBLE at P0-A**"
+              echo "- Next gate: full P0-B / P1 / P2 / P3 numerical regression before any production pin change."
+            else
+              echo "- Candidate runtime: **MIGRATION BLOCKED / INVESTIGATION REQUIRED**"
+              echo "- This is intentionally non-blocking for production because production remains on the validated Pandapower 3.1.2 browser runtime."
+              echo "- Inspect the uploaded diagnostics for wheel/runtime/dependency or numerical incompatibility."
+            fi
+            echo "- Production solver was not modified by this lab."
+          } >> "$GITHUB_STEP_SUMMARY"
