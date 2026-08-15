@@ -28,6 +28,7 @@ jobs:
           python -m py_compile web/engine/p0b_engine.py
           python -m py_compile web/engine/p1_ground_truth.py
           python -m py_compile web/engine/p2_degradation.py
+          python -m py_compile web/engine/p3_smart_calibration.py
 
       - name: Required files
         run: |
@@ -37,3 +38,4 @@ jobs:
           test -f docs/P0B-GATE.md
           test -f docs/P1-GROUND-TRUTH.md
           test -f docs/P2-DATA-DEGRADATION.md
+          test -f docs/P3-SMART-CALIBRATION.md
