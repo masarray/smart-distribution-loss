@@ -12,6 +12,7 @@ interface Props {
   result: P3Result | null;
   spot: SpotDemo | null;
   tm: TmDemo | null;
+  stages: { label: string; detail: string; done: boolean }[];
 }
 
 function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
@@ -23,7 +24,7 @@ function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
   );
 }
 
-export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm }: Props) {
+export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stages }: Props) {
   const mvDemo = asset.id === "tm" ? tm : asset.id === "spot" ? spot : null;
   const checks = mvDemo?.checks ?? (asset.domain === "MV" ? [] : (result?.checks ?? []));
   const conv = result?.comparison.conventional;
@@ -38,15 +39,19 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm }: Pr
         </SheetHeader>
 
         <Tabs defaultValue="loss" className="mt-4 flex h-[calc(100vh-9rem)] flex-col">
-          <TabsList className="grid w-full grid-cols-4 bg-surface-2">
+          <TabsList className="grid w-full grid-cols-5 bg-surface-2">
             <TabsTrigger value="loss">Susut</TabsTrigger>
             <TabsTrigger value="residual">Residual</TabsTrigger>
             <TabsTrigger value="gates">Gate</TabsTrigger>
+            <TabsTrigger value="process">Proses</TabsTrigger>
             <TabsTrigger value="held">Held</TabsTrigger>
           </TabsList>
 
           <ScrollArea className="mt-3 flex-1 pr-3">
             <TabsContent value="loss" className="mt-0">
+              <div className="mb-3 rounded-md border border-warn/20 bg-warn/5 p-3 text-xs leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">Synthetic validation only.</span> Ground Truth disembunyikan dari kalibrasi dan hanya dibuka untuk pembuktian akhir; metrik vs truth di bawah bukan KPI operasi lapangan.
+              </div>
               <Row k="Susut acuan (ground truth)" v={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
               <Row k="Model konvensional" v={`${fmt(asset.convKwh, 3)} kWh/hari`} />
               <Row k="Smart engine" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
@@ -123,6 +128,31 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm }: Pr
                   </div>
                 </div>
               ))}
+            </TabsContent>
+
+            <TabsContent value="process" className="mt-0">
+              <p className="pb-3 text-xs text-muted-foreground">
+                Pipeline Smart Engine dipindahkan dari cockpit operasi ke sini agar metode tetap dapat diaudit tanpa memenuhi layar utama.
+              </p>
+              <ol className="space-y-1.5">
+                {stages.map((stage, index) => (
+                  <li key={stage.label} className="flex gap-3 rounded-md border border-border/45 bg-surface-2/45 p-2.5">
+                    <span
+                      className={
+                        stage.done
+                          ? "numeric flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] text-primary"
+                          : "numeric flex size-5 shrink-0 items-center justify-center rounded-full bg-surface text-[10px] text-muted-foreground"
+                      }
+                    >
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className="text-sm text-foreground">{stage.label}</p>
+                      <p className="text-xs text-muted-foreground">{stage.detail}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </TabsContent>
 
             <TabsContent value="held" className="mt-0">
