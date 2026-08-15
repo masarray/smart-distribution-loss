@@ -1,6 +1,92 @@
 # Smart Distribution Loss
 
-Browser-only proof of concept for an open-source distribution-loss intelligence platform.
+Browser-only proof of concept for an open-source, physics-informed distribution-loss intelligence platform.
+
+## Why this project exists
+
+A conventional power-flow solver can be very accurate when the network is well observed. The harder problem appears below a distribution transformer, where customer phase, AMI coverage, PF, mapping, timing and LV parameters are often incomplete.
+
+Smart Distribution Loss keeps the electrical laws in **Pandapower** and uses a deterministic **Smart Calibration Engine** only to estimate poorly observed states that measurements can support.
+
+The public demo now makes this contrast explicit:
+
+```text
+SPOT LOAD / PELANGGAN TM
+high observability
+        ↓
+conventional model already accurate
+        ↓
+Smart Engine = minimal correction
+
+            VS
+
+DISTRIBUTION TRANSFORMER / GARDU DISTRIBUSI
+imperfect observability
+        ↓
+conventional model diverges
+        ↓
+Smart Engine reconstructs supported unknown states
+        ↓
+3-phase physics validation
+        ↓
+loss estimate becomes substantially more accurate
+```
+
+## Canonical PLN discussion proof — PASS
+
+The browser CI runs both scenarios with real `pandapower.runpp_3ph()` calculations. Hidden synthetic Ground Truth is blocked during calibration and revealed only for final validation.
+
+### MV spot load / pelanggan TM — high observability
+
+- P/Q known: `100%`
+- phase known: `100%`
+- topology known: `100%`
+- timing known: `100%`
+- conventional technical-loss error: `+1.506%`
+- Smart technical-loss error: `+0.094%`
+- Smart action: **MINIMAL_CORRECTION**
+- verified P/Q, phase, topology, mapping and timing remain locked
+
+This proves that Smart Engine does not invent unnecessary corrections when the ordinary model is already well observed.
+
+### Distribution transformer / gardu distribusi — Poor challenge
+
+Poor-observability input:
+
+- AMI coverage: `60%`
+- phase known: `40%`
+- PF known: `20%`
+- mapping known: `90%`
+
+Measured browser-CI result:
+
+- Ground Truth technical loss: `33.296 kWh/day`
+- conventional technical loss: `35.199 kWh/day`
+- Smart technical loss: `33.373 kWh/day`
+- technical-loss error: **`+5.716% → +0.232%`**
+- source-P NRMSE: **`1.350% → 0.661%`**
+- phase-P RMSE: **`2.8728 → 1.4228 kW`**
+- LV-voltage RMSE: **`0.001585 → 0.001296 pu`**
+- 32-interval hold-out objective: **`0.097863 → 0.071900`**
+- validation-only phase accuracy: `63.33% → 64.44%`
+- `96/96` Smart three-phase power flows converged
+
+The less severe **Typical** scenario also passes:
+
+- technical-loss error: `-0.674% → +0.525%`
+- source-P NRMSE: `1.252% → 0.347%`
+- phase-P RMSE: `2.8206 → 1.3018 kW`
+- hold-out objective: `0.083159 → 0.047573`
+
+The Poor scenario is intentionally the clearest public demonstration of the original engineering problem: aggregate feeder power can look reasonably close while downstream state uncertainty still creates a material technical-loss error.
+
+### Accuracy claim boundary
+
+For this **synthetic proof**, hidden Ground Truth exists, so final loss accuracy can be quantified directly.
+
+For **field data**, the application must not claim access to an unavailable true network state. Field accuracy should instead be stated against independent measurements, hold-out residuals, energy consistency, measurement coverage and confidence/observability.
+
+See `docs/PLN-DISCUSSION-DEMO.md`.
 
 ## Architecture
 
@@ -101,11 +187,11 @@ Canonical **Typical** real-browser baseline:
 - validation-only phase accuracy: `75.6%`
 - `96/96` conventional solves converged
 
-A Poor scenario also passed and produced a larger `+5.72%` loss error while source-P NRMSE remained only `1.35%`, demonstrating why aggregate feeder fit alone is not enough for technical-loss estimation.
+The Poor scenario produced the larger `+5.72%` technical-loss error while source-P NRMSE remained only `1.35%`, demonstrating why aggregate feeder fit alone is not enough for technical-loss estimation.
 
 See `docs/P2-DATA-DEGRADATION.md`.
 
-## P3 — current phase
+## P3 — PASS
 
 P3 is a **deterministic physics-informed Smart Calibration Engine**, not black-box AI.
 
@@ -118,14 +204,29 @@ P3-v1 stages:
 3. unknown-phase coordinate descent against measured phase P
 4. sparse reactive-power physics anchors
 5. bounded unknown-PF calibration against feeder Q
-6. transformer `Pfe` calibration from low-load energy balance
-7. full `96 × runpp_3ph()` smart-model validation
+6. loss-consistent transformer `Pfe` calibration from current Smart-state three-phase physics
+7. full `96 × runpp_3ph()` Smart-model validation
 
 Verified phase/PF values are locked. Weakly identifiable parameters such as suspect branch/pole mapping, individual SR length and transformer `vk/vkr` are explicitly held rather than silently overfit.
 
-P3 uses `64` calibration intervals and `32` hold-out intervals. The gate requires the hold-out multi-signal objective and validation-only technical-loss estimate to improve over the P2 Typical baseline.
+P3 uses `64` calibration intervals and `32` hold-out intervals. Both **Typical** and **Poor** browser-CI scenarios now pass all mandatory gates.
 
 See `docs/P3-SMART-CALIBRATION.md`.
+
+## Public cockpit
+
+The default UI is a public engineering demo rather than an internal regression page. It includes:
+
+- **PLN Discussion Demo** — Spot Load vs Distribution Transformer
+- data-observability indicators
+- distribution SLD
+- Conventional → Smart technical-loss comparison
+- source/phase/hold-out residual improvement
+- explainable Smart Calibration pipeline
+- Observability Guard / held parameters
+- separate Engineering view for P0–P3 regression and raw diagnostics
+
+Browser CI captures visual artifacts for Overview, PLN proof, Network and Calibration on every regression run.
 
 ## Run locally
 
@@ -168,11 +269,11 @@ P1 Ground Truth simulator           PASS
   ↓
 P2 data degradation                 PASS
   ↓
-P3 smart calibration                CURRENT
+P3 smart calibration                PASS
   ↓
-confidence / explainability
+public PLN comparison cockpit       PASS
   ↓
-engineering cockpit
+P4 confidence / observability / explainability
 ```
 
-Do not relax P3 gates merely to obtain a PASS. If hold-out residuals or validation-only technical-loss accuracy do not improve, audit the calibration strategy instead.
+Do not relax calibration or hold-out gates merely to obtain a PASS. If measurement residuals or validation-only technical-loss accuracy regress, audit the calibration strategy instead.
