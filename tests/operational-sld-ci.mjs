@@ -25,6 +25,10 @@ try {
   await assertVisible(page.getByText(/CLOSED = tersambung/), "breaker-state legend");
   await assertVisible(page.getByText(/arah aliran/), "power-flow direction legend");
 
+  if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
+    throw new Error("Hidden Ground Truth leaked into the main operation chart.");
+  }
+
   await page.getByRole("button", { name: "Jalankan simulasi" }).click();
   await page.waitForFunction(() => document.body.innerText.includes("Analysis complete"), null, { timeout: 600_000 });
 
@@ -33,7 +37,33 @@ try {
     throw new Error(`Expected directional flow arrows after simulation, found ${await arrows.count()}.`);
   }
 
-  console.log("Operational SLD gate PASS: equipment states, operational identities, and explicit flow direction are visible.");
+  await assertVisible(page.locator('[data-manager-peak="true"]'), "selected-asset peak summary");
+  await assertVisible(page.getByText(/Profil susut teknis · Gardu GD-01/), "GD-01 selected-asset chart title");
+
+  const attentionRows = page.locator('button[data-analysis-status="ATTENTION"]');
+  if ((await attentionRows.count()) < 1) {
+    throw new Error("Poor-data scenario should surface at least one ATTENTION asset without marking healthy assets as exceptions.");
+  }
+  const normalRows = page.locator('button[data-analysis-status="NORMAL"]');
+  if ((await normalRows.count()) < 1) {
+    throw new Error("High-observability MV assets should remain NORMAL after a passing analysis.");
+  }
+
+  const ledgerValues = await page.locator('button[data-analysis-status] .numeric').allTextContents();
+  if (!ledgerValues.some((value) => /kWh\s*·\s*\d/.test(value))) {
+    throw new Error(`Ledger does not expose kWh + loss-rate pairing: ${ledgerValues.join(" | ")}`);
+  }
+
+  await page.getByRole("button", { name: "Referensi TM", exact: true }).first().click();
+  await page.keyboard.press("Escape");
+  await assertVisible(page.getByText(/Profil susut teknis · Referensi TM/), "Referensi TM selected-asset chart title");
+  await assertVisible(page.locator('[data-manager-peak="true"]'), "Referensi TM peak summary");
+
+  if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
+    throw new Error("Hidden Ground Truth appeared after switching selected assets.");
+  }
+
+  console.log("M4 gate PASS: operational SLD, selected-asset trend, kWh + loss %, peak summary, and exception-first ledger are visible.");
 } finally {
   await browser.close();
 }
