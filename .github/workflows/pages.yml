@@ -1,4 +1,4 @@
-name: Deploy P0-A to GitHub Pages
+name: Deploy Smart Distribution Loss to GitHub Pages
 
 on:
   push:
@@ -24,10 +24,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages
+      - name: Configure and enable Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
-      - name: Upload static P0-A site
+      - name: Upload browser application
         uses: actions/upload-pages-artifact@v3
         with:
           path: web
