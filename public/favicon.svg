@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Smart Distribution Loss">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#111923"/>
+  <circle cx="14" cy="23" r="5.5" fill="none" stroke="#f3b643" stroke-width="2.5"/>
+  <path d="M8.8 23c1.7-3.2 3.4 3.2 5.1 0s3.4-3.2 5.1 0" fill="none" stroke="#f3b643" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M19.5 23H50" fill="none" stroke="#f3b643" stroke-width="4" stroke-linecap="round"/>
+  <path d="M30 23V42M44 23V42" fill="none" stroke="#53ded0" stroke-width="2.8" stroke-linecap="round"/>
+  <rect x="26.5" y="29" width="7" height="7" rx="1" fill="#111923" stroke="#53ded0" stroke-width="1.8"/>
+  <path d="M28 30.5l4 4m0-4l-4 4" stroke="#53ded0" stroke-width="1.1"/>
+  <circle cx="44" cy="31" r="5.5" fill="#111923" stroke="#f3b643" stroke-width="2"/>
+  <circle cx="44" cy="38" r="5.5" fill="#111923" stroke="#53ded0" stroke-width="2"/>
+  <path d="M44 43.5V49M36 49h16" stroke="#53ded0" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="36" cy="53" r="2.2" fill="#53ded0"/>
+  <circle cx="44" cy="53" r="2.2" fill="#53ded0"/>
+  <circle cx="52" cy="53" r="2.2" fill="#53ded0"/>
+</svg>
