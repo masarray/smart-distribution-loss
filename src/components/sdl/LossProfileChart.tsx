@@ -3,14 +3,20 @@ import {
   AreaChart,
   CartesianGrid,
   Line,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import type { SeriesPoint } from "@/lib/sdl/types";
+import type { LossSeriesPoint, SeriesPoint } from "@/lib/sdl/types";
+import { summarizeLossSeries } from "@/lib/sdl/operation";
 
-export function LossProfileChart({ series }: { series: SeriesPoint[] }) {
+type ChartPoint = LossSeriesPoint | SeriesPoint;
+
+export function LossProfileChart({ series }: { series: ChartPoint[] }) {
+  const summary = summarizeLossSeries(series);
+
   if (!series.length) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -23,9 +29,9 @@ export function LossProfileChart({ series }: { series: SeriesPoint[] }) {
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={series} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
         <defs>
-          <linearGradient id="truthFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-chart-4)" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="var(--color-chart-4)" stopOpacity={0} />
+          <linearGradient id="smartFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.22} />
+            <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid stroke="var(--grid-line)" vertical={false} />
@@ -44,13 +50,15 @@ export function LossProfileChart({ series }: { series: SeriesPoint[] }) {
           tickFormatter={(v: number) => `${Number(v).toFixed(1)} kW`}
         />
         <Tooltip
+          cursor={{ stroke: "var(--color-border)", strokeDasharray: "3 3" }}
           contentStyle={{
             background: "var(--color-surface-2)",
             border: "1px solid var(--color-border)",
             borderRadius: 8,
             fontSize: 11,
           }}
-          labelStyle={{ color: "var(--color-muted-foreground)" }}
+          labelStyle={{ color: "var(--color-foreground)", fontWeight: 600 }}
+          labelFormatter={(label) => `Waktu ${String(label)}`}
           formatter={(value, name) => [
             `${Number(value ?? 0).toFixed(3)} kW`,
             String(name ?? ""),
@@ -58,30 +66,35 @@ export function LossProfileChart({ series }: { series: SeriesPoint[] }) {
         />
         <Area
           type="monotone"
-          dataKey="truth_loss_kw"
-          name="Ground truth"
-          stroke="var(--color-chart-4)"
-          fill="url(#truthFill)"
+          dataKey="smart_loss_kw"
+          name="Smart loss"
+          stroke="var(--color-chart-1)"
+          fill="url(#smartFill)"
           strokeWidth={2}
           dot={false}
+          activeDot={{ r: 3.5 }}
         />
         <Line
           type="monotone"
           dataKey="conventional_loss_kw"
           name="Konvensional"
           stroke="var(--color-chart-2)"
-          strokeWidth={1.6}
+          strokeWidth={1.5}
           strokeDasharray="4 4"
           dot={false}
+          activeDot={{ r: 3 }}
         />
-        <Line
-          type="monotone"
-          dataKey="smart_loss_kw"
-          name="Smart engine"
-          stroke="var(--color-chart-1)"
-          strokeWidth={2}
-          dot={false}
-        />
+        {summary.peakSmartKw != null && summary.peakTime != null && (
+          <ReferenceDot
+            x={summary.peakTime}
+            y={summary.peakSmartKw}
+            r={3.5}
+            fill="var(--color-chart-1)"
+            stroke="var(--color-surface)"
+            strokeWidth={1.5}
+            ifOverflow="extendDomain"
+          />
+        )}
       </AreaChart>
     </ResponsiveContainer>
   );
