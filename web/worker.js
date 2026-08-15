@@ -250,6 +250,7 @@ async function runP3(preset = 'typical') {
 
   progress(86, 'Loading P3 Smart Calibration engine', 'Staged deterministic physics-informed inference · no black-box ML');
   await ensureEngine('p3_smart_calibration.py');
+  await ensureEngine('p3_loss_consistency.py');
   const startRaw = await pyodide.runPythonAsync(`start_p3_session_json(${JSON.stringify(normalizedPreset)})`);
   const start = JSON.parse(startRaw);
   self.postMessage({ type: 'p3-start', payload: start });
@@ -260,7 +261,7 @@ async function runP3(preset = 'typical') {
     ['p3_stage_phase_inference()', 'Unknown-phase inference', 'Coordinate descent against measured phase P'],
     ['p3_stage_q_anchor()', 'Reactive-power anchors', '16 sparse physics solves establish network-Q overhead'],
     ['p3_stage_pf_calibration()', 'Unknown-PF calibration', 'Bounded least squares against noisy feeder Q'],
-    ['p3_stage_network_parameters()', 'Identifiable network parameters', 'Estimate transformer Pfe; hold weakly observable parameters'],
+    ['p3_stage_network_parameters()', 'Loss-consistent network calibration', 'Fit transformer Pfe against the current smart-state three-phase physics'],
     ['p3_build_smart_network()', 'Build smart physics model', 'Rebuild separate Pandapower model from calibrated degraded state'],
   ];
 
