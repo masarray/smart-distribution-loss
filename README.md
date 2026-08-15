@@ -92,24 +92,32 @@ Observed real-browser P1 baseline:
 
 See `docs/P1-GROUND-TRUTH.md`.
 
-## P2 — current phase
+## P2 — Poor preset PASS; Typical canonical gate pending
 
 P2 creates an **imperfect observable view** from P1 while leaving Ground Truth immutable. A separate conventional, non-smart Pandapower model is then built only from degraded/observed/assumed fields.
 
-The primary `Typical` scenario introduces:
+The first real-browser validation used the harsher `Poor` preset and passed:
 
-- `35%` unknown customer phase
-- `20%` missing AMI streams
-- `60%` unknown PF
-- `5%` wrong customer mapping
-- `10%` one-interval timestamp mismatch
-- service-length uncertainty `±15%`
-- AMI/source-P meter noise `±0.5%`
-- transformer parameter uncertainty
+- phase known `40%`
+- AMI coverage `60%`
+- PF known `20%`
+- mapping known `90%`
+- timestamp aligned `80%`
+- Ground Truth loss `33.30 kWh`
+- conventional loss `35.20 kWh`
+- technical-loss error `+5.72%`
+- source-P NRMSE `1.35%`
+- phase-P residual RMSE approximately `2.873 kW`
+- LV-voltage residual RMSE approximately `0.00158 pu`
+- customer-energy error approximately `-1.49%`
+- validation-only phase-assignment accuracy approximately `63.3%`
+- `96/96` conventional solves converged
+- conventional solver runtime approximately `9.33 s`
+- P1 Ground Truth hash remained unchanged
 
-Simple baseline rules fill the gaps: peer-profile AMI imputation, default PF assumptions and greedy branch phase balancing. There is deliberately **no optimizer or smart calibration in P2**.
+The useful engineering observation is that aggregate source-P error stays relatively small while technical-loss error is materially larger. This is exactly the observability problem the project is intended to demonstrate: feeder-level agreement does not guarantee correct phase/current distribution or technical-loss estimation.
 
-P2 reports Ground Truth vs conventional technical loss, loss error, source/phase/voltage residuals, coverage metrics, degradation provenance and 24-hour divergence curves. The synthetic truth is used only for validation and never as conventional-model input.
+The documented canonical P2 acceptance scenario is still `Typical` (`35%` unknown phase, `20%` missing AMI, `60%` unknown PF, `5%` wrong mapping, `10%` timestamp mismatch). P3 begins only after that deterministic Typical baseline also passes in a real browser.
 
 See `docs/P2-DATA-DEGRADATION.md`.
 
@@ -152,7 +160,9 @@ P0-B 90-customer browser scale      PASS
   ↓
 P1 Ground Truth simulator           PASS
   ↓
-P2 data degradation                 CURRENT
+P2 Poor preset                      PASS
+  ↓
+P2 Typical canonical baseline       NEXT
   ↓
 P3 smart calibration
   ↓
