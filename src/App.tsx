@@ -76,7 +76,6 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {/* ---------- TOP BAR ---------- */}
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/70 bg-surface px-4">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md bg-primary/15 text-primary">
@@ -138,7 +137,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ---------- PROGRESS STRIP ---------- */}
       <div className="relative h-8 shrink-0 border-b border-border/50 bg-surface-2/55">
         <div className="flex h-full items-center gap-3 px-4 text-[11px]">
           <span
@@ -169,9 +167,7 @@ export default function App() {
         />
       </div>
 
-      {/* ---------- BODY ---------- */}
       <main className="grid min-h-0 flex-1 grid-cols-[248px_minmax(0,1fr)_336px] gap-3 p-3">
-        {/* LEFT: operator-facing data quality */}
         <section className="panel flex min-h-0 flex-col p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -226,7 +222,6 @@ export default function App() {
           </Button>
         </section>
 
-        {/* CENTER: SLD + selected-asset trend */}
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel relative min-h-0 flex-1 overflow-hidden">
             <div className="absolute left-3 top-3 z-10">
@@ -243,18 +238,23 @@ export default function App() {
               tmLossKwh={tmLossKwh}
             />
           </div>
-          <div className="panel h-[176px] shrink-0 p-3 pb-1">
+          <div className="panel h-[220px] shrink-0 p-3 pb-1">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <p className="label-xs">Profil susut teknis · {active?.short} · 24 jam · 96 interval</p>
                 {selectedSummary.peakSmartKw != null && selectedSummary.peakTime != null && (
-                  <p className="mt-1 text-[10px] text-muted-foreground" data-manager-peak="true">
-                    Peak smart <span className="numeric text-foreground">{selectedSummary.peakSmartKw.toFixed(3)} kW</span>
-                    {" · "}{selectedSummary.peakTime}
-                    {selectedSummary.deltaAtPeakKw != null && (
-                      <span> · Δ vs conventional <span className="numeric">{selectedSummary.deltaAtPeakKw >= 0 ? "+" : ""}{selectedSummary.deltaAtPeakKw.toFixed(3)} kW</span></span>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                    <span data-manager-peak="true">
+                      Peak <span className="numeric text-foreground">{selectedSummary.peakTime}</span>
+                      {" · "}<span className="numeric text-foreground">{selectedSummary.peakSmartKw.toFixed(3)} kW</span>
+                    </span>
+                    {selectedSummary.worstTime != null && selectedSummary.worstDeltaKw != null && (
+                      <span data-manager-worst-summary="true">
+                        Worst gap <span className="numeric text-foreground">{selectedSummary.worstTime}</span>
+                        {" · "}<span className="numeric text-warn">{Math.abs(selectedSummary.worstDeltaKw).toFixed(3)} kW</span>
+                      </span>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
               <div className="flex shrink-0 gap-3 text-[10px] text-muted-foreground">
@@ -262,13 +262,12 @@ export default function App() {
                 <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart engine</span>
               </div>
             </div>
-            <div className="h-[120px]">
+            <div className="mt-1 h-[166px]">
               <LossProfileChart series={selectedSeries} />
             </div>
           </div>
         </section>
 
-        {/* RIGHT: manager KPI + exception-first asset ledger */}
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel p-3">
             <div className="flex items-start justify-between gap-3">

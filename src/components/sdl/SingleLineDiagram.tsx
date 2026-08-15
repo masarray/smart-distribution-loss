@@ -157,6 +157,38 @@ function FlowArrow({ x, y, direction }: { x: number; y: number; direction: FlowD
   );
 }
 
+function SelectedPlate({
+  x,
+  y,
+  width,
+  height,
+  selected,
+  label,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  selected: boolean;
+  label: string;
+}) {
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx="6"
+      fill={selected ? "var(--color-primary)" : "var(--color-surface-2)"}
+      fillOpacity={selected ? 0.1 : 1}
+      stroke={selected ? "var(--color-primary)" : "var(--color-border)"}
+      strokeWidth={selected ? 1.5 : 1}
+      data-sld-selection={selected ? label : undefined}
+      vectorEffect="non-scaling-stroke"
+    />
+  );
+}
+
 export function SingleLineDiagram({
   selected,
   onSelect,
@@ -192,11 +224,16 @@ export function SingleLineDiagram({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="selectionGlow" x="-40%" y="-100%" width="180%" height="300%">
+            <feGaussianBlur stdDeviation="2.6" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
-        {/* M4 keeps M3 scale but redistributes the three load branches to use the left/middle canvas. */}
         <g transform="translate(-12 -7) scale(1.085)">
-          {/* Upstream source: intentionally smaller than the operational topology. */}
           <g color="var(--color-mv)">
             <rect x="24" y="63" width="132" height="60" rx="7" fill="var(--color-surface-2)" stroke="var(--color-border)" />
             <circle cx="50" cy="93" r="12.5" fill="var(--color-surface)" stroke="currentColor" strokeWidth="1.7" />
@@ -211,7 +248,7 @@ export function SingleLineDiagram({
               GI 150/20 kV
             </text>
             <text x="72" y="102.5" fill="var(--color-muted-foreground)" fontSize="8.8">
-              Incoming penyulang
+              Incoming dari GI
             </text>
 
             <RouteRail d="M156 93H207" width={2.15} />
@@ -226,11 +263,23 @@ export function SingleLineDiagram({
             )}
           </g>
 
-          {/* Main 20 kV feeder: branch taps are redistributed to avoid right-heavy composition. */}
           <g className={zone("feeder")} onClick={() => onSelect("feeder")} color="var(--color-mv)">
+            {selected === "feeder" && (
+              <path
+                d="M258 93H902"
+                stroke="var(--color-primary)"
+                strokeWidth="7"
+                strokeLinecap="round"
+                opacity="0.22"
+                filter="url(#selectionGlow)"
+                vectorEffect="non-scaling-stroke"
+                data-sld-selection="feeder"
+              />
+            )}
             <RouteRail d="M260 93H900" width={2.4} />
-            <text x="266" y="76" fill="currentColor" fontSize="10.2" fontFamily="var(--font-mono)">
-              BUS 20 kV · PENYULANG GD-01 · 3Φ
+            <SelectedPlate x={260} y={58} width={228} height={22} selected={selected === "feeder"} label="feeder-label" />
+            <text x="270" y="72.5" fill={selected === "feeder" ? "var(--color-primary)" : "currentColor"} fontSize="10.1" fontFamily="var(--font-mono)" fontWeight="600">
+              PENYULANG 20 kV · GD-01 · 3Φ
             </text>
             {energised && (
               <g filter="url(#flowGlow)">
@@ -246,7 +295,6 @@ export function SingleLineDiagram({
             )}
           </g>
 
-          {/* Referensi TM (internal channel: spot). */}
           <g transform="translate(-35 0)" className={zone("spot")} onClick={() => onSelect("spot")} color="var(--color-mv)">
             <RouteRail d="M390 93V136" width={1.8} />
             <CircuitBreaker x={390} y={145} label="QF-11" state="CLOSED" />
@@ -262,7 +310,7 @@ export function SingleLineDiagram({
                 <FlowArrow x={390} y={220} direction="down" />
               </g>
             )}
-            <rect x="302" y="258" width="176" height="40" rx="6" fill="var(--color-surface-2)" stroke={selected === "spot" ? "var(--color-primary)" : "var(--color-border)"} />
+            <SelectedPlate x={302} y={258} width={176} height={40} selected={selected === "spot"} label="spot" />
             <text x="314" y="274" fill="var(--color-foreground)" fontSize="11" fontFamily="var(--font-display)">
               Referensi TM
             </text>
@@ -271,7 +319,6 @@ export function SingleLineDiagram({
             </text>
           </g>
 
-          {/* Pelanggan TM */}
           <g transform="translate(-70 0)" className={zone("tm")} onClick={() => onSelect("tm")} color="var(--color-mv)">
             <RouteRail d="M600 93V136" width={1.8} />
             <CircuitBreaker x={600} y={145} label="QF-21" state="CLOSED" />
@@ -287,7 +334,7 @@ export function SingleLineDiagram({
                 <FlowArrow x={600} y={220} direction="down" />
               </g>
             )}
-            <rect x="512" y="258" width="176" height="40" rx="6" fill="var(--color-surface-2)" stroke={selected === "tm" ? "var(--color-primary)" : "var(--color-border)"} />
+            <SelectedPlate x={512} y={258} width={176} height={40} selected={selected === "tm"} label="tm" />
             <text x="524" y="274" fill="var(--color-foreground)" fontSize="11" fontFamily="var(--font-display)">
               Pelanggan TM
             </text>
@@ -296,16 +343,19 @@ export function SingleLineDiagram({
             </text>
           </g>
 
-          {/* Gardu distribusi */}
           <g transform="translate(-115 0)" className={zone("gd")} onClick={() => onSelect("gd")} color="var(--color-mv)">
+            <SelectedPlate x={808} y={156} width={178} height={59} selected={selected === "gd"} label="gd" />
             <RouteRail d="M840 93V127" width={1.9} />
             <CircuitBreaker x={840} y={136} label="QF-31" state="CLOSED" />
             <RouteRail d="M840 145V159" width={1.9} />
             {energised && <FlowArrow x={840} y={155} direction="down" />}
+            {selected === "gd" && (
+              <circle cx="840" cy="187" r="25" fill="none" stroke="var(--color-primary)" strokeWidth="3.5" opacity="0.22" filter="url(#selectionGlow)" vectorEffect="non-scaling-stroke" />
+            )}
             <circle cx="840" cy="176" r="17" fill="var(--color-surface)" stroke="currentColor" strokeWidth="2" />
             <circle cx="840" cy="198" r="17" fill="var(--color-surface)" stroke="var(--color-lv)" strokeWidth="2" />
             {energised && <circle cx="840" cy="187" r="10" fill="var(--color-primary)" opacity="0.18" className="pulse-node" />}
-            <text x="870" y="176" fill="var(--color-foreground)" fontSize="11.5" fontFamily="var(--font-display)">
+            <text x="870" y="176" fill={selected === "gd" ? "var(--color-primary)" : "var(--color-foreground)"} fontSize="11.5" fontFamily="var(--font-display)" fontWeight="600">
               TR GD-01
             </text>
             <text x="870" y="191" fill="var(--color-muted-foreground)" fontSize="9.3" fontFamily="var(--font-mono)">
@@ -365,7 +415,6 @@ export function SingleLineDiagram({
           </g>
         </g>
 
-        {/* Compact operational legend: voltage color, breaker state, and power-flow direction are distinct concepts. */}
         <g>
           <rect x="24" y="364" width="574" height="48" rx="7" fill="var(--color-surface)" stroke="var(--color-border)" />
           <text x="40" y="382" fill="var(--color-foreground)" fontSize="9.5" fontFamily="var(--font-display)">

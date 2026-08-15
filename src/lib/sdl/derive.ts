@@ -23,10 +23,10 @@ const pctErr = (value: number, truth: number) => ((value - truth) / truth) * 100
 export const ASSET_META: Record<AssetId, { label: string; short: string; domain: AssetLoss["domain"]; note: string }> =
   {
     feeder: {
-      label: "Feeder 20 kV — roll-up",
-      short: "Feeder",
+      label: "Penyulang 20 kV — total",
+      short: "Penyulang 20 kV",
       domain: "FEEDER",
-      note: "Agregat susut Referensi TM + Pelanggan TM + GD-01 pada penyulang yang sama.",
+      note: "Backbone penyulang 20 kV dari incoming GI; KPI total adalah roll-up Referensi TM + Pelanggan TM + GD-01.",
     },
     spot: {
       label: "Referensi TM — beban terukur",

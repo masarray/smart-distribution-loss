@@ -10,12 +10,21 @@ async function assertVisible(locator, label) {
   if (!(await locator.isVisible())) throw new Error(`${label} is not visible.`);
 }
 
+async function selectAndAssert(assetName, titlePattern, selectionMarker) {
+  await page.getByRole("button", { name: assetName, exact: true }).first().click();
+  await assertVisible(page.getByText(titlePattern), `${assetName} selected-asset chart title`);
+  await assertVisible(page.locator(`[data-sld-selection="${selectionMarker}"]`).first(), `${assetName} SLD highlight`);
+  await assertVisible(page.locator('[data-manager-peak="true"]'), `${assetName} peak summary`);
+  await assertVisible(page.locator('[data-manager-worst-summary="true"]'), `${assetName} worst-interval summary`);
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
   await assertVisible(page.getByText("Referensi TM", { exact: true }).first(), "operational Referensi TM identity");
   await assertVisible(page.getByText("Pelanggan TM", { exact: true }).first(), "Pelanggan TM identity");
   await assertVisible(page.getByText("TR GD-01", { exact: true }), "GD-01 transformer identity");
+  await assertVisible(page.getByText(/PENYULANG 20 kV · GD-01/), "Penyulang 20 kV SLD identity");
 
   const closedStates = page.getByText("CLOSED", { exact: true });
   if ((await closedStates.count()) < 4) {
@@ -37,8 +46,16 @@ try {
     throw new Error(`Expected directional flow arrows after simulation, found ${await arrows.count()}.`);
   }
 
-  await assertVisible(page.locator('[data-manager-peak="true"]'), "selected-asset peak summary");
-  await assertVisible(page.getByText(/Profil susut teknis · Gardu GD-01/), "GD-01 selected-asset chart title");
+  await selectAndAssert("Gardu GD-01", /Profil susut teknis · Gardu GD-01/, "gd");
+  await selectAndAssert("Penyulang 20 kV", /Profil susut teknis · Penyulang 20 kV/, "feeder-label");
+  await selectAndAssert("Referensi TM", /Profil susut teknis · Referensi TM/, "spot");
+  await selectAndAssert("Pelanggan TM", /Profil susut teknis · Pelanggan TM/, "tm");
+
+  const chart = page.locator('[data-loss-chart-root="true"]');
+  const box = await chart.boundingBox();
+  if (!box) throw new Error("Selected-asset trend chart has no visible bounding box.");
+  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.55);
+  await assertVisible(page.locator('[data-loss-tooltip="true"]'), "short interval insight tooltip");
 
   const attentionRows = page.locator('button[data-analysis-status="ATTENTION"]');
   if ((await attentionRows.count()) < 1) {
@@ -54,16 +71,11 @@ try {
     throw new Error(`Ledger does not expose kWh + loss-rate pairing: ${ledgerValues.join(" | ")}`);
   }
 
-  await page.getByRole("button", { name: "Referensi TM", exact: true }).first().click();
-  await page.keyboard.press("Escape");
-  await assertVisible(page.getByText(/Profil susut teknis · Referensi TM/), "Referensi TM selected-asset chart title");
-  await assertVisible(page.locator('[data-manager-peak="true"]'), "Referensi TM peak summary");
-
   if ((await page.getByText("Ground truth", { exact: true }).count()) !== 0) {
     throw new Error("Hidden Ground Truth appeared after switching selected assets.");
   }
 
-  console.log("M4 gate PASS: operational SLD, selected-asset trend, kWh + loss %, peak summary, and exception-first ledger are visible.");
+  console.log("P0 gate PASS: every selected asset has a visible SLD highlight, chart follows selection, peak/worst interval are exposed, and hover insight works.");
 } finally {
   await browser.close();
 }
