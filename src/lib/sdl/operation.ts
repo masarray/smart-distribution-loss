@@ -36,6 +36,10 @@ export interface LossSeriesSummary {
   peakTime: string | null;
   deltaAtPeakKw: number | null;
   averageSmartKw: number | null;
+  worstTime: string | null;
+  worstSmartKw: number | null;
+  worstConventionalKw: number | null;
+  worstDeltaKw: number | null;
 }
 
 function numericObservation(demo: SpotDemo | TmDemo | null, key: string, fallback = 100) {
@@ -97,45 +101,68 @@ function deriveStatus(
 export function summarizeLossSeries(
   series: Array<LossSeriesPoint | SeriesPoint> | undefined,
 ): LossSeriesSummary {
-  if (!series?.length) {
-    return {
-      peakSmartKw: null,
-      peakConventionalKw: null,
-      peakTime: null,
-      deltaAtPeakKw: null,
-      averageSmartKw: null,
-    };
-  }
+  const empty: LossSeriesSummary = {
+    peakSmartKw: null,
+    peakConventionalKw: null,
+    peakTime: null,
+    deltaAtPeakKw: null,
+    averageSmartKw: null,
+    worstTime: null,
+    worstSmartKw: null,
+    worstConventionalKw: null,
+    worstDeltaKw: null,
+  };
+
+  if (!series?.length) return empty;
 
   let peak: LossSeriesPoint | SeriesPoint | null = null;
+  let worst: LossSeriesPoint | SeriesPoint | null = null;
+  let worstAbsDelta = -1;
   let smartTotal = 0;
   let valid = 0;
+
   for (const point of series) {
     const smart = Number(point.smart_loss_kw);
+    const conventional = Number(point.conventional_loss_kw);
     if (!Number.isFinite(smart)) continue;
+
     smartTotal += smart;
     valid += 1;
     if (peak == null || smart > Number(peak.smart_loss_kw)) peak = point;
+
+    if (Number.isFinite(conventional)) {
+      const absDelta = Math.abs(smart - conventional);
+      if (absDelta > worstAbsDelta) {
+        worstAbsDelta = absDelta;
+        worst = point;
+      }
+    }
   }
 
-  if (!peak || valid === 0) {
-    return {
-      peakSmartKw: null,
-      peakConventionalKw: null,
-      peakTime: null,
-      deltaAtPeakKw: null,
-      averageSmartKw: null,
-    };
-  }
+  if (!peak || valid === 0) return empty;
 
   const peakSmartKw = Number(peak.smart_loss_kw);
   const peakConventionalKw = Number(peak.conventional_loss_kw);
+  const worstSmartKw = worst ? Number(worst.smart_loss_kw) : null;
+  const worstConventionalKw = worst ? Number(worst.conventional_loss_kw) : null;
+
   return {
     peakSmartKw,
     peakConventionalKw: Number.isFinite(peakConventionalKw) ? peakConventionalKw : null,
     peakTime: peak.time,
     deltaAtPeakKw: Number.isFinite(peakConventionalKw) ? peakSmartKw - peakConventionalKw : null,
     averageSmartKw: smartTotal / valid,
+    worstTime: worst?.time ?? null,
+    worstSmartKw: worstSmartKw != null && Number.isFinite(worstSmartKw) ? worstSmartKw : null,
+    worstConventionalKw:
+      worstConventionalKw != null && Number.isFinite(worstConventionalKw) ? worstConventionalKw : null,
+    worstDeltaKw:
+      worstSmartKw != null &&
+      worstConventionalKw != null &&
+      Number.isFinite(worstSmartKw) &&
+      Number.isFinite(worstConventionalKw)
+        ? worstSmartKw - worstConventionalKw
+        : null,
   };
 }
 
@@ -193,7 +220,7 @@ export function deriveOperationalMetrics(
       { label: "Fasa GD-01", percent: profile.phase },
       { label: "Mapping GD-01", percent: profile.mapping },
     ];
-    confidenceBasis = "Feeder mengikuti weakest-child confidence karena GD-01 membawa degraded field-like input.";
+    confidenceBasis = "Penyulang 20 kV mengikuti weakest-child confidence karena GD-01 membawa degraded field-like input.";
     const childEnergy = [
       integrateObservedEnergy(spot?.series),
       integrateObservedEnergy(tm?.series),
