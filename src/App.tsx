@@ -8,7 +8,12 @@ import { DataDrawer } from "@/components/sdl/DataDrawer";
 import { DetailDrawer } from "@/components/sdl/DetailDrawer";
 import { useEngine } from "@/lib/sdl/useEngine";
 import { deriveAssets, fmt, type AssetId } from "@/lib/sdl/derive";
-import { deriveOperationalMetrics, type ConfidenceLevel } from "@/lib/sdl/operation";
+import {
+  deriveOperationalMetrics,
+  summarizeLossSeries,
+  type AnalysisStatus,
+  type ConfidenceLevel,
+} from "@/lib/sdl/operation";
 import type { Preset } from "@/lib/sdl/types";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +44,26 @@ export default function App() {
     state.tm,
     active?.smartKwh,
   );
+
+  const assetMetrics = useMemo(
+    () =>
+      assets.map((asset) => ({
+        asset,
+        metric: deriveOperationalMetrics(
+          asset.id,
+          preset,
+          state.result,
+          state.spot,
+          state.tm,
+          asset.smartKwh,
+        ),
+      })),
+    [assets, preset, state.result, state.spot, state.tm],
+  );
+
+  const selectedSeries = state.result?.asset_series?.[selected] ?? [];
+  const selectedSummary = useMemo(() => summarizeLossSeries(selectedSeries), [selectedSeries]);
+  const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
 
   const selectAsset = (id: AssetId, openData = true) => {
     setSelected(id);
@@ -192,7 +217,7 @@ export default function App() {
           </Button>
         </section>
 
-        {/* CENTER: SLD + chart */}
+        {/* CENTER: SLD + selected-asset trend */}
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel relative min-h-0 flex-1 overflow-hidden">
             <div className="absolute left-3 top-3 z-10">
@@ -210,27 +235,42 @@ export default function App() {
             />
           </div>
           <div className="panel h-[176px] shrink-0 p-3 pb-1">
-            <div className="flex items-center justify-between">
-              <p className="label-xs">Profil susut teknis GD-01 · 24 jam · 96 interval</p>
-              <div className="flex gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-4" /> Ground truth</span>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="label-xs">Profil susut teknis · {active?.short} · 24 jam · 96 interval</p>
+                {selectedSummary.peakSmartKw != null && selectedSummary.peakTime != null && (
+                  <p className="mt-1 text-[10px] text-muted-foreground" data-manager-peak="true">
+                    Peak smart <span className="numeric text-foreground">{selectedSummary.peakSmartKw.toFixed(3)} kW</span>
+                    {" · "}{selectedSummary.peakTime}
+                    {selectedSummary.deltaAtPeakKw != null && (
+                      <span> · Δ vs conventional <span className="numeric">{selectedSummary.deltaAtPeakKw >= 0 ? "+" : ""}{selectedSummary.deltaAtPeakKw.toFixed(3)} kW</span></span>
+                    )}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-3 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-2" /> Konvensional</span>
                 <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-chart-1" /> Smart engine</span>
               </div>
             </div>
-            <div className="h-[132px]">
-              <LossProfileChart series={state.result?.series ?? []} />
+            <div className="h-[120px]">
+              <LossProfileChart series={selectedSeries} />
             </div>
           </div>
         </section>
 
-        {/* RIGHT: operation KPI + asset ledger */}
+        {/* RIGHT: manager KPI + exception-first asset ledger */}
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="label-xs">Aset terpilih</p>
                 <p className="font-display text-sm">{active?.label}</p>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span className={cn("size-1.5 rounded-full", statusDotClass(operational.status))} />
+                  <span className={statusTextClass(operational.status)}>{operational.status}</span>
+                  <span>· {operational.statusReason}</span>
+                </div>
               </div>
               <span className="rounded-md bg-surface-2 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
                 {active?.domain}
@@ -255,28 +295,47 @@ export default function App() {
           </div>
 
           <div className="panel min-h-0 flex-1 overflow-hidden p-3">
-            <p className="label-xs mb-2">Ledger susut per objek</p>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="label-xs">Ledger susut per objek</p>
+              {exceptionCount > 0 && (
+                <span className="rounded-md border border-warn/25 bg-warn/5 px-2 py-1 text-[9px] font-semibold text-warn" data-exception-count="true">
+                  {exceptionCount} perlu perhatian
+                </span>
+              )}
+            </div>
             <div className="space-y-1.5">
-              {assets.map((a) => {
-                const metric = deriveOperationalMetrics(a.id, preset, state.result, state.spot, state.tm, a.smartKwh);
+              {assetMetrics.map(({ asset: a, metric }) => {
+                const selectedRow = selected === a.id;
+                const exception = isException(metric.status);
                 return (
                   <button
                     key={a.id}
                     type="button"
                     onClick={() => selectAsset(a.id)}
+                    data-analysis-status={metric.status}
                     className={cn(
                       "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
-                      selected === a.id ? "border-primary/50 bg-primary/10" : "border-border/55 bg-surface-2/80 hover:border-primary/20",
+                      selectedRow
+                        ? "border-primary/50 bg-primary/10"
+                        : exception
+                          ? statusBorderClass(metric.status)
+                          : "border-border/45 bg-surface-2/70 hover:border-primary/20",
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{a.short}</span>
-                      <span className="numeric text-xs">{fmt(a.smartKwh, 1)} kWh</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
+                        <i className={cn("size-1.5 shrink-0 rounded-full", statusDotClass(metric.status))} />
+                        <span className="truncate">{a.short}</span>
+                      </span>
+                      <span className="numeric shrink-0 text-xs">
+                        {fmt(a.smartKwh, 1)} kWh
+                        {metric.lossRatePercent != null ? ` · ${metric.lossRatePercent.toFixed(2)}%` : ""}
+                      </span>
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
                       <span className="truncate">{a.action}</span>
-                      <span className={cn("shrink-0 font-semibold", confidenceTextClass(metric.confidence))}>
-                        {metric.lossRatePercent == null ? metric.confidence : `${metric.lossRatePercent.toFixed(2)}% · ${metric.confidence}`}
+                      <span className={cn("shrink-0 font-semibold", statusTextClass(metric.status))}>
+                        {metric.status}
                       </span>
                     </div>
                   </button>
@@ -289,9 +348,9 @@ export default function App() {
                 {state.error}
               </p>
             )}
-            {state.status === "done" && state.result && (
-              <p className="mt-3 rounded-md border border-border/35 bg-surface-2/35 p-2 text-[10.5px] text-muted-foreground/75">
-                {state.result.gate.pass ? "GATE PASS · Validasi P3 selesai." : "GATE REVIEW · Periksa detail engineering."}
+            {state.status === "done" && state.result && !state.result.gate.pass && (
+              <p className="mt-3 rounded-md border border-destructive/35 bg-destructive/8 p-2 text-[10.5px] text-destructive">
+                GATE REVIEW · Periksa detail engineering.
               </p>
             )}
           </div>
@@ -322,6 +381,29 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function isException(status: AnalysisStatus) {
+  return status === "ATTENTION" || status === "REVIEW";
+}
+
+function statusDotClass(status: AnalysisStatus) {
+  if (status === "NORMAL") return "bg-success";
+  if (status === "ATTENTION") return "bg-warn";
+  if (status === "REVIEW") return "bg-destructive";
+  return "bg-muted-foreground/55";
+}
+
+function statusTextClass(status: AnalysisStatus) {
+  if (status === "NORMAL") return "text-success";
+  if (status === "ATTENTION") return "text-warn";
+  if (status === "REVIEW") return "text-destructive";
+  return "text-muted-foreground";
+}
+
+function statusBorderClass(status: AnalysisStatus) {
+  if (status === "REVIEW") return "border-destructive/35 bg-destructive/5 hover:border-destructive/55";
+  return "border-warn/30 bg-warn/5 hover:border-warn/45";
 }
 
 function confidenceTextClass(level: ConfidenceLevel) {
