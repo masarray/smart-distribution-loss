@@ -107,9 +107,10 @@
   letter-spacing: .06em;
 }
 
-/* Right-side annotations are end-anchored so they stay inside the SVG viewport. */
+/* The old right-edge annotation text duplicates the legend/JTR labels and competes
+   with customer-state dots at responsive widths, so the SLD keeps that area visual. */
 .proof-distribution-sld text[x="710"] {
-  text-anchor: end;
+  display: none;
 }
 
 .proof-sld-source-ring,
