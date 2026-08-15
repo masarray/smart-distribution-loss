@@ -194,7 +194,7 @@ export function SingleLineDiagram({
           </filter>
         </defs>
 
-        {/* M3: topology is ~8.5% larger than the original baseline; strokes remain non-scaling. */}
+        {/* M4 keeps M3 scale but redistributes the three load branches to use the left/middle canvas. */}
         <g transform="translate(-12 -7) scale(1.085)">
           {/* Upstream source: intentionally smaller than the operational topology. */}
           <g color="var(--color-mv)">
@@ -226,28 +226,28 @@ export function SingleLineDiagram({
             )}
           </g>
 
-          {/* Main 20 kV feeder: physical topology is solid; dashed overlay + chevrons show flow direction only after calculation. */}
+          {/* Main 20 kV feeder: branch taps are redistributed to avoid right-heavy composition. */}
           <g className={zone("feeder")} onClick={() => onSelect("feeder")} color="var(--color-mv)">
-            <RouteRail d="M260 93H955" width={2.4} />
+            <RouteRail d="M260 93H900" width={2.4} />
             <text x="266" y="76" fill="currentColor" fontSize="10.2" fontFamily="var(--font-mono)">
               BUS 20 kV · PENYULANG GD-01 · 3Φ
             </text>
             {energised && (
               <g filter="url(#flowGlow)">
-                <FlowPath d="M260 93H390" fast={fastFlow} width={1.3} />
-                <FlowPath d="M390 93H600" fast={fastFlow} width={1.3} />
-                <FlowPath d="M600 93H840" fast={fastFlow} width={1.3} />
-                <FlowPath d="M840 93H955" fast={fastFlow} width={1.3} />
-                <FlowArrow x={330} y={93} direction="right" />
-                <FlowArrow x={505} y={93} direction="right" />
-                <FlowArrow x={720} y={93} direction="right" />
-                <FlowArrow x={910} y={93} direction="right" />
+                <FlowPath d="M260 93H355" fast={fastFlow} width={1.3} />
+                <FlowPath d="M355 93H530" fast={fastFlow} width={1.3} />
+                <FlowPath d="M530 93H725" fast={fastFlow} width={1.3} />
+                <FlowPath d="M725 93H900" fast={fastFlow} width={1.3} />
+                <FlowArrow x={310} y={93} direction="right" />
+                <FlowArrow x={445} y={93} direction="right" />
+                <FlowArrow x={625} y={93} direction="right" />
+                <FlowArrow x={815} y={93} direction="right" />
               </g>
             )}
           </g>
 
           {/* Referensi TM (internal channel: spot). */}
-          <g className={zone("spot")} onClick={() => onSelect("spot")} color="var(--color-mv)">
+          <g transform="translate(-35 0)" className={zone("spot")} onClick={() => onSelect("spot")} color="var(--color-mv)">
             <RouteRail d="M390 93V136" width={1.8} />
             <CircuitBreaker x={390} y={145} label="QF-11" state="CLOSED" />
             <RouteRail d="M390 154V184" width={1.8} />
@@ -272,7 +272,7 @@ export function SingleLineDiagram({
           </g>
 
           {/* Pelanggan TM */}
-          <g className={zone("tm")} onClick={() => onSelect("tm")} color="var(--color-mv)">
+          <g transform="translate(-70 0)" className={zone("tm")} onClick={() => onSelect("tm")} color="var(--color-mv)">
             <RouteRail d="M600 93V136" width={1.8} />
             <CircuitBreaker x={600} y={145} label="QF-21" state="CLOSED" />
             <RouteRail d="M600 154V184" width={1.8} />
@@ -297,7 +297,7 @@ export function SingleLineDiagram({
           </g>
 
           {/* Gardu distribusi */}
-          <g className={zone("gd")} onClick={() => onSelect("gd")} color="var(--color-mv)">
+          <g transform="translate(-115 0)" className={zone("gd")} onClick={() => onSelect("gd")} color="var(--color-mv)">
             <RouteRail d="M840 93V127" width={1.9} />
             <CircuitBreaker x={840} y={136} label="QF-31" state="CLOSED" />
             <RouteRail d="M840 145V159" width={1.9} />
