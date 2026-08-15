@@ -107,6 +107,11 @@
   letter-spacing: .06em;
 }
 
+/* Right-side annotations are end-anchored so they stay inside the SVG viewport. */
+.proof-distribution-sld text[x="710"] {
+  text-anchor: end;
+}
+
 .proof-sld-source-ring,
 .proof-sld-meter,
 .proof-sld-load,
@@ -159,16 +164,11 @@
   transition: fill .35s ease, stroke .35s ease, opacity .35s ease, filter .35s ease;
 }
 
-.proof-customer.measured,
-.state-dot.measured { fill: var(--sld-measured); stroke: rgba(100,230,168,.95); }
-.proof-customer.assumed,
-.state-dot.assumed { fill: var(--sld-assumed); stroke: rgba(240,189,101,.95); }
-.proof-customer.unknown,
-.state-dot.unknown { fill: rgba(240,125,125,.18); stroke: var(--sld-unknown); stroke-dasharray: 2 2; }
-.proof-customer.calibrated,
-.state-dot.calibrated { fill: var(--sld-calibrated); stroke: #c2fff8; filter: drop-shadow(0 0 4px rgba(118,232,223,.48)); }
-.proof-customer.held,
-.state-dot.held { fill: rgba(113,130,125,.22); stroke: var(--sld-held); }
+.proof-customer.measured { fill: var(--sld-measured); stroke: rgba(100,230,168,.95); }
+.proof-customer.assumed { fill: var(--sld-assumed); stroke: rgba(240,189,101,.95); }
+.proof-customer.unknown { fill: rgba(240,125,125,.18); stroke: var(--sld-unknown); stroke-dasharray: 2 2; }
+.proof-customer.calibrated { fill: var(--sld-calibrated); stroke: #c2fff8; filter: drop-shadow(0 0 4px rgba(118,232,223,.48)); }
+.proof-customer.held { fill: rgba(113,130,125,.22); stroke: var(--sld-held); }
 
 .state-dot {
   display: inline-block;
@@ -178,6 +178,13 @@
   border-radius: 50%;
   box-sizing: border-box;
 }
+
+/* HTML legend dots need background/border colors; SVG fill/stroke does not apply to them. */
+.state-dot.measured { background: var(--sld-measured); border-color: rgba(100,230,168,.95); }
+.state-dot.assumed { background: var(--sld-assumed); border-color: rgba(240,189,101,.95); }
+.state-dot.unknown { background: rgba(240,125,125,.18); border-color: var(--sld-unknown); border-style: dashed; }
+.state-dot.calibrated { background: var(--sld-calibrated); border-color: #c2fff8; box-shadow: 0 0 6px rgba(118,232,223,.42); }
+.state-dot.held { background: rgba(113,130,125,.30); border-color: var(--sld-held); }
 
 .proof-sld-legend {
   display: flex;
@@ -278,7 +285,7 @@
 }
 
 .proof-sld-shell[data-smart-stage="timestamp"] .customer-meter,
-.proof-sld-shell[data-smart-stage="ami"] .proof-customer.unknown,
+.proof-sld-shell[data-smart-stage="ami"] .customer-meter,
 .proof-sld-shell[data-smart-stage="phase"] .phase-unknown,
 .proof-sld-shell[data-smart-stage="pf"] .pf-assumed,
 .proof-sld-shell[data-smart-stage="asset"] .proof-sld-trafo-ring {
@@ -287,7 +294,7 @@
 }
 
 .proof-sld-shell[data-smart-stage="timestamp"] .customer-meter,
-.proof-sld-shell[data-smart-stage="ami"] .proof-customer.unknown,
+.proof-sld-shell[data-smart-stage="ami"] .customer-meter,
 .proof-sld-shell[data-smart-stage="phase"] .phase-unknown,
 .proof-sld-shell[data-smart-stage="pf"] .pf-assumed {
   animation: proof-focus-pulse 1s ease-in-out infinite alternate;
