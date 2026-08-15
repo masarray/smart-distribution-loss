@@ -44,33 +44,27 @@ export function useEngine() {
   const startedRef = useRef<number>(0);
   const [state, setState] = useState<EngineState>(initialState);
 
-  useEffect(() => {
-    return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
-    };
+  const destroyWorker = useCallback(() => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
   }, []);
 
-  const run = useCallback((preset: Preset) => {
-    if (typeof window === "undefined") return;
-    workerRef.current?.terminate();
+  const getWorker = useCallback(() => {
+    if (workerRef.current) return workerRef.current;
+
     const worker = new Worker(`${import.meta.env.BASE_URL}sdl-worker.js`);
     workerRef.current = worker;
-    startedRef.current = performance.now();
-
-    setState({
-      ...initialState,
-      status: "running",
-      stages: STAGE_LABELS.map((s) => ({ ...s, done: false })),
-      progress: { percent: 2, label: "Booting physics runtime", detail: "Pyodide · CPython WebAssembly" },
-    });
 
     worker.onmessage = (event: MessageEvent) => {
       const data = event.data ?? {};
       if (data.type === "progress") {
         setState((prev) => ({
           ...prev,
-          progress: { percent: Number(data.percent) || 0, label: data.label, detail: data.detail ?? "" },
+          progress: {
+            percent: Number(data.percent) || 0,
+            label: data.label,
+            detail: data.detail ?? "",
+          },
         }));
       } else if (data.type === "spot-demo") {
         setState((prev) => ({ ...prev, spot: data.payload as SpotDemo }));
@@ -92,30 +86,77 @@ export function useEngine() {
           spot: (data.payload?.spot_load_demo as SpotDemo) ?? prev.spot,
           intervals: { done: 96, total: 96 },
           stages: prev.stages.map((s) => ({ ...s, done: true })),
-          progress: { percent: 100, label: "Analysis complete", detail: "96/96 three-phase power flows solved" },
+          progress: {
+            percent: 100,
+            label: "Analysis complete",
+            detail: "Runtime warm · siap untuk simulasi berikutnya tanpa reboot Pyodide",
+          },
           elapsedMs: performance.now() - startedRef.current,
         }));
-        worker.terminate();
-        workerRef.current = null;
       } else if (data.type === "error") {
-        setState((prev) => ({ ...prev, status: "error", error: String(data.message ?? "Unknown engine error") }));
+        setState((prev) => ({
+          ...prev,
+          status: "error",
+          error: String(data.message ?? "Unknown engine error"),
+        }));
         worker.terminate();
-        workerRef.current = null;
+        if (workerRef.current === worker) workerRef.current = null;
       }
     };
 
     worker.onerror = (err) => {
-      setState((prev) => ({ ...prev, status: "error", error: err.message || "Worker failed to start" }));
+      setState((prev) => ({
+        ...prev,
+        status: "error",
+        error: err.message || "Worker failed to start",
+      }));
+      worker.terminate();
+      if (workerRef.current === worker) workerRef.current = null;
     };
 
-    worker.postMessage({ type: "run-p3", preset });
+    return worker;
   }, []);
 
+  useEffect(() => destroyWorker, [destroyWorker]);
+
+  const run = useCallback(
+    (preset: Preset) => {
+      if (typeof window === "undefined") return;
+
+      const warmStart = workerRef.current !== null;
+      const worker = getWorker();
+      startedRef.current = performance.now();
+
+      setState({
+        ...initialState,
+        status: "running",
+        stages: STAGE_LABELS.map((s) => ({ ...s, done: false })),
+        progress: warmStart
+          ? {
+              percent: 4,
+              label: "Reusing warm physics runtime",
+              detail: "Pyodide · Pandapower · Python engines sudah resident di worker",
+            }
+          : {
+              percent: 2,
+              label: "Booting physics runtime",
+              detail: "Pyodide · CPython WebAssembly",
+            },
+      });
+
+      worker.postMessage({ type: "run-p3", preset });
+    },
+    [getWorker],
+  );
+
   const cancel = useCallback(() => {
-    workerRef.current?.terminate();
-    workerRef.current = null;
-    setState((prev) => ({ ...prev, status: "idle", progress: { ...prev.progress, label: "Dibatalkan", detail: "" } }));
-  }, []);
+    destroyWorker();
+    setState((prev) => ({
+      ...prev,
+      status: "idle",
+      progress: { ...prev.progress, label: "Dibatalkan", detail: "Runtime worker di-reset." },
+    }));
+  }, [destroyWorker]);
 
   return { state, run, cancel };
 }
