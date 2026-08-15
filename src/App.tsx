@@ -61,7 +61,10 @@ export default function App() {
     [assets, preset, state.result, state.spot, state.tm],
   );
 
-  const selectedSeries = state.result?.asset_series?.[selected] ?? [];
+  const selectedSeries = useMemo(
+    () => state.result?.asset_series?.[selected] ?? [],
+    [state.result, selected],
+  );
   const selectedSummary = useMemo(() => summarizeLossSeries(selectedSeries), [selectedSeries]);
   const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
 
@@ -349,7 +352,7 @@ export default function App() {
               </p>
             )}
             {state.status === "done" && state.result && !state.result.gate.pass && (
-              <p className="mt-3 rounded-md border border-destructive/35 bg-destructive/8 p-2 text-[10.5px] text-destructive">
+              <p className="mt-3 rounded-md border border-destructive/35 bg-destructive/10 p-2 text-[10.5px] text-destructive">
                 GATE REVIEW · Periksa detail engineering.
               </p>
             )}
