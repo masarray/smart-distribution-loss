@@ -112,6 +112,47 @@ export interface FieldDatasetImport {
   filenames: string[];
 }
 
+export interface FieldPhysicsSeriesPoint {
+  index: number;
+  time: string;
+  technical_loss_kw: number;
+  line_loss_kw: number;
+  transformer_loss_kw: number;
+  source_kw: number;
+  load_kw: number;
+  load_kvar: number;
+  loss_rate_percent: number;
+  min_voltage_pu: number;
+  max_loading_percent: number;
+  observed_source_kw: number | null;
+}
+
+export interface FieldDatasetResult {
+  schema: "smart-distribution-loss-field-result-v1";
+  dataset_schema: typeof FIELD_DATASET_SCHEMA;
+  dataset_mode: "field_import";
+  gate: { pass: boolean; summary: string };
+  summary: {
+    technical_loss_kwh: number;
+    supplied_energy_kwh: number;
+    load_energy_kwh: number;
+    loss_rate_percent: number;
+    peak_loss_kw: number;
+    peak_time: string;
+    min_voltage_pu: number;
+    max_voltage_pu: number;
+    max_loading_percent: number;
+    max_line_loading_percent: number;
+    max_transformer_loading_percent: number;
+    source_nrmse_percent: number | null;
+    source_measurement_intervals: number;
+  };
+  series: FieldPhysicsSeriesPoint[];
+  checks: Array<{ name: string; pass: boolean; detail: string }>;
+  provenance: Record<string, string>;
+  runtime: Record<string, number | string | boolean | null>;
+}
+
 const REQUIRED_FILENAMES = ["network.csv", "customers.csv", "measurements.csv", "ami.csv"] as const;
 
 const NETWORK_HEADERS = [
