@@ -1,14 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { FieldAssetSummary } from "@/lib/sdl/fieldAsset";
 import type { FieldTopologyGraph, FieldTopologySelection } from "@/lib/sdl/fieldTopology";
-import { getTopologyPathElementIds, selectionKey } from "@/lib/sdl/fieldTopology";
+import { getTopologyNavigation, getTopologyPathElementIds, selectionKey } from "@/lib/sdl/fieldTopology";
 
 interface Props {
   graph: FieldTopologyGraph;
   selected: FieldTopologySelection;
   onSelect: (selection: FieldTopologySelection) => void;
   assets: FieldAssetSummary[];
-  focusSelected?: boolean;
 }
 
 interface Point {
@@ -23,10 +22,25 @@ interface Layout {
   height: number;
 }
 
-export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusSelected = false }: Props) {
+interface SearchItem {
+  selection: FieldTopologySelection;
+  title: string;
+  detail: string;
+  search: string;
+}
+
+export function FieldTopologyDiagram({ graph, selected, onSelect, assets }: Props) {
+  const [query, setQuery] = useState("");
+  const [focusSelected, setFocusSelected] = useState(false);
   const layout = useMemo(() => buildLayout(graph), [graph]);
   const lossById = useMemo(() => new Map(assets.map((asset) => [asset.element_id, asset.loss_kwh])), [assets]);
   const routeElements = useMemo(() => getTopologyPathElementIds(graph, selected), [graph, selected]);
+  const navigation = useMemo(() => getTopologyNavigation(graph, selected), [graph, selected]);
+  const searchItems = useMemo(() => buildSearchItems(graph), [graph]);
+  const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
+  const searchResults = normalizedQuery
+    ? searchItems.filter((item) => item.search.includes(normalizedQuery)).slice(0, 7)
+    : [];
 
   if (!graph.supported || !graph.source || !graph.rootBusId) {
     return (
@@ -36,6 +50,11 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusS
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
             {graph.reason ?? "Struktur jaringan belum memenuhi kontrak renderer radial."}
           </p>
+          {!!graph.issues[0] && (
+            <p className="mt-2 numeric text-[10px] text-warn/85">
+              {[...graph.issues[0].elementIds, ...graph.issues[0].busIds].slice(0, 5).join(" · ")}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -46,14 +65,97 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusS
   const sourceSelection: FieldTopologySelection = { kind: "source", id: graph.source.element_id };
   const viewBox = focusSelected ? focusViewBox(layout, graph, selected, sourcePoint) : `0 0 ${layout.width} ${layout.height}`;
 
+  const choose = (selection: FieldTopologySelection, focus = focusSelected) => {
+    onSelect(selection);
+    if (focus) setFocusSelected(true);
+  };
+
   return (
     <div
-      className="h-full w-full overflow-hidden"
+      className="relative h-full w-full overflow-hidden"
       data-field-dynamic-sld="true"
+      data-p6-topology="true"
       data-field-sld-view={focusSelected ? "focus" : "fit"}
       data-field-layout-leaves={graph.leafBusIds.length}
       data-field-layout-branches={graph.branchBusIds.length}
     >
+      <div className="absolute right-2 top-2 z-20 flex items-start gap-1.5" data-field-topology-tools="true">
+        <div className="relative">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Cari aset / bus…"
+            aria-label="Cari aset atau bus"
+            className="h-7 w-44 rounded-md border border-border/70 bg-surface/95 px-2.5 text-[10px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/55"
+            data-field-topology-search="true"
+          />
+          {!!normalizedQuery && (
+            <div className="absolute right-0 top-8 z-30 w-64 overflow-hidden rounded-md border border-border/70 bg-surface shadow-xl" data-field-search-results="true">
+              {searchResults.length ? searchResults.map((item) => (
+                <button
+                  key={selectionKey(item.selection)}
+                  type="button"
+                  className="block w-full border-b border-border/35 px-2.5 py-2 text-left last:border-0 hover:bg-surface-2"
+                  onClick={() => {
+                    choose(item.selection, true);
+                    setQuery("");
+                  }}
+                  data-field-search-result={selectionKey(item.selection)}
+                >
+                  <span className="block truncate text-[10px] font-semibold text-foreground">{item.title}</span>
+                  <span className="mt-0.5 block truncate text-[9px] text-muted-foreground">{item.detail}</span>
+                </button>
+              )) : (
+                <p className="px-2.5 py-2 text-[10px] text-muted-foreground">Tidak ada aset yang cocok.</p>
+              )}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          className="h-7 rounded-md border border-border/70 bg-surface/95 px-2.5 text-[9px] font-semibold text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          onClick={() => setFocusSelected(true)}
+          data-field-focus-selected="true"
+        >
+          Fokus
+        </button>
+        <button
+          type="button"
+          className="h-7 rounded-md border border-border/70 bg-surface/95 px-2.5 text-[9px] font-semibold text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          onClick={() => setFocusSelected(false)}
+          data-field-fit-topology="true"
+        >
+          Fit
+        </button>
+      </div>
+
+      <div className="absolute bottom-2 right-2 z-20 flex max-w-[62%] flex-wrap justify-end gap-1" data-field-topology-navigation="true">
+        {navigation.upstream && (
+          <button
+            type="button"
+            className="rounded-md border border-border/65 bg-surface/95 px-2 py-1 text-[9px] font-medium text-muted-foreground hover:border-primary/45 hover:text-primary"
+            onClick={() => choose(navigation.upstream!, true)}
+            data-field-nav-upstream={selectionKey(navigation.upstream)}
+          >
+            ← Upstream
+          </button>
+        )}
+        {navigation.downstream.slice(0, 4).map((item) => (
+          <button
+            key={selectionKey(item)}
+            type="button"
+            className="rounded-md border border-primary/25 bg-primary/5 px-2 py-1 text-[9px] font-medium text-primary/90 hover:bg-primary/10"
+            onClick={() => choose(item, true)}
+            data-field-nav-downstream={selectionKey(item)}
+          >
+            {item.id} →
+          </button>
+        ))}
+        {navigation.downstream.length > 4 && (
+          <span className="rounded-md bg-surface/90 px-2 py-1 text-[9px] text-muted-foreground">+{navigation.downstream.length - 4}</span>
+        )}
+      </div>
+
       <svg
         viewBox={viewBox}
         className="h-full w-full"
@@ -76,8 +178,8 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusS
           role="button"
           tabIndex={0}
           aria-label={`Pilih source ${graph.source.element_id}`}
-          onClick={() => onSelect(sourceSelection)}
-          onKeyDown={(event) => activateWithKeyboard(event, () => onSelect(sourceSelection))}
+          onClick={() => choose(sourceSelection)}
+          onKeyDown={(event) => activateWithKeyboard(event, () => choose(sourceSelection))}
           className="cursor-pointer outline-none"
           data-field-topology-source={graph.source.element_id}
           data-selected={activeKey === selectionKey(sourceSelection) ? "true" : "false"}
@@ -120,8 +222,8 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusS
               role="button"
               tabIndex={0}
               aria-label={`Pilih ${element.element_type} ${element.element_id}`}
-              onClick={() => onSelect(selection)}
-              onKeyDown={(event) => activateWithKeyboard(event, () => onSelect(selection))}
+              onClick={() => choose(selection)}
+              onKeyDown={(event) => activateWithKeyboard(event, () => choose(selection))}
               className="cursor-pointer outline-none"
               data-field-topology-element={element.element_id}
               data-field-element-loss-kwh={loss == null ? undefined : loss.toFixed(6)}
@@ -187,8 +289,8 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusS
               role="button"
               tabIndex={0}
               aria-label={`Pilih bus ${bus.id}`}
-              onClick={() => onSelect(selection)}
-              onKeyDown={(event) => activateWithKeyboard(event, () => onSelect(selection))}
+              onClick={() => choose(selection)}
+              onKeyDown={(event) => activateWithKeyboard(event, () => choose(selection))}
               className="cursor-pointer outline-none"
               data-field-topology-bus={bus.id}
               data-selected={selectedNow ? "true" : "false"}
@@ -216,6 +318,29 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets, focusS
       </svg>
     </div>
   );
+}
+
+function buildSearchItems(graph: FieldTopologyGraph): SearchItem[] {
+  if (!graph.supported || !graph.source) return [];
+  const source: SearchItem = {
+    selection: { kind: "source", id: graph.source.element_id },
+    title: graph.source.element_id,
+    detail: `Source · ${graph.rootBusId ?? "root bus"}`,
+    search: `source sumber ${graph.source.element_id} ${graph.rootBusId ?? ""}`.toLocaleLowerCase("id-ID"),
+  };
+  const elements = graph.elements.map((element): SearchItem => ({
+    selection: { kind: "element", id: element.element_id },
+    title: element.element_id,
+    detail: `${element.element_type === "transformer" ? "Trafo" : "Saluran"} · ${element.from_bus} → ${element.to_bus}`,
+    search: `${element.element_id} ${element.element_type} ${element.from_bus} ${element.to_bus}`.toLocaleLowerCase("id-ID"),
+  }));
+  const buses = graph.buses.map((bus): SearchItem => ({
+    selection: { kind: "bus", id: bus.id },
+    title: bus.id,
+    detail: `Bus · ${bus.kv == null ? "tegangan —" : `${formatKv(bus.kv)} kV`} · ${bus.customers} pelanggan`,
+    search: `${bus.id} bus ${bus.kv ?? ""} ${bus.customers}`.toLocaleLowerCase("id-ID"),
+  }));
+  return [source, ...elements, ...buses];
 }
 
 function buildLayout(graph: FieldTopologyGraph): Layout {
