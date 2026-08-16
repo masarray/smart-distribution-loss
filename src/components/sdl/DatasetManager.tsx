@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Cpu, Database, FileCheck2, RotateCcw, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Cpu, Database, FileCheck2, Network, RotateCcw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -21,6 +21,7 @@ import {
   createFieldOperationalSession,
   useFieldOperationalSession,
 } from "@/lib/sdl/fieldOperational";
+import { buildFieldTopology } from "@/lib/sdl/fieldTopology";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -103,26 +104,31 @@ export function DatasetManager({ open, onOpenChange }: Props) {
     getWorker().postMessage({ type: "run-field-dataset", dataset: fieldImport.dataset });
   };
 
+  const report = fieldImport?.report;
+  const summary = report?.summary;
+  const result = fieldResult?.summary;
+  const topology = fieldImport?.dataset ? buildFieldTopology(fieldImport.dataset) : null;
+  const topologyReady = Boolean(topology?.supported);
+  const canActivate = Boolean(
+    fieldImport?.dataset &&
+    report?.valid &&
+    report.solverReady &&
+    topologyReady &&
+    fieldResult?.gate.pass &&
+    fieldResult.series.length === 96,
+  );
+
   const activateFieldCockpit = () => {
     const session = createFieldOperationalSession(fieldImport, fieldResult);
     if (!session) {
-      setRunError("Aktivasi cockpit ditolak. Dataset harus valid, siap dihitung, lulus pemeriksaan, dan menyelesaikan 96 interval.");
+      setRunError(topology && !topology.supported
+        ? `Aktivasi cockpit ditolak. ${topology.reason ?? "Topology operasional belum didukung."}`
+        : "Aktivasi cockpit ditolak. Dataset harus valid, siap dihitung, lulus pemeriksaan, dan menyelesaikan 96 interval.");
       return;
     }
     activateFieldOperational(session);
     onOpenChange(false);
   };
-
-  const report = fieldImport?.report;
-  const summary = report?.summary;
-  const result = fieldResult?.summary;
-  const canActivate = Boolean(
-    fieldImport?.dataset &&
-    report?.valid &&
-    report.solverReady &&
-    fieldResult?.gate.pass &&
-    fieldResult.series.length === 96,
-  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -130,7 +136,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
         <DrawerHeader
           icon={<Database className="size-4" />}
           title="Dataset Manager"
-          description="Impor, validasi, hitung, lalu aktifkan data lapangan sebagai sumber cockpit."
+          description="Impor, validasi topology, hitung, lalu aktifkan data lapangan sebagai sumber cockpit."
         />
 
         <ScrollArea type="always" className="min-h-0 flex-1" data-drawer-scroll="dataset-manager">
@@ -199,6 +205,50 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                   <MiniStat label="Data sumber" value={`${summary.sourceMeasurementCoveragePercent.toFixed(1)}%`} detail={`${summary.sourcePIntervals}/96`} />
                 </div>
 
+                {topology && (
+                  <div
+                    className={cn("mt-3 rounded-md border p-3", topology.supported ? "border-success/25 bg-success/5" : "border-warn/30 bg-warn/5")}
+                    data-field-topology-gate="true"
+                    data-topology-supported={topology.supported ? "true" : "false"}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Network className={cn("size-4", topology.supported ? "text-success" : "text-warn")} />
+                        <div>
+                          <p className="label-xs">Topology operasional</p>
+                          <p className={cn("mt-0.5 text-xs font-semibold", topology.supported ? "text-success" : "text-warn")}>
+                            {topology.supported ? "RADIAL · SIAP DIAKTIFKAN" : "BLOKIR AKTIVASI"}
+                          </p>
+                        </div>
+                      </div>
+                      {topology.supported && <span className="numeric text-[10px] text-muted-foreground">depth {topology.maxDepth} · {topology.branchBusIds.length} cabang</span>}
+                    </div>
+                    {topology.supported ? (
+                      <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                        {topology.buses.length} bus · {topology.elements.length} elemen · {topology.leafBusIds.length} ujung jaringan. SLD P6 dapat dinavigasi dan difokuskan per aset.
+                      </p>
+                    ) : (
+                      <div className="mt-2 space-y-1.5">
+                        {topology.issues.slice(0, 5).map((topologyIssue, index) => {
+                          const affected = [...topologyIssue.elementIds, ...topologyIssue.busIds, ...topologyIssue.customerIds].slice(0, 8);
+                          return (
+                            <div
+                              key={`${topologyIssue.code}-${index}`}
+                              className="rounded border border-warn/20 bg-surface/45 px-2.5 py-2 text-[10px] leading-relaxed"
+                              data-field-topology-issue={topologyIssue.code}
+                              data-topology-elements={topologyIssue.elementIds.join(",")}
+                              data-topology-buses={topologyIssue.busIds.join(",")}
+                            >
+                              <p className="font-medium text-warn">{topologyIssue.message}</p>
+                              {!!affected.length && <p className="numeric mt-1 text-muted-foreground">Lokasi: {affected.join(" · ")}</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {!!report.errors.length && (
                   <div className="mt-3 rounded-md border border-destructive/25 bg-destructive/5 p-3">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive">Kesalahan</p>
@@ -226,7 +276,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                     <p className="label-xs">Perhitungan data lapangan</p>
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Menjalankan topologi dan AMI yang diimpor dengan aliran daya 3 fasa Pandapower. Hanya hasil yang lulus seluruh pemeriksaan dan menyelesaikan 96 interval yang dapat diaktifkan di cockpit.
+                    Menjalankan topologi dan AMI yang diimpor dengan aliran daya 3 fasa Pandapower. Hasil hanya dapat diaktifkan jika physics lulus, 96 interval selesai, dan topology radial lolos gate operasional.
                   </p>
                 </div>
                 <Button
@@ -289,8 +339,10 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                       </p>
                       <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
                         {canActivate
-                          ? "Cockpit akan memakai KPI, profil susut, status, dan rekomendasi dari hasil data lapangan ini. SLD demo akan disembunyikan."
-                          : "Perbaiki dataset atau pemeriksaan yang gagal, lalu jalankan ulang sebelum hasil dapat digunakan secara operasional."}
+                          ? "Cockpit akan memakai KPI, profil susut, status, rekomendasi, dan SLD langsung dari dataset lapangan ini."
+                          : topology && !topology.supported
+                            ? topology.reason
+                            : "Perbaiki dataset atau pemeriksaan yang gagal, lalu jalankan ulang sebelum hasil dapat digunakan secara operasional."}
                       </p>
                     </div>
                     <Button
@@ -320,7 +372,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
             )}
 
             <div className="mt-3 rounded-lg border border-border/45 bg-surface-2/25 p-3 text-xs leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">Batas visual saat ini:</span> Field Mode memakai hasil perhitungan dan provenance dari CSV, tetapi tidak menggambar SLD sintetis sebagai pengganti topologi lapangan. Ringkasan elemen jaringan ditampilkan sampai renderer topology field tersedia.
+              <span className="font-medium text-foreground">Batas topology saat ini:</span> cockpit operasional mengaktifkan jaringan radial yang tervalidasi. Mesh/loop, multi-parent, elemen terputus, atau pelanggan di luar jaringan tetap diblokir dan ditunjukkan lokasinya sebelum aktivasi.
             </div>
             <div className="h-1" />
           </div>

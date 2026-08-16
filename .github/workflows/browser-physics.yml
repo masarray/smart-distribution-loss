@@ -9,6 +9,7 @@ on:
       - "public/engine/**"
       - "src/main.tsx"
       - "src/App.tsx"
+      - "src/styles.css"
       - "src/progress-motion.css"
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
@@ -48,6 +49,7 @@ on:
       - "public/engine/**"
       - "src/main.tsx"
       - "src/App.tsx"
+      - "src/styles.css"
       - "src/progress-motion.css"
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
@@ -86,7 +88,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P5 real field topology · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P6 topology scale · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -147,7 +149,7 @@ jobs:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/operational-sld-ci.mjs
 
-      - name: Prove P5 field topology, attribution, navigation, and fail-safe source switching
+      - name: Prove P6 topology scale, activation gate, navigation, and visible electrical flow
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/field-dataset-ci.mjs

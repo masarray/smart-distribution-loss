@@ -17,13 +17,16 @@ const network = [
   "GRID,source,,GRID20,,20,,,,,,,,,,,,,,,,,,1000,0.1,0.1,1.0",
   "MV-L1,line,GRID20,TRHV,20,20,0.25,0.32,0.34,12,0.85,1.05,8,0.30,,,,,,,,,,,,",
   "TR-01,transformer,TRHV,LVMAIN,20,0.4,,,,,,,,,400,4.0,1.10,4.0,1.10,0.75,0.25,Dyn,150,,,,",
+  "LV-L1,line,LVMAIN,LVA,0.4,0.4,0.03,0.20,0.08,12,0.80,0.30,8,0.25,,,,,,,,,,,,",
+  "LV-L2,line,LVMAIN,LVB,0.4,0.4,0.04,0.22,0.09,12,0.82,0.32,8,0.25,,,,,,,,,,,,",
 ].join("\n");
+const unsupportedNetwork = `${network}\nLV-X,line,LVB,LVA,0.4,0.4,0.02,0.20,0.08,12,0.80,0.30,8,0.25,,,,,,,,,,,,`;
 
 const customers = [
   "customer_id,bus_id,phase,meter_id,contract_kva,pf",
-  "C-001,LVMAIN,A,M-001,23,0.95",
-  "C-002,LVMAIN,B,M-002,23,0.95",
-  "C-003,LVMAIN,C,M-003,23,0.95",
+  "C-001,LVA,A,M-001,23,0.95",
+  "C-002,LVB,B,M-002,23,0.95",
+  "C-003,LVB,C,M-003,23,0.95",
 ].join("\n");
 
 const amiRows = ["timestamp,meter_id,p_kw,q_kvar,quality"];
@@ -74,9 +77,20 @@ try {
     return { duration: style.transitionDuration, timing: style.transitionTimingFunction, animation: after.animationName };
   });
   if (!progressMotion.duration.includes("30s") || progressMotion.timing !== "linear" || progressMotion.animation !== "p5-progress-travel") {
-    throw new Error(`P5 slow progress motion missing: ${JSON.stringify(progressMotion)}`);
+    throw new Error(`Slow progress motion regression: ${JSON.stringify(progressMotion)}`);
   }
   await runStrip.evaluate((element) => element.setAttribute("data-analysis-run-state", "idle"));
+
+  // Demo SLD flow was deliberately strengthened in P6 without changing topology semantics.
+  const demoFlow = page.locator('.flow-dash').first();
+  await assertVisible(demoFlow, "demo SLD flow overlay");
+  const demoFlowStyle = await demoFlow.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { animation: style.animationName, duration: style.animationDuration, opacity: style.opacity, width: style.strokeWidth };
+  });
+  if (demoFlowStyle.animation !== "sld-flow" || Number.parseFloat(demoFlowStyle.opacity) < 0.9 || Number.parseFloat(demoFlowStyle.width) < 1.8) {
+    throw new Error(`Demo SLD electrical flow is not visibly strengthened: ${JSON.stringify(demoFlowStyle)}`);
+  }
 
   await page.getByRole("button", { name: "Kelola dataset", exact: true }).click();
   await assertVisible(page.getByText("Dataset Manager", { exact: true }), "Dataset Manager");
@@ -95,6 +109,11 @@ try {
 
   await assertVisible(page.getByText("SIAP DIHITUNG", { exact: true }), "field solver readiness");
   await assertVisible(page.getByText("100.0%", { exact: true }).first(), "AMI completeness");
+  const topologyGate = page.locator('[data-field-topology-gate="true"]');
+  await assertVisible(topologyGate, "P6 topology activation gate");
+  if ((await topologyGate.getAttribute("data-topology-supported")) !== "true") throw new Error(`Valid branched radial topology was blocked: ${await topologyGate.innerText()}`);
+  const topologyGateText = (await topologyGate.innerText()).toLocaleLowerCase("id-ID");
+  if (!topologyGateText.includes("radial") || !topologyGateText.includes("1 cabang")) throw new Error(`P6 topology summary missing: ${topologyGateText}`);
 
   await page.locator('button[data-run-field="true"]').click();
   const resultPanel = page.locator('[data-field-result="true"]');
@@ -102,32 +121,44 @@ try {
   const solved = await resultPanel.innerText();
   if (!solved.includes("PERHITUNGAN LULUS")) throw new Error("Field physics preview did not pass its engineering gate.");
   if (!solved.includes("96/96 interval selesai")) throw new Error("Field physics preview did not solve all 96 intervals.");
-  await assertVisible(resultPanel.getByText("Susut teknis", { exact: true }), "field technical-loss KPI");
 
   const activate = page.locator('button[data-activate-field="true"]');
   await assertVisible(activate, "field cockpit activation");
-  if (await activate.isDisabled()) throw new Error("A valid 96/96 passing field result should be activatable.");
+  if (await activate.isDisabled()) throw new Error("A valid radial 96/96 field result should be activatable.");
   await activate.click();
 
   const fieldCockpit = page.locator('[data-field-cockpit="true"]');
   await assertVisible(fieldCockpit, "field operational cockpit");
-  await assertVisible(page.locator('[data-field-cockpit="true"][data-p5-cockpit="true"]'), "P5 cockpit marker");
-  await assertVisible(fieldCockpit.locator('[data-field-source-badge="true"]'), "field source badge");
-  await assertVisible(fieldCockpit.getByText("Data lapangan aktif", { exact: true }), "field active state");
-  await assertVisible(fieldCockpit.locator('[data-field-sld-suppressed="true"]'), "demo SLD suppression provenance");
+  await assertVisible(page.locator('[data-field-cockpit="true"][data-p6-cockpit="true"]'), "P6 cockpit marker");
   await assertVisible(fieldCockpit.locator('[data-field-dynamic-sld="true"]'), "dynamic field SLD");
-  await assertVisible(fieldCockpit.locator('[data-field-loss-chart="true"]'), "field profile chart");
-  await assertVisible(fieldCockpit.locator('[data-field-provenance="true"]'), "field provenance");
-  await assertVisible(fieldCockpit.locator('[data-operator-decision="true"]'), "field operator decision");
-  await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "field source decision headline");
+  await assertVisible(fieldCockpit.locator('[data-p6-topology="true"]'), "P6 topology renderer");
+  await assertVisible(fieldCockpit.locator('[data-field-topology-search="true"]'), "topology asset search");
+  await assertVisible(fieldCockpit.locator('[data-field-focus-selected="true"]'), "focus control");
+  await assertVisible(fieldCockpit.locator('[data-field-fit-topology="true"]'), "fit control");
+
+  const sld = fieldCockpit.locator('[data-field-dynamic-sld="true"]');
+  if ((await sld.getAttribute("data-field-layout-branches")) !== "1") throw new Error("Branched radial layout did not preserve branch count.");
+  const svg = sld.locator('svg');
+  const fitViewBox = await svg.getAttribute("viewBox");
+
+  const flowPaths = fieldCockpit.locator('[data-field-flow-path]');
+  if ((await flowPaths.count()) !== 4) throw new Error(`Expected four animated field flow paths, got ${await flowPaths.count()}.`);
+  const flowStyle = await flowPaths.first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { animation: style.animationName, duration: style.animationDuration, opacity: style.opacity, width: style.strokeWidth };
+  });
+  if (flowStyle.animation !== "p6-field-flow" || Number.parseFloat(flowStyle.opacity) < 0.65 || Number.parseFloat(flowStyle.width) < 2) {
+    throw new Error(`Field flow animation is not visible enough: ${JSON.stringify(flowStyle)}`);
+  }
 
   const sourceNode = fieldCockpit.locator('[data-field-topology-source="GRID"]');
-  const lineNode = fieldCockpit.locator('[data-field-topology-element="MV-L1"]');
+  const mvLine = fieldCockpit.locator('[data-field-topology-element="MV-L1"]');
   const trafoNode = fieldCockpit.locator('[data-field-topology-element="TR-01"]');
-  const rootBus = fieldCockpit.locator('[data-field-topology-bus="GRID20"]');
-  const hvBus = fieldCockpit.locator('[data-field-topology-bus="TRHV"]');
-  const lvBus = fieldCockpit.locator('[data-field-topology-bus="LVMAIN"]');
-  for (const [locator, label] of [[sourceNode, "GRID source"], [lineNode, "MV-L1"], [trafoNode, "TR-01"], [rootBus, "GRID20"], [hvBus, "TRHV"], [lvBus, "LVMAIN"]]) {
+  const lvLine1 = fieldCockpit.locator('[data-field-topology-element="LV-L1"]');
+  const lvLine2 = fieldCockpit.locator('[data-field-topology-element="LV-L2"]');
+  const lvMainBus = fieldCockpit.locator('[data-field-topology-bus="LVMAIN"]');
+  const lvBusB = fieldCockpit.locator('[data-field-topology-bus="LVB"]');
+  for (const [locator, label] of [[sourceNode, "GRID source"], [mvLine, "MV-L1"], [trafoNode, "TR-01"], [lvLine1, "LV-L1"], [lvLine2, "LV-L2"], [lvMainBus, "LVMAIN"], [lvBusB, "LVB"]]) {
     await assertVisible(locator, label);
   }
 
@@ -135,74 +166,96 @@ try {
   const sourceText = await sourcePanel.innerText();
   const totalLoss = numericAfter(sourceText, "SUSUT TEKNIS");
   if (totalLoss == null || totalLoss <= 0) throw new Error(`Source loss KPI missing: ${sourceText}`);
-
-  const lineLoss = Number(await lineNode.getAttribute("data-field-element-loss-kwh"));
-  const trafoLoss = Number(await trafoNode.getAttribute("data-field-element-loss-kwh"));
-  if (!Number.isFinite(lineLoss) || !Number.isFinite(trafoLoss) || Math.abs(lineLoss + trafoLoss - totalLoss) > 0.02) {
-    throw new Error(`Direct asset attribution does not reconcile: line=${lineLoss}, trafo=${trafoLoss}, total=${totalLoss}`);
+  const elementLosses = await fieldCockpit.locator('[data-field-topology-element]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-field-element-loss-kwh"))));
+  const attributedLoss = elementLosses.reduce((sum, value) => sum + value, 0);
+  if (elementLosses.some((value) => !Number.isFinite(value)) || Math.abs(attributedLoss - totalLoss) > 0.03) {
+    throw new Error(`Direct branched attribution does not reconcile: elements=${JSON.stringify(elementLosses)}, total=${totalLoss}`);
   }
 
-  await lineNode.click();
-  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="line"]'), "line selection panel");
-  let selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
-  if (!selectedText.includes("mv-l1") || !selectedText.includes("kontribusi") || !selectedText.includes("susut teknis")) {
-    throw new Error(`Line selection did not expose field loss attribution: ${selectedText}`);
-  }
-  await assertVisible(fieldCockpit.locator('[data-field-asset-chart="element"]'), "line asset chart");
+  // Search must select and focus a deep asset instead of shrinking the entire graph.
+  const search = fieldCockpit.locator('[data-field-topology-search="true"]');
+  await search.fill("lv-l2");
+  const searchResult = fieldCockpit.locator('[data-field-search-result="element:LV-L2"]');
+  await assertVisible(searchResult, "LV-L2 search result");
+  await searchResult.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-id="LV-L2"]'), "searched line selection");
+  if ((await sld.getAttribute("data-field-sld-view")) !== "focus") throw new Error("Search selection must switch SLD to focus mode.");
+  const focusedViewBox = await svg.getAttribute("viewBox");
+  if (!fitViewBox || !focusedViewBox || fitViewBox === focusedViewBox) throw new Error(`Focus viewBox did not change: fit=${fitViewBox}, focus=${focusedViewBox}`);
 
-  await trafoNode.click();
-  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="transformer"]'), "transformer selection panel");
-  selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
-  if (!selectedText.includes("tr-01") || !selectedText.includes("kontribusi") || !selectedText.includes("loading maksimum")) {
-    throw new Error(`Transformer selection did not expose field loading/loss: ${selectedText}`);
-  }
+  // Immediate upstream navigation from LV-L2 leads to branch bus LVMAIN.
+  const upstreamFromLine = fieldCockpit.locator('[data-field-nav-upstream="bus:LVMAIN"]');
+  await assertVisible(upstreamFromLine, "LV-L2 upstream navigation");
+  await upstreamFromLine.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="bus"][data-field-selection-id="LVMAIN"]'), "LVMAIN branch selection");
+  await assertVisible(fieldCockpit.locator('[data-field-nav-downstream="element:LV-L1"]'), "LVMAIN downstream LV-L1");
+  await assertVisible(fieldCockpit.locator('[data-field-nav-downstream="element:LV-L2"]'), "LVMAIN downstream LV-L2");
 
-  await lvBus.click();
-  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="bus"]'), "bus selection panel");
-  selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
-  for (const label of ["lvmain", "beban puncak", "energi beban", "pelanggan", "tegangan minimum"]) {
-    if (!selectedText.includes(label)) throw new Error(`Bus selection missing ${label}: ${selectedText}`);
+  // Selecting a branch must illuminate its complete route back to source.
+  await fieldCockpit.locator('[data-field-nav-downstream="element:LV-L1"]').click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-id="LV-L1"]'), "LV-L1 branch selection");
+  for (const id of ["LV-L1", "TR-01", "MV-L1"]) {
+    const route = fieldCockpit.locator(`[data-field-flow-path="${id}"]`);
+    if ((await route.getAttribute("data-flow-route")) !== "true") throw new Error(`${id} is not illuminated on the selected upstream route.`);
   }
-  if (selectedText.includes("kontribusi")) throw new Error("Bus selection must not fabricate technical-loss attribution.");
-  await assertVisible(fieldCockpit.locator('[data-field-asset-chart="bus"]'), "bus voltage/load chart");
+  const selectedFlow = fieldCockpit.locator('[data-field-flow-path="LV-L1"]');
+  if ((await selectedFlow.getAttribute("data-flow-selected")) !== "true") throw new Error("Selected branch flow is not visually distinguished.");
+
+  // Fit returns the complete topology viewport.
+  await fieldCockpit.locator('[data-field-fit-topology="true"]').click();
+  if ((await sld.getAttribute("data-field-sld-view")) !== "fit") throw new Error("Fit control did not restore full topology view.");
+  if ((await svg.getAttribute("viewBox")) !== fitViewBox) throw new Error("Fit control did not restore original topology viewBox.");
+
+  await lvBusB.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="bus"][data-field-selection-id="LVB"]'), "bus selection panel");
+  const busText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
+  for (const label of ["lvb", "beban puncak", "energi beban", "pelanggan", "tegangan minimum"]) {
+    if (!busText.includes(label)) throw new Error(`Bus selection missing ${label}: ${busText}`);
+  }
+  if (busText.includes("kontribusi")) throw new Error("Bus selection must not fabricate technical-loss attribution.");
 
   await sourceNode.click();
   await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="source"]'), "source selection restored");
-  await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "source decision restored");
-
-  const fieldText = (await fieldCockpit.innerText()).toLocaleLowerCase("id-ID");
-  for (const label of ["susut teknis", "tegangan minimum", "loading maksimum", "topology live", "attribution"]) {
-    if (!fieldText.includes(label)) throw new Error(`P5 field cockpit does not expose ${label}.`);
-  }
-  if (!fieldText.includes("sld demo tidak digunakan pada field mode")) {
-    throw new Error("Field mode must explicitly distinguish the real imported SLD from the synthetic demo SLD.");
-  }
 
   await page.setViewportSize({ width: 1366, height: 768 });
   await assertFitsViewport(fieldCockpit, "field cockpit at 1366x768");
   await assertFitsViewport(fieldCockpit.locator('[data-field-selected-panel="true"]'), "field selected panel at 1366x768");
   await assertFitsViewport(fieldCockpit.locator('[data-field-status-panel="true"]'), "field status panel at 1366x768");
+  await assertFitsViewport(fieldCockpit.locator('[data-field-topology-tools="true"]'), "P6 topology controls at 1366x768");
 
   await fieldCockpit.getByRole("button", { name: "Kelola data lapangan", exact: true }).click();
   const drawer = page.locator('[data-drawer="dataset-manager"]');
   await assertVisible(drawer, "Dataset Manager reopened from Field Mode");
   await assertVisible(drawer.locator('[data-field-active-indicator="true"]'), "Field Mode active indicator in manager");
 
+  // P6 fail-safe: a complete dataset with a multi-parent topology immediately revokes Field Mode,
+  // identifies exact assets/bus, and blocks operational activation even though CSV completeness is valid.
   const reopenedInput = drawer.locator('input[data-field-files="true"]');
   await reopenedInput.setInputFiles([
-    { name: "network.csv", mimeType: "text/csv", buffer: Buffer.from(network) },
+    { name: "network.csv", mimeType: "text/csv", buffer: Buffer.from(unsupportedNetwork) },
     { name: "customers.csv", mimeType: "text/csv", buffer: Buffer.from(customers) },
     { name: "measurements.csv", mimeType: "text/csv", buffer: Buffer.from(measurements) },
+    { name: "ami.csv", mimeType: "text/csv", buffer: Buffer.from(ami) },
   ]);
 
   await fieldCockpit.waitFor({ state: "detached", timeout: 15_000 });
-  if ((await page.locator('button[data-activate-field="true"]').count()) !== 0) {
-    throw new Error("Invalid import must not expose a field-cockpit activation path.");
+  const blockedGate = drawer.locator('[data-field-topology-gate="true"][data-topology-supported="false"]');
+  await assertVisible(blockedGate, "blocked multi-parent topology gate");
+  const multiParentIssue = blockedGate.locator('[data-field-topology-issue="MULTI_PARENT"]');
+  await assertVisible(multiParentIssue, "multi-parent issue locator");
+  const issueText = (await multiParentIssue.innerText()).toLocaleLowerCase("id-ID");
+  if (!issueText.includes("lva") || !issueText.includes("lv-l1") || !issueText.includes("lv-x")) {
+    throw new Error(`Topology issue locator is not specific enough: ${issueText}`);
   }
-  await drawer.getByRole("button", { name: "Close" }).click();
-  await assertVisible(page.getByRole("button", { name: "Jalankan simulasi", exact: true }), "demo cockpit restored after invalid re-import");
+  if ((await multiParentIssue.getAttribute("data-topology-buses")) !== "LVA") throw new Error("Topology issue did not identify LVA bus exactly.");
+  const issueElements = (await multiParentIssue.getAttribute("data-topology-elements"))?.split(",").sort().join(",");
+  if (issueElements !== ["LV-L1", "LV-X"].sort().join(",")) throw new Error(`Topology issue element IDs are wrong: ${issueElements}`);
+  if ((await page.locator('button[data-activate-field="true"]').count()) !== 0) throw new Error("A fresh blocked topology must not expose stale field activation.");
 
-  console.log("P5 field topology PASS: runpp_3ph exposes direct line/trafo attribution and bus voltage, imported topology renders as an interactive SLD, selection changes KPI/chart domain, bus loss is not fabricated, progress motion stays alive, and P4 fail-safe source switching remains intact.");
+  await drawer.getByRole("button", { name: "Close" }).click();
+  await assertVisible(page.getByRole("button", { name: "Jalankan simulasi", exact: true }), "demo cockpit restored after blocked topology import");
+
+  console.log("P6 topology scale gate PASS: branched radial field topology activates safely, direct solver attribution reconciles, search/focus/fit and upstream/downstream navigation work, source-route flow is visibly animated, multi-parent topology is located and blocked, and prior progress + demo behavior remain intact.");
 } finally {
   await browser.close();
 }

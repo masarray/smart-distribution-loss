@@ -8,6 +8,7 @@ import {
   type FieldDatasetV1,
   type FieldDatasetValidationReport,
 } from "./fieldDataset";
+import { buildFieldTopology } from "./fieldTopology";
 
 export interface FieldOperationalSession {
   dataset: FieldDatasetV1;
@@ -44,6 +45,7 @@ export function createFieldOperationalSession(
   if (!fieldImport?.dataset || !fieldImport.report.valid || !fieldImport.report.solverReady || !result) return null;
   if (!result.gate.pass || result.series.length !== FIELD_INTERVALS) return null;
   if (result.dataset_schema !== fieldImport.dataset.schema || result.dataset_mode !== "field_import") return null;
+  if (!buildFieldTopology(fieldImport.dataset).supported) return null;
   return {
     dataset: fieldImport.dataset,
     report: fieldImport.report,
@@ -54,6 +56,7 @@ export function createFieldOperationalSession(
 }
 
 export function activateFieldOperational(session: FieldOperationalSession) {
+  if (!buildFieldTopology(session.dataset).supported) return;
   activeSession = session;
   emitChange();
 }

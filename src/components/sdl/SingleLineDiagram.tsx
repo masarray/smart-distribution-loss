@@ -206,6 +206,7 @@ export function SingleLineDiagram({ selected, onSelect, energised, intensity, gd
           <text x="161" y="393" fill="var(--color-muted-foreground)" fontSize="8.6">0.4 kV</text>
           <path d="M213 389H235" stroke="var(--color-muted-foreground)" strokeWidth="1.5" />
           <text x="242" y="393" fill="var(--color-muted-foreground)" fontSize="8.6">jaringan</text>
+          <path d="M289 388.5L313 389.5" fill="none" stroke="var(--color-primary)" className="flow-dash" filter="url(#flowGlow)" pointerEvents="none" />
           <path d="M309 386L314 389L309 392" fill="none" stroke="var(--color-primary)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           <text x="322" y="393" fill="var(--color-muted-foreground)" fontSize="8.6">aliran daya</text>
         </g>
