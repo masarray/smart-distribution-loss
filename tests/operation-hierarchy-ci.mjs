@@ -1,9 +1,11 @@
+import { readFileSync } from "node:fs";
 import process from "node:process";
 import { chromium } from "playwright";
 
 const baseUrl = process.env.SDL_BASE_URL || "http://127.0.0.1:8000/";
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
 async function assertVisible(locator, label) {
   await locator.waitFor({ state: "visible", timeout: 15_000 });
@@ -32,6 +34,54 @@ try {
   await assertVisible(page.getByText("Model dasar", { exact: true }).first(), "baseline KPI");
   await assertVisible(page.getByRole("button", { name: "Lihat data", exact: true }), "data action");
   await assertVisible(page.getByRole("button", { name: "Detail teknis", exact: true }), "technical detail action");
+
+  const primaryActions = page.locator('[data-action-level="primary"]');
+  if ((await primaryActions.count()) !== 1) {
+    throw new Error("Action hierarchy must expose exactly one primary CTA.");
+  }
+  const primaryAction = primaryActions.first();
+  await assertVisible(primaryAction, "primary simulation action");
+  if ((await primaryAction.textContent())?.trim() !== "Jalankan simulasi") {
+    throw new Error("Jalankan simulasi must remain the single primary CTA while idle.");
+  }
+
+  for (const actionName of ["Kelola dataset", "Lihat data", "Data", "Detail teknis"]) {
+    const action = page.getByRole("button", { name: actionName, exact: true }).first();
+    await assertVisible(action, `${actionName} secondary action`);
+    if ((await action.getAttribute("data-action-level")) !== "secondary") {
+      throw new Error(`${actionName} must use the secondary action level.`);
+    }
+  }
+
+  const selectedAsset = page.locator('[data-asset-selector="gd"][data-selected="true"]');
+  await assertVisible(selectedAsset, "selected asset treatment");
+  if ((await selectedAsset.getAttribute("aria-current")) !== "true") {
+    throw new Error("Selected asset must expose an explicit current state.");
+  }
+
+  const primaryBackground = await primaryAction.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const selectedBackground = await selectedAsset.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const detailBackground = await page
+    .getByRole("button", { name: "Detail teknis", exact: true })
+    .evaluate((node) => getComputedStyle(node).backgroundColor);
+  if (primaryBackground === selectedBackground || primaryBackground === detailBackground) {
+    throw new Error("Selected assets and secondary actions must not visually compete with the primary CTA.");
+  }
+
+  const idleRunState = page.locator('[data-analysis-run-state="idle"]');
+  await assertVisible(idleRunState, "idle simulation state");
+  await assertVisible(page.getByText("Siap menjalankan simulasi", { exact: true }), "idle simulation copy");
+
+  for (const stateCopy of ["Simulasi berjalan", "Simulasi selesai", "Simulasi gagal"]) {
+    if (!appSource.includes(stateCopy)) {
+      throw new Error(`Missing calm simulation state copy: ${stateCopy}`);
+    }
+  }
+  for (const stateToken of ["bg-primary/5", "bg-success/5", "bg-destructive/5"]) {
+    if (!appSource.includes(stateToken)) {
+      throw new Error(`Missing distinct simulation state treatment: ${stateToken}`);
+    }
+  }
 
   for (const noise of [
     "Keandalan hasil",
@@ -80,7 +130,7 @@ try {
     throw new Error("Developer validation identifiers leaked into localized checks.");
   }
 
-  console.log("P0 information-noise gate PASS: duplicate status, secondary notes, and long demo copy stay out of the operator hierarchy.");
+  console.log("P1 action-hierarchy gate PASS: one primary CTA, quiet secondary actions, explicit selection, and calm run states are enforced.");
 } finally {
   await browser.close();
 }
