@@ -26,6 +26,7 @@ on:
       - "src/lib/sdl/derive.ts"
       - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldDataset.ts"
+      - "src/lib/sdl/fieldIntelligence.ts"
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/operation.ts"
@@ -35,6 +36,7 @@ on:
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/p7-field-intelligence-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -66,6 +68,7 @@ on:
       - "src/lib/sdl/derive.ts"
       - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldDataset.ts"
+      - "src/lib/sdl/fieldIntelligence.ts"
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/operation.ts"
@@ -75,6 +78,7 @@ on:
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/p7-field-intelligence-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -88,7 +92,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P6 topology scale · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P7 asset intelligence · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -153,6 +157,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/field-dataset-ci.mjs
+
+      - name: Prove P7 asset intelligence, AC source symbol, and transformer flow continuity
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/p7-field-intelligence-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:
