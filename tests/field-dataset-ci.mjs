@@ -122,10 +122,11 @@ try {
   ]);
 
   await fieldCockpit.waitFor({ state: "detached", timeout: 15_000 });
-  await assertVisible(page.getByRole("button", { name: "Jalankan simulasi", exact: true }), "demo cockpit restored after invalid re-import");
   if ((await page.locator('button[data-activate-field="true"]').count()) !== 0) {
     throw new Error("Invalid import must not expose a field-cockpit activation path.");
   }
+  await drawer.getByRole("button", { name: "Close" }).click();
+  await assertVisible(page.getByRole("button", { name: "Jalankan simulasi", exact: true }), "demo cockpit restored after invalid re-import");
 
   console.log("P4 field operational bridge PASS: validated 96/96 field physics can replace demo cockpit, provenance and P3 guidance are field-backed, synthetic SLD is suppressed, and invalid re-import revokes Field Mode.");
 } finally {
