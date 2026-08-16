@@ -88,15 +88,19 @@ export function DatasetManager({ open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-full border-border bg-surface p-0 sm:max-w-2xl">
-        <SheetHeader className="border-b border-border/65 px-5 pb-4 pt-5">
+      <SheetContent
+        side="left"
+        className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden border-border bg-surface p-0 sm:max-w-2xl"
+        data-drawer="dataset-manager"
+      >
+        <SheetHeader className="shrink-0 border-b border-border/65 px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
           <div className="flex items-center gap-2 pr-8">
-            <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Database className="size-4" />
             </span>
-            <div>
-              <SheetTitle className="font-display text-lg">Dataset Manager</SheetTitle>
-              <SheetDescription>Import, validasi, dan proof-run data lapangan sebelum dipakai sebagai operational source.</SheetDescription>
+            <div className="min-w-0">
+              <SheetTitle className="truncate font-display text-base sm:text-lg">Dataset Manager</SheetTitle>
+              <SheetDescription className="text-xs sm:text-sm">Import, validasi, dan proof-run data lapangan sebelum dipakai sebagai operational source.</SheetDescription>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -109,10 +113,10 @@ export function DatasetManager({ open, onOpenChange }: Props) {
           </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-8.5rem)] px-5 py-4">
+        <ScrollArea type="always" className="min-h-0 flex-1 px-4 py-3 pr-5 sm:px-5 sm:py-4 sm:pr-6" data-drawer-scroll="dataset-manager">
           <section className="rounded-lg border border-border/60 bg-surface-2/45 p-4">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <p className="label-xs">Import field dataset</p>
                 <p className="mt-1 text-sm font-medium">4 CSV · satu canonical 24-hour window</p>
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
@@ -188,7 +192,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
 
           <section className="mt-3 rounded-lg border border-border/60 bg-surface-2/35 p-4">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Cpu className="size-4 text-primary" />
                   <p className="label-xs">Field physics preview</p>
@@ -250,6 +254,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
           <div className="mt-3 rounded-lg border border-border/45 bg-surface-2/25 p-3 text-xs leading-relaxed text-muted-foreground">
             <span className="font-medium text-foreground">M5 boundary:</span> field-v1 sudah dapat di-import, divalidasi, dinormalisasi, dan dihitung oleh Pandapower 3φ di browser. Fixed SLD cockpit belum diganti dengan topology hasil import agar UI tidak menampilkan jaringan yang berbeda dari data sebenarnya; dynamic field-topology rendering adalah langkah setelah foundation ini.
           </div>
+          <div className="h-3" />
         </ScrollArea>
       </SheetContent>
     </Sheet>
