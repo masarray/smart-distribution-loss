@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Cable,
   CircuitBoard,
@@ -8,7 +8,6 @@ import {
   Network,
   Percent,
   RotateCcw,
-  ShieldCheck,
   Users,
   Zap,
 } from "lucide-react";
@@ -29,7 +28,7 @@ import {
   openDatasetManager,
   useFieldOperationalSession,
 } from "@/lib/sdl/fieldOperational";
-import { buildFieldTopology, type FieldTopologySelection } from "@/lib/sdl/fieldTopology";
+import { buildFieldTopology, type FieldTopologyGraph, type FieldTopologySelection } from "@/lib/sdl/fieldTopology";
 import { cn } from "@/lib/utils";
 
 export function FieldOperationalCockpitP5() {
@@ -37,24 +36,24 @@ export function FieldOperationalCockpitP5() {
   const [selected, setSelected] = useState<FieldTopologySelection>({ kind: "source", id: "" });
   const graph = useMemo(() => (session ? buildFieldTopology(session.dataset) : null), [session]);
 
-  useEffect(() => {
-    const sourceId = graph?.source?.element_id;
-    if (sourceId) setSelected({ kind: "source", id: sourceId });
-  }, [graph]);
-
   if (!session || !graph) return null;
 
+  const sourceSelection: FieldTopologySelection = {
+    kind: "source",
+    id: graph.source?.element_id ?? "",
+  };
+  const effectiveSelected = isSelectionAvailable(selected, graph) ? selected : sourceSelection;
   const result = session.result as P5FieldDatasetResult;
   const p5Ready = hasP5AssetObservability(session.result);
   const operational = deriveFieldOperationalMetrics(session);
-  const view = deriveFieldSelectedView(session, selected);
+  const view = deriveFieldSelectedView(session, effectiveSelected);
   const decision = deriveFieldAssetDecision(view, session);
   const networkSummary = session.report.summary;
   const sourceTitle = fieldSourceTitle(session);
-  const selectedElement = selected.kind === "element"
-    ? session.dataset.network.find((item) => item.element_id === selected.id)
+  const selectedElement = effectiveSelected.kind === "element"
+    ? session.dataset.network.find((item) => item.element_id === effectiveSelected.id)
     : null;
-  const selectedBus = selected.kind === "bus" ? graph.buses.find((bus) => bus.id === selected.id) : null;
+  const selectedBus = effectiveSelected.kind === "bus" ? graph.buses.find((bus) => bus.id === effectiveSelected.id) : null;
   const assets = result.assets ?? [];
   const passedChecks = session.result.checks.filter((check) => check.pass).length;
   const solverLabel = String(session.result.provenance["solver"] ?? "pandapower.runpp_3ph");
@@ -146,7 +145,7 @@ export function FieldOperationalCockpitP5() {
               </span>
             </div>
             <div className="h-full pt-10">
-              <FieldTopologyDiagram graph={graph} selected={selected} onSelect={setSelected} assets={assets} />
+              <FieldTopologyDiagram graph={graph} selected={effectiveSelected} onSelect={setSelected} assets={assets} />
             </div>
             <div className="absolute bottom-2 left-3 z-10 rounded bg-surface/90 px-2 py-1 text-[9px] text-muted-foreground" data-field-sld-suppressed="true">
               SLD demo tidak digunakan pada Field Mode · diagram ini dibangun dari network.csv
@@ -224,6 +223,12 @@ export function FieldOperationalCockpitP5() {
       </main>
     </div>
   );
+}
+
+function isSelectionAvailable(selection: FieldTopologySelection, graph: FieldTopologyGraph) {
+  if (selection.kind === "source") return Boolean(graph.source && selection.id === graph.source.element_id);
+  if (selection.kind === "element") return graph.elements.some((element) => element.element_id === selection.id);
+  return graph.buses.some((bus) => bus.id === selection.id);
 }
 
 function qualityHeadline(level: string) {
