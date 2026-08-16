@@ -33,6 +33,7 @@ async function assertFitsViewport(locator, label) {
 
 async function assertDrawerSafe(drawer, label) {
   await assertVisible(drawer, label);
+  await page.waitForTimeout(600);
   await assertFitsViewport(drawer, label);
   const rootOverflow = await drawer.evaluate((element) => element.scrollHeight - element.clientHeight);
   if (rootOverflow > 2) {
