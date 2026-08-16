@@ -122,7 +122,7 @@ try {
   const checks = investigation.locator('button[data-p8-check-id]');
   const checkCount = await checks.count();
   if (checkCount < 4) throw new Error(`P8 checklist is too shallow: ${checkCount} items.`);
-  if ((await checks.filter({ has: page.locator('[data-p8-check-complete="true"]') }).count()) !== 0) {
+  if ((await investigation.locator('button[data-p8-check-complete="true"]').count()) !== 0) {
     throw new Error("P8 checklist must never auto-complete field verification.");
   }
   const progress = investigation.locator('[data-p8-check-progress="true"]');
