@@ -138,7 +138,7 @@ export function FieldInvestigationPanel({ plan, completedIds, onToggle }: Props)
   );
 }
 
-function EvidenceCard({ label, value, detail, dataName, numericValue, time }: { label: string; value: string; detail: string; dataName: string; numericValue?: number; time?: string }) {
+function EvidenceCard({ label, value, detail, dataName, numericValue, time }: { label: string; value: string; detail: string; dataName: string; numericValue?: number | undefined; time?: string | undefined }) {
   return (
     <div
       className="rounded-md border border-border/40 bg-surface-2/45 px-2 py-1.5"
