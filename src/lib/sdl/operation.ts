@@ -257,3 +257,5 @@ export function deriveOperationalMetrics(
     ...status,
   };
 }
+
+export { deriveOperatorDecision, type OperatorDecision, type OperatorDecisionSource } from "./decision";

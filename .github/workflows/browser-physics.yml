@@ -12,7 +12,9 @@ on:
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
+      - "src/components/sdl/OperatorDecisionStrip.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
+      - "src/lib/sdl/decision.ts"
       - "src/lib/sdl/derive.ts"
       - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/operation.ts"
@@ -23,6 +25,7 @@ on:
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
+      - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
       - ".github/workflows/browser-physics.yml"
       - "package.json"
@@ -38,7 +41,9 @@ on:
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
+      - "src/components/sdl/OperatorDecisionStrip.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
+      - "src/lib/sdl/decision.ts"
       - "src/lib/sdl/derive.ts"
       - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/operation.ts"
@@ -49,6 +54,7 @@ on:
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
+      - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
       - ".github/workflows/browser-physics.yml"
       - "package.json"
@@ -110,6 +116,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/operation-hierarchy-ci.mjs
+
+      - name: Prove P3 evidence-backed operator decisions
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/operator-decision-ci.mjs
 
       - name: Prove operational SLD and M4 manager intelligence
         env:
