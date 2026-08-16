@@ -78,58 +78,75 @@ export function DataDrawer({ open, onOpenChange, asset, result, spot, tm, preset
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-full border-border bg-surface p-0 sm:max-w-2xl">
-        <SheetHeader className="border-b border-border/65 px-5 pb-4 pt-5">
+      <SheetContent
+        side="left"
+        className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden border-border bg-surface p-0 sm:max-w-2xl"
+        data-drawer="data"
+      >
+        <SheetHeader className="shrink-0 border-b border-border/65 px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
           <div className="flex items-center gap-2 pr-8">
-            <span className="flex size-8 items-center justify-center rounded-md bg-warn/10 text-warn"><Database className="size-4" /></span>
-            <div>
-              <SheetTitle className="font-display text-lg">Data · {asset.short}</SheetTitle>
-              <SheetDescription>Demo sintetis · 24 jam · interval 15 menit.</SheetDescription>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-warn/10 text-warn"><Database className="size-4" /></span>
+            <div className="min-w-0">
+              <SheetTitle className="truncate font-display text-base sm:text-lg">Data · {asset.short}</SheetTitle>
+              <SheetDescription className="text-xs sm:text-sm">Demo sintetis · 24 jam · interval 15 menit.</SheetDescription>
             </div>
           </div>
         </SheetHeader>
 
-        <Tabs defaultValue="overview" className="flex h-[calc(100vh-8rem)] flex-col px-5 pt-4">
-          <TabsList className="grid w-full grid-cols-5 bg-surface-2">
-            <TabsTrigger value="overview">Ringkasan</TabsTrigger>
-            <TabsTrigger value="measurements">Pengukuran</TabsTrigger>
-            <TabsTrigger value="network">Jaringan</TabsTrigger>
-            <TabsTrigger value="processed">Hasil</TabsTrigger>
-            <TabsTrigger value="lineage">Jejak data</TabsTrigger>
+        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 sm:px-5 sm:pb-4 sm:pt-4">
+          <TabsList className="grid h-auto min-h-9 shrink-0 grid-cols-5 bg-surface-2">
+            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="overview">Ringkasan</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="measurements">Pengukuran</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="network">Jaringan</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="processed">Hasil</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="lineage">Jejak data</TabsTrigger>
           </TabsList>
-          <ScrollArea className="mt-3 flex-1 pr-3">
-            <TabsContent value="overview" className="mt-0 pb-5">
-              <Row k="Aset" v={asset.label} mono={false} />
-              <Row k="Sumber" v="Demo sintetis" mono={false} />
-              <Row k="Interval" v="96 × 15 menit" />
-              <Row k="Susut Smart" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
-            </TabsContent>
 
-            <TabsContent value="measurements" className="mt-0 pb-5">
-              {asset.id === "gd" && <><p className="mb-2 text-xs text-muted-foreground">Skenario {presetLabel(preset)} · 90 pelanggan.</p><Coverage label="Meter tersedia" percent={profile.ami} count={coverageCount(profile.ami)} total={90} /><Coverage label="Fasa diketahui" percent={profile.phase} count={coverageCount(profile.phase)} total={90} /><Coverage label="Faktor daya diketahui" percent={profile.pf} count={coverageCount(profile.pf)} total={90} /><Coverage label="Pemetaan pelanggan benar" percent={profile.mapping} count={coverageCount(profile.mapping)} total={90} /><Row k="Pengukuran jaringan" v="Daya P/Q penyulang + tegangan LV A/B/C" mono={false} /></>}
-              {(asset.id === "spot" || asset.id === "tm") && <><Coverage label="Daya aktif & reaktif" percent={obs("load_pq_percent")} /><Coverage label="Data fasa" percent={obs("phase_percent")} /><Coverage label="Topologi jaringan" percent={obs("topology_percent")} /><Coverage label="Pemetaan" percent={obs("mapping_percent")} /><Coverage label="Waktu pencatatan" percent={obs("timing_percent")} /><Row k="Interval" v={`${mvDemo?.scenario?.intervals ?? 96} × ${mvDemo?.scenario?.interval_minutes ?? 15} menit`} /></>}
-              {asset.id === "feeder" && <><Row k="Referensi TM" v="Data terukur" mono={false} /><Row k="Pelanggan TM" v="Dihitung sendiri" mono={false} /><Row k="Gardu GD-01" v={`${presetLabel(preset)} · dihitung sendiri`} mono={false} /></>}
-            </TabsContent>
+          <TabsContent value="overview" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="overview">
+              <div className="pb-3">
+                <Row k="Aset" v={asset.label} mono={false} />
+                <Row k="Sumber" v="Demo sintetis" mono={false} />
+                <Row k="Interval" v="96 × 15 menit" />
+                <Row k="Susut Smart" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-            <TabsContent value="network" className="mt-0 pb-5">
-              <p className="mb-2 text-xs leading-relaxed text-muted-foreground">{network.topology}</p>
-              {network.rows.map(([k, v]) => <Row key={k} k={k} v={v} mono={false} />)}
-              {mvDemo?.scenario?.line_length_km != null && <Row k="Panjang saluran model" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
-              <Row k="Mesin perhitungan" v="Pandapower · aliran daya 3 fasa" mono={false} />
-            </TabsContent>
+          <TabsContent value="measurements" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="measurements">
+              <div className="pb-3">
+                {asset.id === "gd" && <><p className="mb-2 text-xs text-muted-foreground">Skenario {presetLabel(preset)} · 90 pelanggan.</p><Coverage label="Meter tersedia" percent={profile.ami} count={coverageCount(profile.ami)} total={90} /><Coverage label="Fasa diketahui" percent={profile.phase} count={coverageCount(profile.phase)} total={90} /><Coverage label="Faktor daya diketahui" percent={profile.pf} count={coverageCount(profile.pf)} total={90} /><Coverage label="Pemetaan pelanggan benar" percent={profile.mapping} count={coverageCount(profile.mapping)} total={90} /><Row k="Pengukuran jaringan" v="Daya P/Q penyulang + tegangan LV A/B/C" mono={false} /></>}
+                {(asset.id === "spot" || asset.id === "tm") && <><Coverage label="Daya aktif & reaktif" percent={obs("load_pq_percent")} /><Coverage label="Data fasa" percent={obs("phase_percent")} /><Coverage label="Topologi jaringan" percent={obs("topology_percent")} /><Coverage label="Pemetaan" percent={obs("mapping_percent")} /><Coverage label="Waktu pencatatan" percent={obs("timing_percent")} /><Row k="Interval" v={`${mvDemo?.scenario?.intervals ?? 96} × ${mvDemo?.scenario?.interval_minutes ?? 15} menit`} /></>}
+                {asset.id === "feeder" && <><Row k="Referensi TM" v="Data terukur" mono={false} /><Row k="Pelanggan TM" v="Dihitung sendiri" mono={false} /><Row k="Gardu GD-01" v={`${presetLabel(preset)} · dihitung sendiri`} mono={false} /></>}
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-            <TabsContent value="processed" className="mt-0 pb-5">
-              {!calculated ? (
-                <p className="py-4 text-sm text-muted-foreground">Jalankan simulasi untuk melihat hasil per interval.</p>
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-border/60">
-                  <div className={sourceSeries.length ? "grid grid-cols-4 bg-surface-2 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" : "grid grid-cols-3 bg-surface-2 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"}>
-                    <span>Waktu</span>
-                    {sourceSeries.length > 0 && <span className="text-right">Beban (kW)</span>}
-                    <span className="text-right">Susut dasar (kW)</span>
-                    <span className="text-right">Susut Smart (kW)</span>
-                  </div>
-                  <div className="max-h-[390px] overflow-y-auto">
+          <TabsContent value="network" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="network">
+              <div className="pb-3">
+                <p className="mb-2 text-xs leading-relaxed text-muted-foreground">{network.topology}</p>
+                {network.rows.map(([k, v]) => <Row key={k} k={k} v={v} mono={false} />)}
+                {mvDemo?.scenario?.line_length_km != null && <Row k="Panjang saluran model" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
+                <Row k="Mesin perhitungan" v="Pandapower · aliran daya 3 fasa" mono={false} />
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="processed" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col" data-processed-tab="true">
+            {!calculated ? (
+              <p className="py-4 text-sm text-muted-foreground">Jalankan simulasi untuk melihat hasil per interval.</p>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/60" data-processed-table="true">
+                <div className={sourceSeries.length ? "grid shrink-0 grid-cols-4 bg-surface-2 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" : "grid shrink-0 grid-cols-3 bg-surface-2 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"} data-processed-table-header="true">
+                  <span>Waktu</span>
+                  {sourceSeries.length > 0 && <span className="text-right">Beban (kW)</span>}
+                  <span className="text-right">Susut dasar (kW)</span>
+                  <span className="text-right">Susut Smart (kW)</span>
+                </div>
+                <ScrollArea type="always" className="min-h-0 flex-1" data-processed-table-scroll="true">
+                  <div className="pr-3">
                     {lossSeries.map((point, index) => {
                       const source = sourceSeries[index];
                       return (
@@ -142,23 +159,27 @@ export function DataDrawer({ open, onOpenChange, asset, result, spot, tm, preset
                       );
                     })}
                   </div>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="lineage" className="mt-0 pb-5">
-              {LINEAGE[asset.id].map(([title, detail], index) => (
-                <div key={title} className="flex gap-3 border-b border-border/40 py-3 last:border-0">
-                  <span className="numeric flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/35 bg-primary/10 text-[10px] text-primary">{index + 1}</span>
-                  <div><p className="text-sm font-medium">{title}</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{detail}</p></div>
-                </div>
-              ))}
-              <div className="mt-3">
-                <Row k="Mesin perhitungan" v="Pandapower · aliran daya 3 fasa" mono={false} />
-                <Row k="Acuan validasi" v="Tidak digunakan untuk kalibrasi" mono={false} />
+                </ScrollArea>
               </div>
-            </TabsContent>
-          </ScrollArea>
+            )}
+          </TabsContent>
+
+          <TabsContent value="lineage" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="lineage">
+              <div className="pb-3">
+                {LINEAGE[asset.id].map(([title, detail], index) => (
+                  <div key={title} className="flex gap-3 border-b border-border/40 py-3 last:border-0">
+                    <span className="numeric flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/35 bg-primary/10 text-[10px] text-primary">{index + 1}</span>
+                    <div><p className="text-sm font-medium">{title}</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{detail}</p></div>
+                  </div>
+                ))}
+                <div className="mt-3">
+                  <Row k="Mesin perhitungan" v="Pandapower · aliran daya 3 fasa" mono={false} />
+                  <Row k="Acuan validasi" v="Tidak digunakan untuk kalibrasi" mono={false} />
+                </div>
+              </div>
+            </ScrollArea>
+          </TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
