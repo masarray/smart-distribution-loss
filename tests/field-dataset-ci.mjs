@@ -47,6 +47,15 @@ async function assertVisible(locator, label, timeout = 15_000) {
   if (!(await locator.isVisible())) throw new Error(`${label} is not visible.`);
 }
 
+async function assertFitsViewport(locator, label) {
+  const box = await locator.boundingBox();
+  const viewport = page.viewportSize();
+  if (!box || !viewport) throw new Error(`${label}: missing geometry.`);
+  if (box.x < -1 || box.y < -1 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) {
+    throw new Error(`${label}: outside viewport ${JSON.stringify(box)} within ${JSON.stringify(viewport)}.`);
+  }
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.getByRole("button", { name: "Kelola dataset", exact: true }).click();
@@ -71,7 +80,55 @@ try {
   if (!solved.includes("96/96 interval selesai")) throw new Error("Field physics preview did not solve all 96 intervals.");
   await assertVisible(resultPanel.getByText("Susut teknis", { exact: true }), "field technical-loss KPI");
 
-  console.log("M5 field dataset gate PASS: four CSVs normalize, validate, and run 96 browser-local Pandapower 3φ intervals without hidden truth.");
+  const activate = page.locator('button[data-activate-field="true"]');
+  await assertVisible(activate, "field cockpit activation");
+  if (await activate.isDisabled()) throw new Error("A valid 96/96 passing field result should be activatable.");
+  await activate.click();
+
+  const fieldCockpit = page.locator('[data-field-cockpit="true"]');
+  await assertVisible(fieldCockpit, "field operational cockpit");
+  await assertVisible(fieldCockpit.locator('[data-field-source-badge="true"]'), "field source badge");
+  await assertVisible(fieldCockpit.getByText("Data lapangan aktif", { exact: true }), "field active state");
+  await assertVisible(fieldCockpit.locator('[data-field-sld-suppressed="true"]'), "synthetic SLD suppression notice");
+  await assertVisible(fieldCockpit.locator('[data-field-loss-chart="true"]'), "field loss profile chart");
+  await assertVisible(fieldCockpit.locator('[data-field-provenance="true"]'), "field provenance");
+  await assertVisible(fieldCockpit.locator('[data-operator-decision="true"]'), "field operator decision");
+  await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "field decision headline");
+
+  const fieldText = (await fieldCockpit.innerText()).toLocaleLowerCase("id-ID");
+  for (const label of ["susut teknis", "rasio susut", "tegangan minimum", "loading maksimum"]) {
+    if (!fieldText.includes(label)) throw new Error(`Field cockpit does not expose ${label} KPI.`);
+  }
+  if (!fieldText.includes("sld demo tidak digunakan pada field mode")) {
+    throw new Error("Field mode must explicitly suppress the synthetic demo SLD rather than imply imported topology.");
+  }
+
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await assertFitsViewport(fieldCockpit, "field cockpit at 1366x768");
+  await assertFitsViewport(fieldCockpit.locator('[data-field-selected-panel="true"]'), "field selected panel at 1366x768");
+  await assertFitsViewport(fieldCockpit.locator('[data-field-status-panel="true"]'), "field status panel at 1366x768");
+
+  await fieldCockpit.getByRole("button", { name: "Kelola data lapangan", exact: true }).click();
+  const drawer = page.locator('[data-drawer="dataset-manager"]');
+  await assertVisible(drawer, "Dataset Manager reopened from Field Mode");
+  await assertVisible(drawer.locator('[data-field-active-indicator="true"]'), "Field Mode active indicator in manager");
+
+  // Fail-safe: beginning a new, invalid import must immediately revoke the active field source.
+  const reopenedInput = drawer.locator('input[data-field-files="true"]');
+  await reopenedInput.setInputFiles([
+    { name: "network.csv", mimeType: "text/csv", buffer: Buffer.from(network) },
+    { name: "customers.csv", mimeType: "text/csv", buffer: Buffer.from(customers) },
+    { name: "measurements.csv", mimeType: "text/csv", buffer: Buffer.from(measurements) },
+  ]);
+
+  await fieldCockpit.waitFor({ state: "detached", timeout: 15_000 });
+  if ((await page.locator('button[data-activate-field="true"]').count()) !== 0) {
+    throw new Error("Invalid import must not expose a field-cockpit activation path.");
+  }
+  await drawer.getByRole("button", { name: "Close" }).click();
+  await assertVisible(page.getByRole("button", { name: "Jalankan simulasi", exact: true }), "demo cockpit restored after invalid re-import");
+
+  console.log("P4 field operational bridge PASS: validated 96/96 field physics can replace demo cockpit, provenance and P3 guidance are field-backed, synthetic SLD is suppressed, and invalid re-import revokes Field Mode.");
 } finally {
   await browser.close();
 }

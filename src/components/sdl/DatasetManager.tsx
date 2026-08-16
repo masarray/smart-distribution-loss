@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Cpu, Database, FileCheck2, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Cpu, Database, FileCheck2, RotateCcw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -15,6 +15,12 @@ import {
   type FieldDatasetImport,
   type FieldDatasetResult,
 } from "@/lib/sdl/fieldDataset";
+import {
+  activateFieldOperational,
+  clearFieldOperational,
+  createFieldOperationalSession,
+  useFieldOperationalSession,
+} from "@/lib/sdl/fieldOperational";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -26,6 +32,7 @@ type FieldRunState = "idle" | "running" | "done" | "error";
 
 export function DatasetManager({ open, onOpenChange }: Props) {
   const workerRef = useRef<Worker | null>(null);
+  const activeField = useFieldOperationalSession();
   const [fieldImport, setFieldImport] = useState<FieldDatasetImport | null>(null);
   const [importing, setImporting] = useState(false);
   const [runState, setRunState] = useState<FieldRunState>("idle");
@@ -34,11 +41,18 @@ export function DatasetManager({ open, onOpenChange }: Props) {
   const [runError, setRunError] = useState<string | null>(null);
 
   useEffect(() => () => workerRef.current?.terminate(), []);
+  useEffect(() => {
+    const openManager = () => onOpenChange(true);
+    window.addEventListener("sdl-open-dataset-manager", openManager);
+    return () => window.removeEventListener("sdl-open-dataset-manager", openManager);
+  }, [onOpenChange]);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
+    clearFieldOperational();
     setImporting(true);
     setFieldResult(null);
+    setFieldImport(null);
     setRunError(null);
     setRunState("idle");
     setRunProgress({ percent: 0, label: "Belum dijalankan", detail: "" });
@@ -81,6 +95,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
 
   const runFieldPreview = () => {
     if (!fieldImport?.dataset || !fieldImport.report.solverReady || runState === "running") return;
+    clearFieldOperational();
     setRunState("running");
     setRunError(null);
     setFieldResult(null);
@@ -88,9 +103,26 @@ export function DatasetManager({ open, onOpenChange }: Props) {
     getWorker().postMessage({ type: "run-field-dataset", dataset: fieldImport.dataset });
   };
 
+  const activateFieldCockpit = () => {
+    const session = createFieldOperationalSession(fieldImport, fieldResult);
+    if (!session) {
+      setRunError("Aktivasi cockpit ditolak. Dataset harus valid, siap dihitung, lulus pemeriksaan, dan menyelesaikan 96 interval.");
+      return;
+    }
+    activateFieldOperational(session);
+    onOpenChange(false);
+  };
+
   const report = fieldImport?.report;
   const summary = report?.summary;
   const result = fieldResult?.summary;
+  const canActivate = Boolean(
+    fieldImport?.dataset &&
+    report?.valid &&
+    report.solverReady &&
+    fieldResult?.gate.pass &&
+    fieldResult.series.length === 96,
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -98,18 +130,16 @@ export function DatasetManager({ open, onOpenChange }: Props) {
         <DrawerHeader
           icon={<Database className="size-4" />}
           title="Dataset Manager"
-          description="Impor, validasi, dan uji data lapangan sebelum digunakan oleh model."
+          description="Impor, validasi, hitung, lalu aktifkan data lapangan sebagai sumber cockpit."
         />
 
         <ScrollArea type="always" className="min-h-0 flex-1" data-drawer-scroll="dataset-manager">
-          <div
-            className="px-4 pb-3 pt-3 pr-7 sm:px-5 sm:pb-4 sm:pt-4 sm:pr-8"
-            data-drawer-body="true"
-          >
+          <div className="px-4 pb-3 pt-3 pr-7 sm:px-5 sm:pb-4 sm:pt-4 sm:pr-8" data-drawer-body="true">
             <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
               <span className="font-semibold text-foreground">Dataset lapangan v1</span>
               <span aria-hidden="true">·</span>
-              <span>Cockpit utama tetap menggunakan demo sintetis.</span>
+              <span>{activeField ? "Cockpit sedang memakai hasil lapangan yang sudah lulus." : "Cockpit tetap memakai demo sampai hasil lapangan diaktifkan."}</span>
+              {activeField && <span className="rounded bg-success/10 px-1.5 py-0.5 font-semibold text-success" data-field-active-indicator="true">FIELD MODE AKTIF</span>}
             </div>
 
             <DrawerSection>
@@ -118,7 +148,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                   <p className="label-xs">Impor dataset lapangan</p>
                   <p className="mt-1 text-sm font-medium">4 CSV · satu rentang 24 jam</p>
                   <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                    File dibaca lokal di browser. Sistem memeriksa topologi, pemetaan pelanggan, keselarasan waktu, kelengkapan AMI, dan parameter 3 fasa sebelum perhitungan dapat dijalankan.
+                    File dibaca lokal di browser. Memilih import baru akan menonaktifkan Field Mode lama agar cockpit tidak pernah menampilkan hasil yang sudah tidak sesuai dengan dataset yang sedang diperiksa.
                   </p>
                 </div>
                 <label className="shrink-0">
@@ -193,10 +223,10 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Cpu className="size-4 text-primary" />
-                    <p className="label-xs">Uji perhitungan lapangan</p>
+                    <p className="label-xs">Perhitungan data lapangan</p>
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Menjalankan topologi dan data AMI yang diimpor dengan aliran daya 3 fasa Pandapower. Jalur ini hanya memakai data lapangan yang dimuat di browser.
+                    Menjalankan topologi dan AMI yang diimpor dengan aliran daya 3 fasa Pandapower. Hanya hasil yang lulus seluruh pemeriksaan dan menyelesaikan 96 interval yang dapat diaktifkan di cockpit.
                   </p>
                 </div>
                 <Button
@@ -245,12 +275,52 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                     <DrawerRow label="Energi beban pelanggan" value={`${result.load_energy_kwh.toFixed(2)} kWh`} />
                     <DrawerRow label="Error relatif sumber" value={result.source_nrmse_percent == null ? "—" : `${result.source_nrmse_percent.toFixed(2)}%`} />
                   </div>
+
+                  <div
+                    className={cn(
+                      "mt-3 flex items-center justify-between gap-4 rounded-md border p-3",
+                      canActivate ? "border-success/25 bg-success/5" : "border-warn/25 bg-warn/5",
+                    )}
+                    data-field-activation="true"
+                  >
+                    <div className="min-w-0">
+                      <p className={cn("text-xs font-semibold", canActivate ? "text-success" : "text-warn")}>
+                        {canActivate ? "Siap menjadi sumber cockpit" : "Aktivasi cockpit diblokir"}
+                      </p>
+                      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                        {canActivate
+                          ? "Cockpit akan memakai KPI, profil susut, status, dan rekomendasi dari hasil data lapangan ini. SLD demo akan disembunyikan."
+                          : "Perbaiki dataset atau pemeriksaan yang gagal, lalu jalankan ulang sebelum hasil dapat digunakan secara operasional."}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0 text-xs"
+                      onClick={activateFieldCockpit}
+                      disabled={!canActivate}
+                      data-activate-field="true"
+                    >
+                      Gunakan di cockpit
+                    </Button>
+                  </div>
                 </div>
               )}
             </DrawerSection>
 
+            {activeField && (
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-success/25 bg-success/5 p-3" data-field-active-control="true">
+                <div>
+                  <p className="text-xs font-semibold text-success">Field Mode sedang aktif</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">Kembali ke demo tidak menghapus file dari sesi Dataset Manager.</p>
+                </div>
+                <Button variant="outline" size="sm" className="h-8 shrink-0 gap-2 bg-transparent text-xs" onClick={clearFieldOperational}>
+                  <RotateCcw className="size-3.5" /> Kembali demo
+                </Button>
+              </div>
+            )}
+
             <div className="mt-3 rounded-lg border border-border/45 bg-surface-2/25 p-3 text-xs leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">Batas saat ini:</span> dataset lapangan sudah dapat diimpor, divalidasi, dinormalisasi, dan dihitung dengan aliran daya 3 fasa di browser. SLD utama belum diganti dengan topologi hasil impor agar tampilan tidak menyiratkan jaringan yang berbeda dari data yang sedang digunakan.
+              <span className="font-medium text-foreground">Batas visual saat ini:</span> Field Mode memakai hasil perhitungan dan provenance dari CSV, tetapi tidak menggambar SLD sintetis sebagai pengganti topologi lapangan. Ringkasan elemen jaringan ditampilkan sampai renderer topology field tersedia.
             </div>
             <div className="h-1" />
           </div>
