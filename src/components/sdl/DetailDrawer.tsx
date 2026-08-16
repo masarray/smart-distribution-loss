@@ -45,7 +45,7 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
       <SheetContent side="right" className="w-full border-border bg-surface sm:max-w-xl">
         <SheetHeader className="border-b border-border pb-4">
           <SheetTitle className="font-display text-lg">Detail teknis · {asset.short}</SheetTitle>
-          <SheetDescription>Kecocokan model, pemeriksaan, proses, dan batas perhitungan.</SheetDescription>
+          <SheetDescription>Validasi, proses, dan batas model.</SheetDescription>
         </SheetHeader>
 
         <Tabs defaultValue="loss" className="mt-4 flex h-[calc(100vh-9rem)] flex-col">
@@ -59,10 +59,7 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
 
           <ScrollArea className="mt-3 flex-1 pr-3">
             <TabsContent value="loss" className="mt-0">
-              <div className="mb-3 rounded-md border border-warn/20 bg-warn/5 p-3 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-medium text-foreground">Validasi demo.</span> Acuan demo hanya digunakan untuk mengecek hasil akhir, bukan untuk kalibrasi.
-              </div>
-              <Row k="Acuan demo" v={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
+              <Row k="Acuan validasi" v={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
               <Row k="Model dasar" v={`${fmt(asset.convKwh, 3)} kWh/hari`} />
               <Row k="Smart Engine" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
               <Row k="Error model dasar" v={fmtSigned(asset.convErr, 3)} />
@@ -99,14 +96,13 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
                   </span>
                   <div>
                     <p className="text-sm text-foreground">{userCheckName(check.name)}</p>
-                    <p className="text-xs text-muted-foreground">{userCheckDetail(check.name, check.detail, check.pass)}</p>
+                    {!check.pass && <p className="text-xs text-muted-foreground">{userCheckDetail(check.name, check.detail, check.pass)}</p>}
                   </div>
                 </div>
               ))}
             </TabsContent>
 
             <TabsContent value="process" className="mt-0">
-              <p className="pb-3 text-xs text-muted-foreground">Urutan koreksi data hingga model Smart siap dihitung.</p>
               <ol className="space-y-1.5">
                 {stages.map((stage, index) => {
                   const copy = PROCESS_STAGES[index] ?? ["Tahap perhitungan", "Tahap teknis model."];
@@ -122,9 +118,9 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
 
             <TabsContent value="held" className="mt-0">
               {mvDemo ? (
-                <><p className="pb-3 text-xs text-muted-foreground">Hanya parameter yang cukup didukung pengukuran yang boleh disesuaikan.</p><Row k="Disesuaikan" v="Resistansi saluran" mono={false} /><Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} /></>
+                <><Row k="Disesuaikan" v="Resistansi saluran" mono={false} /><Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} /></>
               ) : (
-                <><p className="pb-3 text-xs text-muted-foreground">Parameter berikut tidak dihitung karena data belum cukup.</p>{(result?.unresolved ?? []).map((item) => <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0"><p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p><p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p></div>)}</>
+                <>{(result?.unresolved ?? []).map((item) => <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0"><p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p><p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p></div>)}</>
               )}
             </TabsContent>
           </ScrollArea>
@@ -163,14 +159,14 @@ function userCheckDetail(name: string, detail: string, pass: boolean) {
   const value = name.toLowerCase();
   if (value.includes("ground truth") || value.includes("immutable")) return "Acuan hanya digunakan untuk validasi akhir.";
   if (value.includes("verified phase") || value.includes("pf inputs")) return "Hanya data yang belum diketahui yang boleh disesuaikan.";
-  if (value.includes("power flows converged") || value.includes("converged")) return "Seluruh interval aliran daya 3 fasa berhasil diselesaikan.";
+  if (value.includes("power flows converged") || value.includes("converged")) return "Sebagian interval aliran daya 3 fasa belum berhasil diselesaikan.";
   if (value.includes("technical-loss estimate improved")) return cleanMetricDetail(detail).replace(/vs hidden truth/i, "terhadap acuan demo");
   if (value.includes("runtime") || value.includes("budget")) {
     const seconds = detail.match(/([0-9]+(?:\.[0-9]+)?)\s*s/i)?.[1];
-    return seconds ? `${seconds} detik untuk 96 interval.` : "Waktu perhitungan masih dalam target.";
+    return seconds ? `${seconds} detik untuk 96 interval.` : "Waktu perhitungan melewati target.";
   }
   if (value.includes("aggregate source") || value.includes("source-p fit") || value.includes("phase-p fit") || value.includes("hold-out") || value.includes("phase assignment") || value.includes("voltage")) return cleanMetricDetail(detail);
-  return pass ? "Pemeriksaan selesai tanpa masalah." : "Hasil pemeriksaan perlu ditinjau.";
+  return pass ? "Pemeriksaan selesai." : "Hasil pemeriksaan perlu ditinjau.";
 }
 
 function cleanMetricDetail(detail: string) {
