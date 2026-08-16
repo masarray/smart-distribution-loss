@@ -5,6 +5,23 @@ export type FieldTopologySelection =
   | { kind: "element"; id: string }
   | { kind: "bus"; id: string };
 
+export type FieldTopologyIssueCode =
+  | "SOURCE_ROOT"
+  | "ELEMENT_BUS"
+  | "ROOT_PARENT"
+  | "MULTI_PARENT"
+  | "CYCLE"
+  | "DISCONNECTED"
+  | "UNREACHABLE_CUSTOMER";
+
+export interface FieldTopologyIssue {
+  code: FieldTopologyIssueCode;
+  message: string;
+  busIds: string[];
+  elementIds: string[];
+  customerIds: string[];
+}
+
 export interface FieldTopologyBus {
   id: string;
   kv: number | null;
@@ -18,12 +35,20 @@ export interface FieldTopologyBus {
 export interface FieldTopologyGraph {
   supported: boolean;
   reason: string | null;
+  issues: FieldTopologyIssue[];
   source: FieldNetworkElement | null;
   rootBusId: string | null;
   buses: FieldTopologyBus[];
   elements: FieldNetworkElement[];
   reachableBusIds: string[];
+  leafBusIds: string[];
+  branchBusIds: string[];
   maxDepth: number;
+}
+
+export interface FieldTopologyNavigation {
+  upstream: FieldTopologySelection | null;
+  downstream: FieldTopologySelection[];
 }
 
 export function selectionKey(selection: FieldTopologySelection) {
@@ -33,7 +58,9 @@ export function selectionKey(selection: FieldTopologySelection) {
 export function buildFieldTopology(dataset: FieldDatasetV1): FieldTopologyGraph {
   const source = dataset.network.find((item) => item.element_type === "source") ?? null;
   const elements = dataset.network.filter((item) => item.element_type !== "source");
-  if (!source?.to_bus) return unsupported(source, elements, "Source tidak memiliki root bus yang valid.");
+  if (!source?.to_bus) {
+    return unsupported(source, elements, [issue("SOURCE_ROOT", "Source tidak memiliki root bus yang valid.", [], source ? [source.element_id] : [])]);
+  }
 
   const rootBusId = source.to_bus;
   const busKv = new Map<string, number | null>();
@@ -50,8 +77,17 @@ export function buildFieldTopology(dataset: FieldDatasetV1): FieldTopologyGraph 
 
   const incoming = new Map<string, FieldNetworkElement[]>();
   const outgoing = new Map<string, FieldNetworkElement[]>();
+  const structuralIssues: FieldTopologyIssue[] = [];
   for (const element of elements) {
-    if (!element.from_bus || !element.to_bus) return unsupported(source, elements, `Elemen ${element.element_id} memiliki bus yang tidak lengkap.`);
+    if (!element.from_bus || !element.to_bus) {
+      structuralIssues.push(issue(
+        "ELEMENT_BUS",
+        `Elemen ${element.element_id} memiliki bus yang tidak lengkap.`,
+        [element.from_bus, element.to_bus].filter(Boolean),
+        [element.element_id],
+      ));
+      continue;
+    }
     const inList = incoming.get(element.to_bus) ?? [];
     inList.push(element);
     incoming.set(element.to_bus, inList);
@@ -60,19 +96,35 @@ export function buildFieldTopology(dataset: FieldDatasetV1): FieldTopologyGraph 
     outgoing.set(element.from_bus, outList);
   }
 
-  if ((incoming.get(rootBusId)?.length ?? 0) > 0) return unsupported(source, elements, `Root bus ${rootBusId} memiliki elemen upstream; topology radial tidak dapat dipastikan.`);
-  for (const [bus, list] of incoming.entries()) {
-    if (list.length > 1) return unsupported(source, elements, `Bus ${bus} memiliki lebih dari satu parent; topology mesh/loop belum didukung.`);
+  const rootParents = incoming.get(rootBusId) ?? [];
+  if (rootParents.length) {
+    structuralIssues.push(issue(
+      "ROOT_PARENT",
+      `Root bus ${rootBusId} memiliki elemen upstream; topology radial tidak dapat dipastikan.`,
+      [rootBusId],
+      rootParents.map((item) => item.element_id),
+    ));
   }
+  for (const [bus, list] of incoming.entries()) {
+    if (list.length > 1) {
+      structuralIssues.push(issue(
+        "MULTI_PARENT",
+        `Bus ${bus} memiliki ${list.length} parent; topology mesh/loop belum didukung untuk cockpit operasional.`,
+        [bus],
+        list.map((item) => item.element_id),
+      ));
+    }
+  }
+  if (structuralIssues.length) return unsupported(source, elements, structuralIssues);
 
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const depth = new Map<string, number>([[rootBusId, 0]]);
-  let cycle: string | null = null;
+  let cycleBus: string | null = null;
   const walk = (bus: string) => {
-    if (cycle) return;
+    if (cycleBus) return;
     if (visiting.has(bus)) {
-      cycle = bus;
+      cycleBus = bus;
       return;
     }
     if (visited.has(bus)) return;
@@ -87,17 +139,39 @@ export function buildFieldTopology(dataset: FieldDatasetV1): FieldTopologyGraph 
     visited.add(bus);
   };
   walk(rootBusId);
-  if (cycle) return unsupported(source, elements, `Loop terdeteksi di sekitar bus ${cycle}; renderer P5 hanya mendukung topology radial.`);
+
+  const connectivityIssues: FieldTopologyIssue[] = [];
+  if (cycleBus) {
+    const involved = elements.filter((element) => element.from_bus === cycleBus || element.to_bus === cycleBus);
+    connectivityIssues.push(issue(
+      "CYCLE",
+      `Loop terdeteksi di sekitar bus ${cycleBus}; topology operasional saat ini hanya mendukung jaringan radial.`,
+      [cycleBus],
+      involved.map((item) => item.element_id),
+    ));
+  }
 
   const unreachableElements = elements.filter((element) => !visited.has(element.from_bus) || !visited.has(element.to_bus));
   if (unreachableElements.length) {
-    return unsupported(source, elements, `Topology terputus: ${unreachableElements.map((item) => item.element_id).slice(0, 3).join(", ")}.`);
+    connectivityIssues.push(issue(
+      "DISCONNECTED",
+      `Topology terputus pada ${unreachableElements.length} elemen; perbaiki koneksi ke source sebelum aktivasi.`,
+      [...new Set(unreachableElements.flatMap((item) => [item.from_bus, item.to_bus]).filter(Boolean))],
+      unreachableElements.map((item) => item.element_id),
+    ));
   }
 
   const unreachableCustomers = dataset.customers.filter((customer) => !visited.has(customer.bus_id));
   if (unreachableCustomers.length) {
-    return unsupported(source, elements, `Pelanggan pada bus ${unreachableCustomers[0]?.bus_id ?? "?"} tidak terhubung ke source.`);
+    connectivityIssues.push(issue(
+      "UNREACHABLE_CUSTOMER",
+      `${unreachableCustomers.length} pelanggan berada pada bus yang tidak terhubung ke source.`,
+      [...new Set(unreachableCustomers.map((customer) => customer.bus_id))],
+      [],
+      unreachableCustomers.map((customer) => customer.customer_id),
+    ));
   }
+  if (connectivityIssues.length) return unsupported(source, elements, connectivityIssues);
 
   const customerCounts = new Map<string, number>();
   const meterCounts = new Map<string, Set<string>>();
@@ -120,27 +194,112 @@ export function buildFieldTopology(dataset: FieldDatasetV1): FieldTopologyGraph 
     }))
     .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
 
+  const leafBusIds = buses.filter((bus) => bus.outgoingElementIds.length === 0).map((bus) => bus.id);
+  const branchBusIds = buses.filter((bus) => bus.outgoingElementIds.length > 1).map((bus) => bus.id);
+
   return {
     supported: true,
     reason: null,
+    issues: [],
     source,
     rootBusId,
     buses,
     elements,
     reachableBusIds: [...visited],
+    leafBusIds,
+    branchBusIds,
     maxDepth: Math.max(0, ...buses.map((bus) => bus.depth)),
   };
 }
 
-function unsupported(source: FieldNetworkElement | null, elements: FieldNetworkElement[], reason: string): FieldTopologyGraph {
+export function getTopologyNavigation(graph: FieldTopologyGraph, selection: FieldTopologySelection): FieldTopologyNavigation {
+  if (!graph.supported || !graph.source || !graph.rootBusId) return { upstream: null, downstream: [] };
+
+  if (selection.kind === "source") {
+    return {
+      upstream: null,
+      downstream: [{ kind: "bus", id: graph.rootBusId }],
+    };
+  }
+
+  if (selection.kind === "element") {
+    const element = graph.elements.find((item) => item.element_id === selection.id);
+    if (!element) return { upstream: null, downstream: [] };
+    return {
+      upstream: { kind: "bus", id: element.from_bus },
+      downstream: [{ kind: "bus", id: element.to_bus }],
+    };
+  }
+
+  const bus = graph.buses.find((item) => item.id === selection.id);
+  if (!bus) return { upstream: null, downstream: [] };
+  const upstream: FieldTopologySelection | null = bus.incomingElementId
+    ? { kind: "element", id: bus.incomingElementId }
+    : bus.id === graph.rootBusId
+      ? { kind: "source", id: graph.source.element_id }
+      : null;
+  return {
+    upstream,
+    downstream: bus.outgoingElementIds.map((id) => ({ kind: "element" as const, id })),
+  };
+}
+
+export function getTopologyPathElementIds(graph: FieldTopologyGraph, selection: FieldTopologySelection) {
+  const path = new Set<string>();
+  if (!graph.supported || !graph.rootBusId || selection.kind === "source") return path;
+
+  const incomingByBus = new Map(graph.buses.map((bus) => [bus.id, bus.incomingElementId]));
+  const elementById = new Map(graph.elements.map((element) => [element.element_id, element]));
+  let cursorBus: string | null = null;
+
+  if (selection.kind === "element") {
+    const selectedElement = elementById.get(selection.id);
+    if (!selectedElement) return path;
+    path.add(selectedElement.element_id);
+    cursorBus = selectedElement.from_bus;
+  } else {
+    cursorBus = selection.id;
+  }
+
+  const guard = new Set<string>();
+  while (cursorBus && cursorBus !== graph.rootBusId && !guard.has(cursorBus)) {
+    guard.add(cursorBus);
+    const incomingId = incomingByBus.get(cursorBus);
+    if (!incomingId) break;
+    path.add(incomingId);
+    cursorBus = elementById.get(incomingId)?.from_bus ?? null;
+  }
+  return path;
+}
+
+function issue(
+  code: FieldTopologyIssueCode,
+  message: string,
+  busIds: string[] = [],
+  elementIds: string[] = [],
+  customerIds: string[] = [],
+): FieldTopologyIssue {
+  return {
+    code,
+    message,
+    busIds: [...new Set(busIds.filter(Boolean))],
+    elementIds: [...new Set(elementIds.filter(Boolean))],
+    customerIds: [...new Set(customerIds.filter(Boolean))],
+  };
+}
+
+function unsupported(source: FieldNetworkElement | null, elements: FieldNetworkElement[], issues: FieldTopologyIssue[]): FieldTopologyGraph {
   return {
     supported: false,
-    reason,
+    reason: issues[0]?.message ?? "Topology belum didukung.",
+    issues,
     source,
     rootBusId: source?.to_bus ?? null,
     buses: [],
     elements,
     reachableBusIds: [],
+    leafBusIds: [],
+    branchBusIds: [],
     maxDepth: 0,
   };
 }
