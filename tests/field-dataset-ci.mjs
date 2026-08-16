@@ -95,11 +95,11 @@ try {
   await assertVisible(fieldCockpit.locator('[data-operator-decision="true"]'), "field operator decision");
   await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "field decision headline");
 
-  const fieldText = await fieldCockpit.innerText();
-  if (!fieldText.includes("Susut teknis") || !fieldText.includes("Rasio susut") || !fieldText.includes("Tegangan minimum") || !fieldText.includes("Loading maksimum")) {
-    throw new Error(`Field cockpit does not expose operational field KPIs: ${fieldText}`);
+  const fieldText = (await fieldCockpit.innerText()).toLocaleLowerCase("id-ID");
+  for (const label of ["susut teknis", "rasio susut", "tegangan minimum", "loading maksimum"]) {
+    if (!fieldText.includes(label)) throw new Error(`Field cockpit does not expose ${label} KPI.`);
   }
-  if (!fieldText.includes("SLD demo tidak digunakan pada Field Mode")) {
+  if (!fieldText.includes("sld demo tidak digunakan pada field mode")) {
     throw new Error("Field mode must explicitly suppress the synthetic demo SLD rather than imply imported topology.");
   }
 
