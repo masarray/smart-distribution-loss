@@ -72,14 +72,14 @@ try {
   await assertVisible(idleRunState, "idle simulation state");
   await assertVisible(page.getByText("Siap menjalankan simulasi", { exact: true }), "idle simulation copy");
 
-  for (const stateCopy of ["Simulasi berjalan", "Simulasi selesai", "Simulasi gagal"]) {
+  for (const stateCopy of ["Analisis berjalan", "Analisis selesai", "Analisis gagal"]) {
     if (!appSource.includes(stateCopy)) {
-      throw new Error(`Missing calm simulation state copy: ${stateCopy}`);
+      throw new Error(`Missing calm analysis state copy: ${stateCopy}`);
     }
   }
   for (const stateToken of ["bg-primary/5", "bg-success/5", "bg-destructive/5"]) {
     if (!appSource.includes(stateToken)) {
-      throw new Error(`Missing distinct simulation state treatment: ${stateToken}`);
+      throw new Error(`Missing distinct analysis state treatment: ${stateToken}`);
     }
   }
 
