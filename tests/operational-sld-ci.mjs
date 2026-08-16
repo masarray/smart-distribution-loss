@@ -39,6 +39,18 @@ async function selectAndAssert(assetName, titlePattern, selectionMarker) {
   await assertVisible(page.locator('[data-manager-worst-summary="true"]'), `${assetName} worst-interval summary`);
 }
 
+async function assertCompactValidationKpi(label) {
+  const panel = page.locator('[data-selected-asset-panel="true"]');
+  await assertVisible(panel.getByText("Validasi", { exact: true }), `${label} validation KPI label`);
+  await assertVisible(panel.getByText("poin akurasi", { exact: true }), `${label} validation KPI unit`);
+  const unit = panel.getByText("poin akurasi", { exact: true });
+  const card = unit.locator("xpath=..");
+  const text = await card.innerText();
+  if (!/[+-]?\d+(?:\.\d+)?/.test(text)) {
+    throw new Error(`${label} validation KPI should expose a numeric gain after simulation: ${text}`);
+  }
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
@@ -79,7 +91,7 @@ try {
   }
 
   await selectAndAssert("Gardu GD-01", /Profil susut · Gardu GD-01/, "gd");
-  await assertVisible(page.locator('[data-validation-benefit="true"]'), "Smart Engine demo accuracy on GD-01");
+  await assertCompactValidationKpi("GD-01");
 
   await selectAndAssert("Penyulang 20 kV", /Profil susut · Penyulang 20 kV/, "feeder-label");
   await assertVisible(page.locator('[data-feeder-rollup="true"]'), "compact feeder roll-up");
@@ -97,7 +109,7 @@ try {
   }
   await assertVisible(page.getByText("Model dasar", { exact: true }).first(), "baseline label");
   await assertVisible(page.getByText("Smart Engine", { exact: true }).first(), "Smart Engine label");
-  await assertVisible(page.locator('[data-validation-benefit="true"]'), "compact Smart Engine demo accuracy");
+  await assertCompactValidationKpi("Feeder");
 
   const statusPanel = page.locator('[data-asset-status-panel="true"]');
   await assertVisible(statusPanel, "asset-status panel");
@@ -134,7 +146,7 @@ try {
     throw new Error(`Status list does not expose kWh + loss-rate pairing: ${ledgerValues.join(" | ")}`);
   }
 
-  console.log("P0 visual-fit gate PASS: no SLD text clutter/collision, feeder roll-up is concise, and right-side panels fit at 1440x900.");
+  console.log("P0 visual-fit gate PASS: no SLD text clutter/collision, feeder roll-up is concise, compact validation remains visible, and right-side panels fit at 1440x900.");
 } finally {
   await browser.close();
 }
