@@ -36,6 +36,7 @@ function closeEnough(a, b, tolerance = 0.6) {
 
 async function drawerChromeMetrics(drawer, label, expectTabs) {
   await assertVisible(drawer, label);
+  await page.waitForTimeout(650);
   await assertFitsViewport(drawer, label);
 
   const header = drawer.locator('[data-drawer-header="true"]');
