@@ -44,7 +44,7 @@ export function FieldOperationalCockpitP5() {
   };
   const effectiveSelected = isSelectionAvailable(selected, graph) ? selected : sourceSelection;
   const result = session.result as P5FieldDatasetResult;
-  const p5Ready = hasP5AssetObservability(session.result);
+  const assetObservabilityReady = hasP5AssetObservability(session.result);
   const operational = deriveFieldOperationalMetrics(session);
   const view = deriveFieldSelectedView(session, effectiveSelected);
   const decision = deriveFieldAssetDecision(view, session);
@@ -59,7 +59,7 @@ export function FieldOperationalCockpitP5() {
   const solverLabel = String(session.result.provenance["solver"] ?? "pandapower.runpp_3ph");
 
   return (
-    <div className="fixed inset-0 z-40 flex h-screen flex-col overflow-hidden bg-background" data-field-cockpit="true" data-operational-source="field" data-p5-cockpit="true">
+    <div className="fixed inset-0 z-40 flex h-screen flex-col overflow-hidden bg-background" data-field-cockpit="true" data-operational-source="field" data-p5-cockpit="true" data-p6-cockpit="true">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/70 bg-surface px-4">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md bg-primary/15 text-primary"><CircuitBoard className="size-4.5" /></span>
@@ -92,7 +92,7 @@ export function FieldOperationalCockpitP5() {
           <span className="hidden truncate text-muted-foreground/75 md:inline">
             {networkSummary.networkElements} elemen · {graph.buses.length} bus · {networkSummary.customers} pelanggan
           </span>
-          <span className="numeric ml-auto text-muted-foreground/75">{session.result.series.length}/96 interval · topology P5</span>
+          <span className="numeric ml-auto text-muted-foreground/75">{session.result.series.length}/96 interval · topology P6</span>
         </div>
         <div className="absolute bottom-0 left-0 h-0.5 w-full bg-success/30" />
       </div>
@@ -135,20 +135,22 @@ export function FieldOperationalCockpitP5() {
 
         <section className="flex min-h-0 flex-col gap-3">
           <div className="panel relative min-h-0 flex-1 overflow-hidden" data-field-topology-panel="true">
-            <div className="absolute left-3 top-3 z-10 max-w-[62%] rounded-md bg-surface/90 pr-2">
+            <div className="absolute left-3 top-3 z-10 max-w-[58%] rounded-md bg-surface/90 pr-2">
               <p className="label-xs">Single line diagram · data lapangan</p>
-              <p className="mt-0.5 truncate font-display text-sm">{graph.supported ? `Root ${graph.rootBusId} · ${graph.elements.length} elemen radial` : "Topology perlu ditinjau"}</p>
+              <p className="mt-0.5 truncate font-display text-sm">
+                {graph.supported ? `Root ${graph.rootBusId} · ${graph.elements.length} elemen · ${graph.branchBusIds.length} cabang` : "Topology perlu ditinjau"}
+              </p>
             </div>
             <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-              <span className={cn("rounded-md border px-2 py-1 text-[10px] font-semibold", graph.supported && p5Ready ? "border-success/25 bg-success/5 text-success" : "border-warn/25 bg-warn/5 text-warn")}>
-                {graph.supported && p5Ready ? "TOPOLOGY LIVE" : "RENDER BLOCKED"}
+              <span className={cn("rounded-md border px-2 py-1 text-[10px] font-semibold", graph.supported && assetObservabilityReady ? "border-success/25 bg-success/5 text-success" : "border-warn/25 bg-warn/5 text-warn")}>
+                {graph.supported && assetObservabilityReady ? "TOPOLOGY LIVE" : "RENDER BLOCKED"}
               </span>
             </div>
             <div className="h-full pt-10">
               <FieldTopologyDiagram graph={graph} selected={effectiveSelected} onSelect={setSelected} assets={assets} />
             </div>
             <div className="absolute bottom-2 left-3 z-10 rounded bg-surface/90 px-2 py-1 text-[9px] text-muted-foreground" data-field-sld-suppressed="true">
-              SLD demo tidak digunakan pada Field Mode · diagram ini dibangun dari network.csv
+              SLD demo tidak digunakan pada Field Mode · diagram dibangun dari network.csv
             </div>
           </div>
 
@@ -201,7 +203,7 @@ export function FieldOperationalCockpitP5() {
             <div className="flex items-center justify-between gap-3"><p className="label-xs">Detail & provenance</p><span className="numeric text-[10px] text-muted-foreground">{passedChecks}/{session.result.checks.length} cek</span></div>
             <div className="mt-2 space-y-1.5">
               <StatusRow label="Topology radial" value={graph.supported ? "VALID" : "BLOKIR"} pass={graph.supported} />
-              <StatusRow label="Observability P5" value={p5Ready ? "SIAP" : "ULANGI"} pass={p5Ready} />
+              <StatusRow label="Observability aset" value={assetObservabilityReady ? "SIAP" : "ULANGI"} pass={assetObservabilityReady} />
               <StatusRow label="Physics 3 fasa" value={`${session.result.series.length}/96`} pass={session.result.series.length === 96} />
               <StatusRow label="Attribution aset" value={assets.length ? `${assets.length} aset` : "—"} pass={assets.length > 0} />
             </div>
@@ -216,7 +218,7 @@ export function FieldOperationalCockpitP5() {
               <p className="mt-1"><span className="font-medium text-foreground">Truth policy:</span> tidak ada hidden truth pada Field Mode.</p>
             </div>
 
-            {!p5Ready && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">Hasil aktif berasal dari adapter lama. Jalankan ulang dataset untuk memperoleh observability aset P5.</div>}
+            {!assetObservabilityReady && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">Hasil aktif berasal dari adapter lama. Jalankan ulang dataset untuk memperoleh observability aset terbaru.</div>}
             {!graph.supported && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">{graph.reason}</div>}
           </div>
         </section>
