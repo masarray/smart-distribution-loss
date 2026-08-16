@@ -113,7 +113,15 @@ export function SingleLineDiagram({ selected, onSelect, energised, intensity, gd
           <g color="var(--color-mv)">
             <rect x="24" y="63" width="132" height="60" rx="7" fill="var(--color-surface-2)" stroke="var(--color-border)" />
             <circle cx="50" cy="93" r="12.5" fill="var(--color-surface)" stroke="currentColor" strokeWidth="1.7" />
-            <path d="M42 93C44.3 87.2 47 98.8 49.7 93S55.2 87.2 58.3 93" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+            <path
+              d="M42.5 93 C42.5 93 43.75 88.833 46.25 88.833 C48.75 88.833 51.25 97.167 53.75 97.167 C56.25 97.167 57.5 93 57.5 93"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.35"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              data-ac-source-symbol="true"
+            />
             <text x="72" y="87.5" fill="var(--color-foreground)" fontSize="11.7" fontFamily="var(--font-display)">GI 150/20 kV</text>
             <text x="72" y="102.5" fill="var(--color-muted-foreground)" fontSize="8.8">Masuk dari GI</text>
             <RouteRail d="M156 93H207" width={2.15} />
@@ -161,8 +169,23 @@ export function SingleLineDiagram({ selected, onSelect, energised, intensity, gd
             <RouteRail d="M840 93V127" width={1.9} />
             <CircuitBreaker x={840} y={136} label="QF-31" />
             <RouteRail d="M840 145V159" width={1.9} />
-            {energised && <FlowArrow x={840} y={155} direction="down" />}
-            <g data-transformer-symbol="true"><circle cx="840" cy="176" r="17" fill="var(--color-surface)" stroke="currentColor" strokeWidth="2" /><circle cx="840" cy="198" r="17" fill="var(--color-surface)" stroke="var(--color-lv)" strokeWidth="2" /></g>
+            {energised && (
+              <g filter="url(#flowGlow)" data-transformer-flow="mv-in">
+                <FlowPath d="M840 93V127" fast={fastFlow} width={1.45} />
+                <FlowPath d="M840 145V159" fast={fastFlow} width={1.45} />
+                <FlowArrow x={840} y={154} direction="down" />
+              </g>
+            )}
+            <g data-transformer-symbol="true">
+              <circle cx="840" cy="176" r="17" fill="var(--color-surface)" stroke="currentColor" strokeWidth="2" />
+              <circle cx="840" cy="198" r="17" fill="var(--color-surface)" stroke="var(--color-lv)" strokeWidth="2" />
+              {energised && (
+                <g filter="url(#flowGlow)" data-transformer-winding-flow="true" pointerEvents="none">
+                  <circle cx="840" cy="176" r="17" fill="none" stroke="currentColor" className="flow-dash-slow" vectorEffect="non-scaling-stroke" />
+                  <circle cx="840" cy="198" r="17" fill="none" stroke="var(--color-lv)" className="flow-dash" vectorEffect="non-scaling-stroke" />
+                </g>
+              )}
+            </g>
             <text x="870" y="176" fill={selected === "gd" ? "var(--color-primary)" : "var(--color-foreground)"} fontSize="11.5" fontFamily="var(--font-display)" fontWeight="600">TR GD-01</text>
             <text x="870" y="191" fill="var(--color-muted-foreground)" fontSize="9.3" fontFamily="var(--font-mono)">400 kVA · 20/0.4 kV</text>
             <text x="870" y="205" fill={gdLossKwh == null ? "var(--color-muted-foreground)" : HOT} fontSize="8.8" fontFamily="var(--font-mono)">{gdLossKwh == null ? "Susut —" : `Susut ${gdLossKwh.toFixed(2)} kWh/hari`}</text>
@@ -172,7 +195,18 @@ export function SingleLineDiagram({ selected, onSelect, energised, intensity, gd
               <CircuitBreaker x={840} y={252} label="QF-LV" />
               <RouteRail d="M840 261V282" width={1.9} />
               <RouteRail d="M730 282H970" width={2.5} />
-              {energised && <g filter="url(#flowGlow)"><FlowPath d="M840 215V243" fast={fastFlow} width={1.15} /><FlowPath d="M840 261V282" fast={fastFlow} width={1.15} /><FlowPath d="M840 282H755" fast={fastFlow} width={1.25} /><FlowPath d="M840 282H945" fast={fastFlow} width={1.25} /><FlowArrow x={840} y={272} direction="down" /><FlowArrow x={785} y={282} direction="left" /><FlowArrow x={905} y={282} direction="right" /></g>}
+              {energised && (
+                <g filter="url(#flowGlow)" data-transformer-flow="lv-out">
+                  <FlowPath d="M840 215V243" fast={fastFlow} width={1.45} />
+                  <FlowPath d="M840 261V282" fast={fastFlow} width={1.35} />
+                  <FlowPath d="M840 282H755" fast={fastFlow} width={1.35} />
+                  <FlowPath d="M840 282H945" fast={fastFlow} width={1.35} />
+                  <FlowArrow x={840} y={230} direction="down" />
+                  <FlowArrow x={840} y={272} direction="down" />
+                  <FlowArrow x={785} y={282} direction="left" />
+                  <FlowArrow x={905} y={282} direction="right" />
+                </g>
+              )}
             </g>
             <text x="864" y="273" fill="var(--color-lv)" fontSize="8.8" fontFamily="var(--font-mono)" data-sld-bus-label="true">BUSBAR 0.4 kV</text>
 

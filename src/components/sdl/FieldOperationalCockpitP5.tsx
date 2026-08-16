@@ -1,11 +1,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  Cable,
   CircuitBoard,
   Cpu,
   Database,
   Gauge,
-  Network,
   Percent,
   RotateCcw,
   Users,
@@ -21,6 +19,11 @@ import {
   hasP5AssetObservability,
   type P5FieldDatasetResult,
 } from "@/lib/sdl/fieldAsset";
+import {
+  deriveFieldAssetPriorities,
+  fieldPriorityHeadline,
+  type FieldAssetPriority,
+} from "@/lib/sdl/fieldIntelligence";
 import {
   clearFieldOperational,
   deriveFieldOperationalMetrics,
@@ -55,11 +58,21 @@ export function FieldOperationalCockpitP5() {
     : null;
   const selectedBus = effectiveSelected.kind === "bus" ? graph.buses.find((bus) => bus.id === effectiveSelected.id) : null;
   const assets = result.assets ?? [];
+  const priorities = deriveFieldAssetPriorities(assets);
+  const topPriorities = priorities.slice(0, 3);
+  const topPriority = priorities[0] ?? null;
   const passedChecks = session.result.checks.filter((check) => check.pass).length;
   const solverLabel = String(session.result.provenance["solver"] ?? "pandapower.runpp_3ph");
 
+  const focusPriority = (priority: FieldAssetPriority) => {
+    setSelected(priority.selection);
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>('[data-field-focus-selected="true"]')?.click();
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-40 flex h-screen flex-col overflow-hidden bg-background" data-field-cockpit="true" data-operational-source="field" data-p5-cockpit="true" data-p6-cockpit="true">
+    <div className="fixed inset-0 z-40 flex h-screen flex-col overflow-hidden bg-background" data-field-cockpit="true" data-operational-source="field" data-p5-cockpit="true" data-p6-cockpit="true" data-p7-cockpit="true">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/70 bg-surface px-4">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md bg-primary/15 text-primary"><CircuitBoard className="size-4.5" /></span>
@@ -92,7 +105,7 @@ export function FieldOperationalCockpitP5() {
           <span className="hidden truncate text-muted-foreground/75 md:inline">
             {networkSummary.networkElements} elemen · {graph.buses.length} bus · {networkSummary.customers} pelanggan
           </span>
-          <span className="numeric ml-auto text-muted-foreground/75">{session.result.series.length}/96 interval · topology P6</span>
+          <span className="numeric ml-auto text-muted-foreground/75">{session.result.series.length}/96 interval · topology P6 · intelligence P7</span>
         </div>
         <div className="absolute bottom-0 left-0 h-0.5 w-full bg-success/30" />
       </div>
@@ -103,7 +116,7 @@ export function FieldOperationalCockpitP5() {
             <p className="label-xs">Kualitas data lapangan</p>
             <p className="mt-0.5 font-display text-sm">{qualityHeadline(operational.confidence)}</p>
           </div>
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-3 space-y-2">
             {operational.qualityRows.map((metric) => (
               <div key={metric.label}>
                 <div className="flex justify-between gap-3 text-[11px]"><span className="truncate text-muted-foreground">{metric.label}</span><span className="numeric shrink-0">{metric.percent.toFixed(1)}%</span></div>
@@ -114,11 +127,39 @@ export function FieldOperationalCockpitP5() {
             ))}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 text-[10px]">
-            <MiniStat icon={<Network className="size-3.5" />} label="Bus" value={`${graph.buses.length}`} />
-            <MiniStat icon={<Cable className="size-3.5" />} label="Aset loss" value={`${assets.length}`} />
-            <MiniStat icon={<Cpu className="size-3.5" />} label="Trafo" value={`${networkSummary.transformers}`} />
-            <MiniStat icon={<Users className="size-3.5" />} label="Pelanggan" value={`${networkSummary.customers}`} />
+          <div className="mt-3 border-t border-border/45 pt-3" data-field-asset-intelligence="true">
+            <div className="flex items-center justify-between gap-2">
+              <p className="label-xs">Prioritas aset · P7</p>
+              <span className="numeric text-[9px] text-muted-foreground">{priorities.length} aset</span>
+            </div>
+            <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground" data-p7-priority-headline="true">{fieldPriorityHeadline(topPriority)}</p>
+            <div className="mt-2 space-y-1.5" data-p7-priority-list="true">
+              {topPriorities.map((priority) => (
+                <button
+                  key={priority.elementId}
+                  type="button"
+                  onClick={() => focusPriority(priority)}
+                  className={cn(
+                    "w-full rounded-md border bg-surface-2/55 px-2 py-1.5 text-left transition-colors hover:border-primary/45 hover:bg-primary/5",
+                    effectiveSelected.kind === "element" && effectiveSelected.id === priority.elementId ? "border-primary/55 bg-primary/7" : "border-border/45",
+                  )}
+                  data-p7-priority-rank={priority.rank}
+                  data-p7-priority-id={priority.elementId}
+                  data-p7-priority-status={priority.status}
+                  data-p7-priority-score={priority.score.toFixed(2)}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="numeric text-[9px] font-semibold text-muted-foreground">#{priority.rank}</span>
+                    <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-foreground">{priority.elementId}</span>
+                    <span className={cn("text-[8px] font-bold", priorityTone(priority.status))}>{priorityStatusLabel(priority.status)}</span>
+                  </span>
+                  <span className="mt-0.5 block truncate text-[9px] text-muted-foreground">{priority.reason}</span>
+                  <span className="numeric mt-0.5 block text-[8.5px] text-muted-foreground/85">Skor {priority.score.toFixed(0)} · susut {priority.lossSharePercent.toFixed(1)}% · load {priority.maxLoadingPercent.toFixed(1)}% · V {priority.minVoltagePu.toFixed(3)}</span>
+                </button>
+              ))}
+              {!topPriorities.length && <p className="rounded-md border border-border/45 bg-surface-2/45 px-2 py-2 text-[9px] text-muted-foreground">Jalankan ulang dataset untuk memperoleh attribution aset P5/P7.</p>}
+            </div>
+            <p className="mt-1.5 text-[8.5px] leading-relaxed text-muted-foreground/75">Skor: 45% kontribusi susut · 35% loading · 20% severity tegangan endpoint.</p>
           </div>
 
           <div className="mt-auto rounded-md border border-border/45 bg-surface-2/45 p-2.5 text-[10px] leading-relaxed text-muted-foreground" data-field-provenance="true">
@@ -206,6 +247,7 @@ export function FieldOperationalCockpitP5() {
               <StatusRow label="Observability aset" value={assetObservabilityReady ? "SIAP" : "ULANGI"} pass={assetObservabilityReady} />
               <StatusRow label="Physics 3 fasa" value={`${session.result.series.length}/96`} pass={session.result.series.length === 96} />
               <StatusRow label="Attribution aset" value={assets.length ? `${assets.length} aset` : "—"} pass={assets.length > 0} />
+              <StatusRow label="Prioritas P7" value={priorities.length ? `${priorities.length} diranking` : "—"} pass={priorities.length > 0} />
             </div>
 
             <div className="mt-3 border-t border-border/45 pt-2.5 text-[10px] leading-relaxed text-muted-foreground">
@@ -247,12 +289,22 @@ function kindLabel(kind: string) {
   return "BUS";
 }
 
-function fmt(value: number | null | undefined, digits: number) {
-  return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
+function priorityStatusLabel(status: FieldAssetPriority["status"]) {
+  if (status === "CRITICAL") return "KRITIS";
+  if (status === "ATTENTION") return "PERHATIAN";
+  if (status === "WATCH") return "PANTAU";
+  return "NORMAL";
 }
 
-function MiniStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return <div className="rounded-md border border-border/45 bg-surface-2/55 p-2"><div className="flex items-center gap-1.5 text-primary">{icon}<span className="label-xs" style={{ color: "inherit" }}>{label}</span></div><p className="numeric mt-1 text-sm font-semibold">{value}</p></div>;
+function priorityTone(status: FieldAssetPriority["status"]) {
+  if (status === "CRITICAL") return "text-destructive";
+  if (status === "ATTENTION") return "text-warn";
+  if (status === "WATCH") return "text-primary";
+  return "text-success";
+}
+
+function fmt(value: number | null | undefined, digits: number) {
+  return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
 }
 
 function FieldKpi({ icon, label, value, unit, tone = "default" }: { icon: ReactNode; label: string; value: string; unit: string; tone?: "default" | "primary" | "success" | "warn" }) {
