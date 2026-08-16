@@ -113,10 +113,7 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
                   return (
                     <li key={`${index}-${stage.label}`} className="flex gap-3 rounded-md border border-border/45 bg-surface-2/45 p-2.5">
                       <span className={stage.done ? "numeric flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] text-primary" : "numeric flex size-5 shrink-0 items-center justify-center rounded-full bg-surface text-[10px] text-muted-foreground"}>{index + 1}</span>
-                      <div>
-                        <p className="text-sm text-foreground">{copy[0]}</p>
-                        <p className="text-xs text-muted-foreground">{copy[1]}</p>
-                      </div>
+                      <div><p className="text-sm text-foreground">{copy[0]}</p><p className="text-xs text-muted-foreground">{copy[1]}</p></div>
                     </li>
                   );
                 })}
@@ -125,21 +122,9 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
 
             <TabsContent value="held" className="mt-0">
               {mvDemo ? (
-                <>
-                  <p className="pb-3 text-xs text-muted-foreground">Hanya parameter yang cukup didukung pengukuran yang boleh disesuaikan.</p>
-                  <Row k="Disesuaikan" v="Resistansi saluran" mono={false} />
-                  <Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} />
-                </>
+                <><p className="pb-3 text-xs text-muted-foreground">Hanya parameter yang cukup didukung pengukuran yang boleh disesuaikan.</p><Row k="Disesuaikan" v="Resistansi saluran" mono={false} /><Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} /></>
               ) : (
-                <>
-                  <p className="pb-3 text-xs text-muted-foreground">Parameter berikut tidak dihitung karena data belum cukup.</p>
-                  {(result?.unresolved ?? []).map((item) => (
-                    <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0">
-                      <p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p>
-                    </div>
-                  ))}
-                </>
+                <><p className="pb-3 text-xs text-muted-foreground">Parameter berikut tidak dihitung karena data belum cukup.</p>{(result?.unresolved ?? []).map((item) => <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0"><p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p><p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p></div>)}</>
               )}
             </TabsContent>
           </ScrollArea>
@@ -184,19 +169,18 @@ function userCheckDetail(name: string, detail: string, pass: boolean) {
     const seconds = detail.match(/([0-9]+(?:\.[0-9]+)?)\s*s/i)?.[1];
     return seconds ? `${seconds} detik untuk 96 interval.` : "Waktu perhitungan masih dalam target.";
   }
-  if (value.includes("aggregate source") || value.includes("source-p fit") || value.includes("phase-p fit") || value.includes("hold-out") || value.includes("phase assignment") || value.includes("voltage")) {
-    return cleanMetricDetail(detail);
-  }
+  if (value.includes("aggregate source") || value.includes("source-p fit") || value.includes("phase-p fit") || value.includes("hold-out") || value.includes("phase assignment") || value.includes("voltage")) return cleanMetricDetail(detail);
   return pass ? "Pemeriksaan selesai tanpa masalah." : "Hasil pemeriksaan perlu ditinjau.";
 }
 
 function cleanMetricDetail(detail: string) {
   return detail
-    .replace(/SHA-256\s+[a-f0-9…\.]+/gi, "")
+    .replace(/SHA-256\s+[a-f0-9….]+/gi, "")
     .replace(/runpp_3ph/gi, "perhitungan 3 fasa")
     .replace(/NRMSE/gi, "error relatif")
     .replace(/RMSE/gi, "error")
     .replace(/hidden truth/gi, "acuan demo")
+    .replace(/unseen intervals/gi, "interval uji")
     .trim();
 }
 
