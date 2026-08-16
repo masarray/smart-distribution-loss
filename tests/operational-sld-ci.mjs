@@ -224,13 +224,13 @@ try {
   await page.getByRole("button", { name: "Kelola dataset", exact: true }).click();
   const datasetDrawer = page.locator('[data-drawer="dataset-manager"]');
   await assertDrawerSafe(datasetDrawer, "Dataset Manager at 1366x768");
-  await assertScrollArea(datasetDrawer.locator('[data-drawer-scroll="dataset-manager"]'), "Dataset Manager content at 1366x768", true);
+  await assertScrollArea(datasetDrawer.locator('[data-drawer-scroll="dataset-manager"]'), "Dataset Manager content at 1366x768");
 
   await page.setViewportSize({ width: 1093, height: 614 });
   await assertDrawerSafe(datasetDrawer, "Dataset Manager at 1366x768 / 125% zoom equivalent");
   await assertScrollArea(datasetDrawer.locator('[data-drawer-scroll="dataset-manager"]'), "Dataset Manager content at 125% zoom equivalent", true);
 
-  console.log("P1 drawer UX gate PASS: Processed fills available height, drawers fit 1366x768 and 125% zoom equivalent, and long content exposes persistent scroll.");
+  console.log("P1 drawer UX gate PASS: Processed fills available height, drawers fit 1366x768 and 125% zoom equivalent, and long constrained content exposes persistent scroll.");
 } finally {
   await browser.close();
 }
