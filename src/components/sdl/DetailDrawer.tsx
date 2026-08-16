@@ -42,68 +42,84 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full border-border bg-surface sm:max-w-xl">
-        <SheetHeader className="border-b border-border pb-4">
-          <SheetTitle className="font-display text-lg">Detail teknis · {asset.short}</SheetTitle>
-          <SheetDescription>Validasi, proses, dan batas model.</SheetDescription>
+      <SheetContent
+        side="right"
+        className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden border-border bg-surface p-0 sm:max-w-xl"
+        data-drawer="technical"
+      >
+        <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 pr-12 sm:px-6 sm:pb-4 sm:pt-6 sm:pr-12">
+          <SheetTitle className="truncate font-display text-base sm:text-lg">Detail teknis · {asset.short}</SheetTitle>
+          <SheetDescription className="text-xs sm:text-sm">Validasi, proses, dan batas model.</SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="loss" className="mt-4 flex h-[calc(100vh-9rem)] flex-col">
-          <TabsList className="grid w-full grid-cols-5 bg-surface-2">
-            <TabsTrigger value="loss">Susut</TabsTrigger>
-            <TabsTrigger value="residual">Kecocokan</TabsTrigger>
-            <TabsTrigger value="gates">Pemeriksaan</TabsTrigger>
-            <TabsTrigger value="process">Proses</TabsTrigger>
-            <TabsTrigger value="held">Batas data</TabsTrigger>
+        <Tabs defaultValue="loss" className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 sm:px-6 sm:pb-4 sm:pt-4">
+          <TabsList className="grid h-auto min-h-9 shrink-0 grid-cols-5 bg-surface-2">
+            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="loss">Susut</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="residual">Kecocokan</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="gates">Pemeriksaan</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="process">Proses</TabsTrigger>
+            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="held">Batas data</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="mt-3 flex-1 pr-3">
-            <TabsContent value="loss" className="mt-0">
-              <Row k="Acuan validasi" v={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
-              <Row k="Model dasar" v={`${fmt(asset.convKwh, 3)} kWh/hari`} />
-              <Row k="Smart Engine" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
-              <Row k="Error model dasar" v={fmtSigned(asset.convErr, 3)} />
-              <Row k="Error Smart Engine" v={fmtSigned(asset.smartErr, 3)} />
-              <Row k="Kelengkapan data" v={userObservability(asset.observability)} mono={false} />
-            </TabsContent>
+          <TabsContent value="loss" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-loss">
+              <div className="pb-3">
+                <Row k="Acuan validasi" v={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
+                <Row k="Model dasar" v={`${fmt(asset.convKwh, 3)} kWh/hari`} />
+                <Row k="Smart Engine" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
+                <Row k="Error model dasar" v={fmtSigned(asset.convErr, 3)} />
+                <Row k="Error Smart Engine" v={fmtSigned(asset.smartErr, 3)} />
+                <Row k="Kelengkapan data" v={userObservability(asset.observability)} mono={false} />
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-            <TabsContent value="residual" className="mt-0">
-              {asset.domain === "LV" || asset.domain === "FEEDER" ? (
-                <>
-                  <Row k="Error daya sumber" v={`${fmt(conv?.source_nrmse_percent, 3)}% → ${fmt(smart?.source_nrmse_percent, 3)}%`} />
-                  <Row k="Error daya per fasa" v={`${fmt(conv?.phase_rmse_kw, 4)} → ${fmt(smart?.phase_rmse_kw, 4)} kW`} />
-                  <Row k="Error tegangan" v={`${fmt(conv?.voltage_rmse_pu, 6)} → ${fmt(smart?.voltage_rmse_pu, 6)} pu`} />
-                  <Row k="Skor data uji" v={`${fmt(conv?.objective_validation, 6)} → ${fmt(smart?.objective_validation, 6)}`} />
-                  <Row k="Akurasi fasa" v={`${fmt(conv?.phase_accuracy_percent_validation_only, 2)}% → ${fmt(smart?.phase_accuracy_percent_validation_only, 2)}%`} />
-                  <Row k="Data kalibrasi / uji" v={result ? `${result.split.calibration_intervals} / ${result.split.validation_intervals} interval` : "—"} />
-                </>
-              ) : (
-                <>
-                  <Row k="Error daya sumber" v={`${fmt(mvDemo?.comparison.conventional.source_nrmse_percent, 4)}% → ${fmt(mvDemo?.comparison.smart.source_nrmse_percent, 4)}%`} />
-                  <Row k="Resistansi saluran" v={`${fmt(mvDemo?.comparison.conventional.line_r_ohm_per_km, 4)} → ${fmt(mvDemo?.comparison.smart.line_r_ohm_per_km, 4)} Ω/km`} />
-                  {mvDemo?.scenario?.intervals && <Row k="Resolusi model" v={`${mvDemo.scenario.intervals} interval${mvDemo.scenario.interval_minutes ? ` · ${mvDemo.scenario.interval_minutes} menit` : ""}`} />}
-                  {mvDemo?.scenario?.line_length_km != null && <Row k="Panjang saluran" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
-                </>
-              )}
-            </TabsContent>
+          <TabsContent value="residual" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-fit">
+              <div className="pb-3">
+                {asset.domain === "LV" || asset.domain === "FEEDER" ? (
+                  <>
+                    <Row k="Error daya sumber" v={`${fmt(conv?.source_nrmse_percent, 3)}% → ${fmt(smart?.source_nrmse_percent, 3)}%`} />
+                    <Row k="Error daya per fasa" v={`${fmt(conv?.phase_rmse_kw, 4)} → ${fmt(smart?.phase_rmse_kw, 4)} kW`} />
+                    <Row k="Error tegangan" v={`${fmt(conv?.voltage_rmse_pu, 6)} → ${fmt(smart?.voltage_rmse_pu, 6)} pu`} />
+                    <Row k="Skor data uji" v={`${fmt(conv?.objective_validation, 6)} → ${fmt(smart?.objective_validation, 6)}`} />
+                    <Row k="Akurasi fasa" v={`${fmt(conv?.phase_accuracy_percent_validation_only, 2)}% → ${fmt(smart?.phase_accuracy_percent_validation_only, 2)}%`} />
+                    <Row k="Data kalibrasi / uji" v={result ? `${result.split.calibration_intervals} / ${result.split.validation_intervals} interval` : "—"} />
+                  </>
+                ) : (
+                  <>
+                    <Row k="Error daya sumber" v={`${fmt(mvDemo?.comparison.conventional.source_nrmse_percent, 4)}% → ${fmt(mvDemo?.comparison.smart.source_nrmse_percent, 4)}%`} />
+                    <Row k="Resistansi saluran" v={`${fmt(mvDemo?.comparison.conventional.line_r_ohm_per_km, 4)} → ${fmt(mvDemo?.comparison.smart.line_r_ohm_per_km, 4)} Ω/km`} />
+                    {mvDemo?.scenario?.intervals && <Row k="Resolusi model" v={`${mvDemo.scenario.intervals} interval${mvDemo.scenario.interval_minutes ? ` · ${mvDemo.scenario.interval_minutes} menit` : ""}`} />}
+                    {mvDemo?.scenario?.line_length_km != null && <Row k="Panjang saluran" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-            <TabsContent value="gates" className="mt-0">
-              {checks.length === 0 && <p className="py-6 text-sm text-muted-foreground">Jalankan analisis untuk melihat hasil pemeriksaan.</p>}
-              {checks.map((check) => (
-                <div key={check.name} className="flex gap-3 border-b border-border/60 py-2.5 last:border-0">
-                  <span className={check.pass ? "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success/20 text-success" : "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-destructive/20 text-destructive"}>
-                    {check.pass ? <Check className="size-3" /> : <X className="size-3" />}
-                  </span>
-                  <div>
-                    <p className="text-sm text-foreground">{userCheckName(check.name)}</p>
-                    {!check.pass && <p className="text-xs text-muted-foreground">{userCheckDetail(check.name, check.detail, check.pass)}</p>}
+          <TabsContent value="gates" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-checks">
+              <div className="pb-3">
+                {checks.length === 0 && <p className="py-6 text-sm text-muted-foreground">Jalankan analisis untuk melihat hasil pemeriksaan.</p>}
+                {checks.map((check) => (
+                  <div key={check.name} className="flex gap-3 border-b border-border/60 py-2.5 last:border-0">
+                    <span className={check.pass ? "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success/20 text-success" : "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-destructive/20 text-destructive"}>
+                      {check.pass ? <Check className="size-3" /> : <X className="size-3" />}
+                    </span>
+                    <div>
+                      <p className="text-sm text-foreground">{userCheckName(check.name)}</p>
+                      {!check.pass && <p className="text-xs text-muted-foreground">{userCheckDetail(check.name, check.detail, check.pass)}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </TabsContent>
+                ))}
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-            <TabsContent value="process" className="mt-0">
-              <ol className="space-y-1.5">
+          <TabsContent value="process" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-process">
+              <ol className="space-y-1.5 pb-3">
                 {stages.map((stage, index) => {
                   const copy = PROCESS_STAGES[index] ?? ["Tahap perhitungan", "Tahap teknis model."];
                   return (
@@ -114,16 +130,20 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
                   );
                 })}
               </ol>
-            </TabsContent>
+            </ScrollArea>
+          </TabsContent>
 
-            <TabsContent value="held" className="mt-0">
-              {mvDemo ? (
-                <><Row k="Disesuaikan" v="Resistansi saluran" mono={false} /><Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} /></>
-              ) : (
-                <>{(result?.unresolved ?? []).map((item) => <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0"><p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p><p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p></div>)}</>
-              )}
-            </TabsContent>
-          </ScrollArea>
+          <TabsContent value="held" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
+            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-boundaries">
+              <div className="pb-3">
+                {mvDemo ? (
+                  <><Row k="Disesuaikan" v="Resistansi saluran" mono={false} /><Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} /></>
+                ) : (
+                  <>{(result?.unresolved ?? []).map((item) => <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0"><p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p><p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p></div>)}</>
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
