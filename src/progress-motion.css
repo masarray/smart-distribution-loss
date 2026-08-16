@@ -1,0 +1,49 @@
+/* P5 progress motion
+ * The numeric percentage remains the real engine value. Only the visual fill is
+ * deliberately slow while running, so coarse worker milestones do not look stuck.
+ */
+[data-analysis-run-state="running"] > div:last-child[style*="width"] {
+  position: absolute;
+  overflow: hidden;
+  transition-property: width !important;
+  transition-duration: 30000ms !important;
+  transition-timing-function: linear !important;
+}
+
+[data-analysis-run-state="running"] > div:last-child[style*="width"]::after,
+[data-drawer="dataset-manager"] .h-1.bg-primary.transition-all[style*="width"]::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: -24%;
+  width: 24%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--color-foreground) 38%, transparent),
+    transparent
+  );
+  animation: p5-progress-travel 3.8s linear infinite;
+}
+
+[data-drawer="dataset-manager"] .h-1.bg-primary.transition-all[style*="width"] {
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes p5-progress-travel {
+  from { transform: translateX(0); }
+  to { transform: translateX(520%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-analysis-run-state="running"] > div:last-child[style*="width"] {
+    transition-duration: 700ms !important;
+  }
+
+  [data-analysis-run-state="running"] > div:last-child[style*="width"]::after,
+  [data-drawer="dataset-manager"] .h-1.bg-primary.transition-all[style*="width"]::after {
+    animation: none !important;
+  }
+}
