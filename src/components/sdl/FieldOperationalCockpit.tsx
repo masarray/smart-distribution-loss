@@ -37,6 +37,7 @@ export function FieldOperationalCockpit() {
   const networkSummary = report.summary;
   const sourceTitle = fieldSourceTitle(session);
   const passedChecks = result.checks.filter((check) => check.pass).length;
+  const solverLabel = String(result.provenance["solver"] ?? "pandapower.runpp_3ph");
 
   return (
     <div
@@ -123,7 +124,7 @@ export function FieldOperationalCockpit() {
           <div className="mt-auto rounded-md border border-border/45 bg-surface-2/45 p-2.5 text-[10px] leading-relaxed text-muted-foreground" data-field-provenance="true">
             <p className="font-semibold text-foreground">Sumber terverifikasi</p>
             <p className="mt-1">{session.filenames.join(" · ")}</p>
-            <p className="mt-1">{String(result.provenance.solver ?? "pandapower.runpp_3ph")} · lokal di browser · tanpa hidden truth</p>
+            <p className="mt-1">{solverLabel} · lokal di browser · tanpa hidden truth</p>
           </div>
 
           <Button variant="outline" size="sm" data-action-level="secondary" className="mt-3 h-8 w-full gap-2 bg-transparent text-xs" onClick={openDatasetManager}>
@@ -232,7 +233,7 @@ export function FieldOperationalCockpit() {
             </div>
 
             <div className="mt-3 border-t border-border/45 pt-2.5 text-[10px] leading-relaxed text-muted-foreground">
-              <p><span className="font-medium text-foreground">Solver:</span> {String(result.provenance.solver ?? "pandapower.runpp_3ph")}</p>
+              <p><span className="font-medium text-foreground">Solver:</span> {solverLabel}</p>
               <p className="mt-1"><span className="font-medium text-foreground">Truth policy:</span> tidak ada hidden truth pada Field Mode.</p>
               <p className="mt-1"><span className="font-medium text-foreground">Eksekusi:</span> browser Web Worker · data tidak diunggah oleh aplikasi.</p>
             </div>
