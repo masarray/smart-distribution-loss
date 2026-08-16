@@ -7,10 +7,12 @@ import { LossProfileChart } from "@/components/sdl/LossProfileChart";
 import { DataDrawer } from "@/components/sdl/DataDrawer";
 import { DatasetManager } from "@/components/sdl/DatasetManager";
 import { DetailDrawer } from "@/components/sdl/DetailDrawer";
+import { OperatorDecisionStrip } from "@/components/sdl/OperatorDecisionStrip";
 import { useEngine } from "@/lib/sdl/useEngine";
 import { deriveAssets, fmt, type AssetId } from "@/lib/sdl/derive";
 import {
   deriveOperationalMetrics,
+  deriveOperatorDecision,
   summarizeLossSeries,
   type AnalysisStatus,
   type ConfidenceLevel,
@@ -42,6 +44,7 @@ export default function App() {
     state.tm,
     active?.smartKwh,
   );
+  const decision = deriveOperatorDecision(selected, operational, state.result, state.spot, state.tm);
 
   const assetMetrics = useMemo(
     () =>
@@ -314,6 +317,8 @@ export default function App() {
                 {operatorDomainLabel(active?.domain)}
               </span>
             </div>
+
+            <OperatorDecisionStrip decision={decision} />
 
             {selected === "feeder" && (
               <div className="mt-2 rounded-md border border-border/55 bg-surface-2/55 p-2" data-feeder-rollup="true">
