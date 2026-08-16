@@ -75,12 +75,12 @@ export default function App() {
         ? "Analisis selesai"
         : state.status === "error"
           ? "Analisis gagal"
-          : "Siap dianalisis";
+          : "Siap menjalankan simulasi";
   const progressMeta =
     state.status === "running"
       ? `${state.intervals.done}/${state.intervals.total} interval · ${Math.round(state.progress.percent)}%`
       : state.status === "done"
-        ? `${state.intervals.total} interval`
+        ? `${state.intervals.total} interval · hasil siap`
         : null;
 
   return (
@@ -96,17 +96,20 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="ml-4 flex items-center gap-1 rounded-lg bg-surface-2 p-1">
+        <nav className="ml-4 flex items-center gap-1 rounded-lg bg-surface-2 p-1" aria-label="Pilih aset">
           {assets.map((asset) => (
             <button
               key={asset.id}
               type="button"
               onClick={() => setSelected(asset.id)}
+              aria-current={selected === asset.id ? "true" : undefined}
+              data-asset-selector={asset.id}
+              data-selected={selected === asset.id ? "true" : "false"}
               className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
                 selected === asset.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "border-primary/35 bg-primary/10 text-primary"
+                  : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-surface hover:text-foreground",
               )}
             >
               {asset.short}
@@ -119,7 +122,8 @@ export default function App() {
             type="button"
             onClick={() => setDatasetManagerOpen(true)}
             aria-label="Kelola dataset"
-            className="hidden items-center gap-1.5 rounded-md border border-border/60 bg-surface-2 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground lg:flex"
+            data-action-level="secondary"
+            className="hidden items-center gap-1.5 rounded-md border border-border/70 bg-transparent px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:bg-surface-2 hover:text-foreground lg:flex"
           >
             <Database className="size-3" /> Dataset
           </button>
@@ -136,28 +140,78 @@ export default function App() {
               </SelectContent>
             </Select>
           </div>
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => run(preset)} disabled={running}>
+          <Button
+            size="sm"
+            data-action-level="primary"
+            data-run-status={state.status}
+            aria-busy={running}
+            className="h-8 gap-1.5 px-3.5 text-xs font-semibold ring-1 ring-primary/25"
+            onClick={() => run(preset)}
+            disabled={running}
+          >
             <Play className="size-3.5" />
             {running ? "Menghitung…" : "Jalankan simulasi"}
           </Button>
         </div>
       </header>
 
-      <div className="relative h-8 shrink-0 border-b border-border/50 bg-surface-2/55">
+      <div
+        className={cn(
+          "relative h-8 shrink-0 border-b border-border/50 transition-colors",
+          running
+            ? "bg-primary/5"
+            : state.status === "done"
+              ? "bg-success/5"
+              : state.status === "error"
+                ? "bg-destructive/5"
+                : "bg-surface-2/45",
+        )}
+        data-analysis-run-state={state.status}
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <div className="flex h-full items-center gap-3 px-4 text-[11px]">
           <span
             className={cn(
               "size-1.5 rounded-full",
-              running ? "animate-pulse bg-warn" : state.status === "done" ? "bg-success/65" : "bg-muted-foreground/65",
+              running
+                ? "animate-pulse bg-primary"
+                : state.status === "done"
+                  ? "bg-success/75"
+                  : state.status === "error"
+                    ? "bg-destructive/80"
+                    : "bg-muted-foreground/55",
             )}
           />
-          <span className={cn("font-medium", running ? "text-foreground" : "text-muted-foreground/90")}>{progressTitle}</span>
+          <span
+            className={cn(
+              "font-medium",
+              running
+                ? "text-foreground"
+                : state.status === "done"
+                  ? "text-success"
+                  : state.status === "error"
+                    ? "text-destructive"
+                    : "text-muted-foreground/90",
+            )}
+          >
+            {progressTitle}
+          </span>
+          <span className="hidden text-muted-foreground/65 md:inline">
+            Aset <span className="font-medium text-foreground/85">{active?.short}</span>
+          </span>
           {progressMeta && <span className="numeric ml-auto text-muted-foreground/75">{progressMeta}</span>}
         </div>
         <div
           className={cn(
             "absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out",
-            running ? "bg-primary/90" : state.status === "done" ? "bg-primary/25" : "bg-muted-foreground/20",
+            running
+              ? "bg-primary/85"
+              : state.status === "done"
+                ? "bg-success/30"
+                : state.status === "error"
+                  ? "bg-destructive/55"
+                  : "bg-muted-foreground/15",
           )}
           style={{ width: `${state.progress.percent}%` }}
         />
@@ -191,9 +245,10 @@ export default function App() {
           </div>
 
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
-            className="mt-4 h-8 w-full gap-2 text-xs"
+            data-action-level="secondary"
+            className="mt-4 h-8 w-full gap-2 bg-transparent text-xs"
             onClick={() => setDataDrawerOpen(true)}
           >
             <Database className="size-3.5" />
@@ -315,10 +370,22 @@ export default function App() {
             </div>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Button variant="secondary" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setDataDrawerOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                data-action-level="secondary"
+                className="h-8 gap-2 bg-transparent text-xs font-semibold"
+                onClick={() => setDataDrawerOpen(true)}
+              >
                 <Database className="size-3.5" /> Data
               </Button>
-              <Button size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setEngineeringDrawerOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                data-action-level="secondary"
+                className="h-8 gap-2 bg-transparent text-xs font-semibold"
+                onClick={() => setEngineeringDrawerOpen(true)}
+              >
                 <ShieldCheck className="size-3.5" /> Detail teknis
               </Button>
             </div>
@@ -336,10 +403,11 @@ export default function App() {
                     type="button"
                     onClick={() => setSelected(asset.id)}
                     data-analysis-status={metric.status}
+                    data-selected={selectedRow ? "true" : "false"}
                     className={cn(
                       "w-full rounded-md border px-2.5 py-1.5 text-left transition-colors",
                       selectedRow
-                        ? "border-primary/50 bg-primary/10"
+                        ? "border-primary/35 bg-primary/5"
                         : exception
                           ? statusBorderClass(metric.status)
                           : "border-border/45 bg-surface-2/70 hover:border-primary/20",
