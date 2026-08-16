@@ -84,7 +84,7 @@ export default function App() {
         ? "Hasil terbaru siap."
         : state.status === "error"
           ? "Buka detail teknis untuk melihat penyebab."
-          : "Pilih kualitas data lalu jalankan simulasi.";
+          : "Pilih skenario data lalu jalankan simulasi.";
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -127,7 +127,7 @@ export default function App() {
             <Database className="size-3" /> DEMO SINTETIS
           </button>
           <div className="hidden items-center gap-2 lg:flex">
-            <span className="label-xs">Kualitas data</span>
+            <span className="label-xs">Skenario data</span>
             <Select value={preset} onValueChange={(value) => setPreset(value as Preset)} disabled={running}>
               <SelectTrigger className="h-8 w-32 border-border/70 bg-surface-2 text-xs">
                 <SelectValue />
@@ -173,7 +173,7 @@ export default function App() {
         <section className="panel flex min-h-0 flex-col p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="label-xs">Kualitas data</p>
+              <p className="label-xs">Kualitas data aset</p>
               <p className="mt-0.5 font-display text-sm">{operatorQualityHeadline(operational.confidence)}</p>
             </div>
             <ConfidenceBadge level={operational.confidence} />
