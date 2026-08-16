@@ -221,7 +221,7 @@ try {
   await technicalDrawer.getByRole("button", { name: "Close" }).click();
 
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.getByRole("button", { name: "Dataset", exact: true }).click();
+  await page.getByRole("button", { name: "Kelola dataset", exact: true }).click();
   const datasetDrawer = page.locator('[data-drawer="dataset-manager"]');
   await assertDrawerSafe(datasetDrawer, "Dataset Manager at 1366x768");
   await assertScrollArea(datasetDrawer.locator('[data-drawer-scroll="dataset-manager"]'), "Dataset Manager content at 1366x768", true);
