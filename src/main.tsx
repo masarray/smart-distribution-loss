@@ -1,12 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { FieldOperationalCockpit } from "@/components/sdl/FieldOperationalCockpit";
+import { FieldOperationalCockpitP5 } from "@/components/sdl/FieldOperationalCockpitP5";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
-    <FieldOperationalCockpit />
+    <FieldOperationalCockpitP5 />
   </React.StrictMode>,
 );
