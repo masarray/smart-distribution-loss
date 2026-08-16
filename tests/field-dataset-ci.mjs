@@ -72,9 +72,9 @@ try {
 
   // P5 progress motion: real percentage text is untouched, while the fill itself
   // gets a deliberately long linear transition plus a compositor-friendly traveler.
-  const runStrip = page.locator('[data-analysis-run-state="idle"]');
-  await runStrip.evaluate((element) => element.setAttribute("data-analysis-run-state", "running"));
+  const runStrip = page.locator('[data-analysis-run-state]').first();
   const mainProgress = runStrip.locator(':scope > div:last-child');
+  await runStrip.evaluate((element) => element.setAttribute("data-analysis-run-state", "running"));
   const progressMotion = await mainProgress.evaluate((element) => {
     const style = getComputedStyle(element);
     const after = getComputedStyle(element, "::after");
@@ -152,7 +152,7 @@ try {
   }
 
   await lineNode.click();
-  await assertVisible(sourcePanel.locator('xpath=self::*[@data-field-selection-kind="line"]'), "line selection panel");
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="line"]'), "line selection panel");
   let selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
   if (!selectedText.includes("mv-l1") || !selectedText.includes("kontribusi") || !selectedText.includes("susut teknis")) {
     throw new Error(`Line selection did not expose field loss attribution: ${selectedText}`);
@@ -160,14 +160,14 @@ try {
   await assertVisible(fieldCockpit.locator('[data-field-asset-chart="element"]'), "line asset chart");
 
   await trafoNode.click();
-  await assertVisible(sourcePanel.locator('xpath=self::*[@data-field-selection-kind="transformer"]'), "transformer selection panel");
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="transformer"]'), "transformer selection panel");
   selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
   if (!selectedText.includes("tr-01") || !selectedText.includes("kontribusi") || !selectedText.includes("loading maksimum")) {
     throw new Error(`Transformer selection did not expose field loading/loss: ${selectedText}`);
   }
 
   await lvBus.click();
-  await assertVisible(sourcePanel.locator('xpath=self::*[@data-field-selection-kind="bus"]'), "bus selection panel");
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="bus"]'), "bus selection panel");
   selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
   for (const label of ["lvmain", "beban puncak", "energi beban", "pelanggan", "tegangan minimum"]) {
     if (!selectedText.includes(label)) throw new Error(`Bus selection missing ${label}: ${selectedText}`);
@@ -176,7 +176,7 @@ try {
   await assertVisible(fieldCockpit.locator('[data-field-asset-chart="bus"]'), "bus voltage/load chart");
 
   await sourceNode.click();
-  await assertVisible(sourcePanel.locator('xpath=self::*[@data-field-selection-kind="source"]'), "source selection restored");
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="source"]'), "source selection restored");
   await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "source decision restored");
 
   const fieldText = (await fieldCockpit.innerText()).toLocaleLowerCase("id-ID");
