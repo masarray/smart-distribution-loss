@@ -143,20 +143,62 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Static topology remains solid; these dashed paths are only the live-current overlay. */
+/* Static topology remains solid; animated overlays only communicate live-current direction. */
 @utility flow-dash {
-  stroke-dasharray: 8 7;
-  animation: sld-flow 0.95s linear infinite;
+  stroke-dasharray: 6 6;
+  stroke-width: 1.95;
+  opacity: 0.96;
+  animation: sld-flow 0.72s linear infinite;
 }
 
 @utility flow-dash-slow {
-  stroke-dasharray: 7 8;
-  animation: sld-flow 1.75s linear infinite;
+  stroke-dasharray: 6 7;
+  stroke-width: 1.75;
+  opacity: 0.9;
+  animation: sld-flow 1.2s linear infinite;
 }
 
 @keyframes sld-flow {
   to {
-    stroke-dashoffset: -15;
+    stroke-dashoffset: -24;
+  }
+}
+
+@utility field-flow-path {
+  fill: none;
+  stroke: color-mix(in oklch, var(--color-primary) 68%, transparent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 5 10;
+  opacity: 0.72;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+  animation: p6-field-flow 1.15s linear infinite;
+}
+
+@utility field-flow-path-route {
+  stroke: color-mix(in oklch, var(--color-primary) 90%, white 10%);
+  stroke-width: 2.8;
+  stroke-dasharray: 7 7;
+  opacity: 0.94;
+  animation-duration: 0.82s;
+}
+
+@utility field-flow-path-active {
+  stroke: color-mix(in oklch, var(--color-primary) 82%, white 18%);
+  stroke-width: 3.5;
+  stroke-dasharray: 8 6;
+  opacity: 1;
+  animation-duration: 0.58s;
+}
+
+@keyframes p6-field-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -30;
   }
 }
 
@@ -197,6 +239,9 @@
 @media (prefers-reduced-motion: reduce) {
   .flow-dash,
   .flow-dash-slow,
+  .field-flow-path,
+  .field-flow-path-route,
+  .field-flow-path-active,
   .pulse-node {
     animation: none !important;
   }
