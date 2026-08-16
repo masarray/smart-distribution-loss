@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -81,12 +81,6 @@ export function DrawerRow({
   );
 }
 
-export function DrawerSection({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return <section className={cn(DRAWER_SECTION_CLASS, className)}>{children}</section>;
+export function DrawerSection({ className, ...props }: HTMLAttributes<HTMLElement>) {
+  return <section className={cn(DRAWER_SECTION_CLASS, className)} {...props} />;
 }
