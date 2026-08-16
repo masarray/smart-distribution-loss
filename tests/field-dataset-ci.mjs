@@ -62,16 +62,9 @@ function numericAfter(text, label) {
   return match ? Number(match[1]) : null;
 }
 
-function lossFromSvgGroup(text) {
-  const match = text.match(/([0-9]+(?:\.[0-9]+)?)\s*kWh/i);
-  return match ? Number(match[1]) : null;
-}
-
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
-  // P5 progress motion: real percentage text is untouched, while the fill itself
-  // gets a deliberately long linear transition plus a compositor-friendly traveler.
   const runStrip = page.locator('[data-analysis-run-state]').first();
   const mainProgress = runStrip.locator(':scope > div:last-child');
   await runStrip.evaluate((element) => element.setAttribute("data-analysis-run-state", "running"));
@@ -143,11 +136,9 @@ try {
   const totalLoss = numericAfter(sourceText, "SUSUT TEKNIS");
   if (totalLoss == null || totalLoss <= 0) throw new Error(`Source loss KPI missing: ${sourceText}`);
 
-  const lineText = await lineNode.textContent();
-  const trafoText = await trafoNode.textContent();
-  const lineLoss = lossFromSvgGroup(lineText ?? "");
-  const trafoLoss = lossFromSvgGroup(trafoText ?? "");
-  if (lineLoss == null || trafoLoss == null || Math.abs(lineLoss + trafoLoss - totalLoss) > 0.04) {
+  const lineLoss = Number(await lineNode.getAttribute("data-field-element-loss-kwh"));
+  const trafoLoss = Number(await trafoNode.getAttribute("data-field-element-loss-kwh"));
+  if (!Number.isFinite(lineLoss) || !Number.isFinite(trafoLoss) || Math.abs(lineLoss + trafoLoss - totalLoss) > 0.02) {
     throw new Error(`Direct asset attribution does not reconcile: line=${lineLoss}, trafo=${trafoLoss}, total=${totalLoss}`);
   }
 
@@ -197,7 +188,6 @@ try {
   await assertVisible(drawer, "Dataset Manager reopened from Field Mode");
   await assertVisible(drawer.locator('[data-field-active-indicator="true"]'), "Field Mode active indicator in manager");
 
-  // Fail-safe inherited from P4: beginning a new invalid import revokes the active field source.
   const reopenedInput = drawer.locator('input[data-field-files="true"]');
   await reopenedInput.setInputFiles([
     { name: "network.csv", mimeType: "text/csv", buffer: Buffer.from(network) },
