@@ -1,9 +1,20 @@
 import { Database } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DRAWER_BODY_CLASS,
+  DRAWER_SCROLL_CLASS,
+  DRAWER_SHEET_CLASS,
+  DRAWER_TAB_CLASS,
+  DRAWER_TAB_CONTENT_CLASS,
+  DRAWER_TABS_LIST_CLASS,
+  DrawerHeader,
+  DrawerRow,
+} from "@/components/sdl/DrawerChrome";
 import { fmt, type AssetLoss } from "@/lib/sdl/derive";
 import { PRESET_PROFILE, type P3Result, type Preset, type SeriesPoint, type SpotDemo, type TmDemo } from "@/lib/sdl/types";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -15,22 +26,16 @@ interface Props {
   preset: Preset;
 }
 
-function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <div className="flex items-start justify-between gap-5 border-b border-border/45 py-2 text-sm last:border-0">
-      <span className="text-muted-foreground">{k}</span>
-      <span className={mono ? "numeric max-w-[62%] text-right" : "max-w-[62%] text-right"}>{v}</span>
-    </div>
-  );
-}
-
 function Coverage({ label, percent, count, total }: { label: string; percent: number; count?: number; total?: number }) {
   const tone = percent >= 85 ? "bg-success" : percent >= 55 ? "bg-warn" : "bg-destructive";
   return (
     <div className="border-b border-border/45 py-2.5 last:border-0">
-      <div className="flex items-center justify-between text-sm">
-        <span>{label}</span>
-        <span className="numeric">{percent.toFixed(1)}%{count != null && total != null ? ` · ${count}/${total}` : ""}</span>
+      <div className="flex items-center justify-between gap-4 text-[13px] sm:text-sm">
+        <span className="text-foreground">{label}</span>
+        <span className="numeric shrink-0 text-foreground">
+          {percent.toFixed(1)}%
+          {count != null && total != null ? ` · ${count}/${total}` : ""}
+        </span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
         <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
@@ -78,68 +83,90 @@ export function DataDrawer({ open, onOpenChange, asset, result, spot, tm, preset
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="left"
-        className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden border-border bg-surface p-0 sm:max-w-2xl"
-        data-drawer="data"
-      >
-        <SheetHeader className="shrink-0 border-b border-border/65 px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
-          <div className="flex items-center gap-2 pr-8">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-warn/10 text-warn"><Database className="size-4" /></span>
-            <div className="min-w-0">
-              <SheetTitle className="truncate font-display text-base sm:text-lg">Data · {asset.short}</SheetTitle>
-              <SheetDescription className="text-xs sm:text-sm">Demo sintetis · 24 jam · interval 15 menit.</SheetDescription>
-            </div>
-          </div>
-        </SheetHeader>
+      <SheetContent side="left" className={cn(DRAWER_SHEET_CLASS, "sm:max-w-2xl")} data-drawer="data">
+        <DrawerHeader
+          icon={<Database className="size-4" />}
+          title={<>Data · {asset.short}</>}
+          description="Demo sintetis · 24 jam · interval 15 menit."
+        />
 
-        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 sm:px-5 sm:pb-4 sm:pt-4">
-          <TabsList className="grid h-auto min-h-9 shrink-0 grid-cols-5 bg-surface-2">
-            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="overview">Ringkasan</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="measurements">Pengukuran</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="network">Jaringan</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="processed">Hasil</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-3 sm:text-sm" value="lineage">Jejak data</TabsTrigger>
+        <Tabs defaultValue="overview" className={DRAWER_BODY_CLASS} data-drawer-body="true">
+          <TabsList className={cn(DRAWER_TABS_LIST_CLASS, "grid-cols-5")} data-drawer-tabs="true">
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="overview">Ringkasan</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="measurements">Pengukuran</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="network">Jaringan</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="processed">Hasil</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="lineage">Jejak data</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="overview">
+          <TabsContent value="overview" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="overview">
               <div className="pb-3">
-                <Row k="Aset" v={asset.label} mono={false} />
-                <Row k="Sumber" v="Demo sintetis" mono={false} />
-                <Row k="Interval" v="96 × 15 menit" />
-                <Row k="Susut Smart" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
+                <DrawerRow label="Aset" value={asset.label} mono={false} />
+                <DrawerRow label="Sumber" value="Demo sintetis" mono={false} />
+                <DrawerRow label="Interval" value="96 × 15 menit" />
+                <DrawerRow label="Susut Smart" value={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
               </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="measurements" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="measurements">
+          <TabsContent value="measurements" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="measurements">
               <div className="pb-3">
-                {asset.id === "gd" && <><p className="mb-2 text-xs text-muted-foreground">Skenario {presetLabel(preset)} · 90 pelanggan.</p><Coverage label="Meter tersedia" percent={profile.ami} count={coverageCount(profile.ami)} total={90} /><Coverage label="Fasa diketahui" percent={profile.phase} count={coverageCount(profile.phase)} total={90} /><Coverage label="Faktor daya diketahui" percent={profile.pf} count={coverageCount(profile.pf)} total={90} /><Coverage label="Pemetaan pelanggan benar" percent={profile.mapping} count={coverageCount(profile.mapping)} total={90} /><Row k="Pengukuran jaringan" v="Daya P/Q penyulang + tegangan LV A/B/C" mono={false} /></>}
-                {(asset.id === "spot" || asset.id === "tm") && <><Coverage label="Daya aktif & reaktif" percent={obs("load_pq_percent")} /><Coverage label="Data fasa" percent={obs("phase_percent")} /><Coverage label="Topologi jaringan" percent={obs("topology_percent")} /><Coverage label="Pemetaan" percent={obs("mapping_percent")} /><Coverage label="Waktu pencatatan" percent={obs("timing_percent")} /><Row k="Interval" v={`${mvDemo?.scenario?.intervals ?? 96} × ${mvDemo?.scenario?.interval_minutes ?? 15} menit`} /></>}
-                {asset.id === "feeder" && <><Row k="Referensi TM" v="Data terukur" mono={false} /><Row k="Pelanggan TM" v="Dihitung sendiri" mono={false} /><Row k="Gardu GD-01" v={`${presetLabel(preset)} · dihitung sendiri`} mono={false} /></>}
+                {asset.id === "gd" && (
+                  <>
+                    <p className="mb-2 text-xs text-muted-foreground">Skenario {presetLabel(preset)} · 90 pelanggan.</p>
+                    <Coverage label="Meter tersedia" percent={profile.ami} count={coverageCount(profile.ami)} total={90} />
+                    <Coverage label="Fasa diketahui" percent={profile.phase} count={coverageCount(profile.phase)} total={90} />
+                    <Coverage label="Faktor daya diketahui" percent={profile.pf} count={coverageCount(profile.pf)} total={90} />
+                    <Coverage label="Pemetaan pelanggan benar" percent={profile.mapping} count={coverageCount(profile.mapping)} total={90} />
+                    <DrawerRow label="Pengukuran jaringan" value="Daya P/Q penyulang + tegangan LV A/B/C" mono={false} />
+                  </>
+                )}
+                {(asset.id === "spot" || asset.id === "tm") && (
+                  <>
+                    <Coverage label="Daya aktif & reaktif" percent={obs("load_pq_percent")} />
+                    <Coverage label="Data fasa" percent={obs("phase_percent")} />
+                    <Coverage label="Topologi jaringan" percent={obs("topology_percent")} />
+                    <Coverage label="Pemetaan" percent={obs("mapping_percent")} />
+                    <Coverage label="Waktu pencatatan" percent={obs("timing_percent")} />
+                    <DrawerRow label="Interval" value={`${mvDemo?.scenario?.intervals ?? 96} × ${mvDemo?.scenario?.interval_minutes ?? 15} menit`} />
+                  </>
+                )}
+                {asset.id === "feeder" && (
+                  <>
+                    <DrawerRow label="Referensi TM" value="Data terukur" mono={false} />
+                    <DrawerRow label="Pelanggan TM" value="Dihitung sendiri" mono={false} />
+                    <DrawerRow label="Gardu GD-01" value={`${presetLabel(preset)} · dihitung sendiri`} mono={false} />
+                  </>
+                )}
               </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="network" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="network">
+          <TabsContent value="network" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="network">
               <div className="pb-3">
                 <p className="mb-2 text-xs leading-relaxed text-muted-foreground">{network.topology}</p>
-                {network.rows.map(([k, v]) => <Row key={k} k={k} v={v} mono={false} />)}
-                {mvDemo?.scenario?.line_length_km != null && <Row k="Panjang saluran model" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
-                <Row k="Mesin perhitungan" v="Pandapower · aliran daya 3 fasa" mono={false} />
+                {network.rows.map(([label, value]) => <DrawerRow key={label} label={label} value={value} mono={false} />)}
+                {mvDemo?.scenario?.line_length_km != null && <DrawerRow label="Panjang saluran model" value={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
+                <DrawerRow label="Mesin perhitungan" value="Pandapower · aliran daya 3 fasa" mono={false} />
               </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="processed" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col" data-processed-tab="true">
+          <TabsContent value="processed" className={DRAWER_TAB_CONTENT_CLASS} data-processed-tab="true">
             {!calculated ? (
               <p className="py-4 text-sm text-muted-foreground">Jalankan simulasi untuk melihat hasil per interval.</p>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/60" data-processed-table="true">
-                <div className={sourceSeries.length ? "grid shrink-0 grid-cols-4 bg-surface-2 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" : "grid shrink-0 grid-cols-3 bg-surface-2 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"} data-processed-table-header="true">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/55" data-processed-table="true">
+                <div
+                  className={cn(
+                    "grid shrink-0 bg-surface-2/85 px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground",
+                    sourceSeries.length ? "grid-cols-4" : "grid-cols-3",
+                  )}
+                  data-processed-table-header="true"
+                >
                   <span>Waktu</span>
                   {sourceSeries.length > 0 && <span className="text-right">Beban (kW)</span>}
                   <span className="text-right">Susut dasar (kW)</span>
@@ -150,7 +177,13 @@ export function DataDrawer({ open, onOpenChange, asset, result, spot, tm, preset
                     {lossSeries.map((point, index) => {
                       const source = sourceSeries[index];
                       return (
-                        <div key={point.index} className={sourceSeries.length ? "grid grid-cols-4 border-t border-border/35 px-2 py-1.5 text-xs" : "grid grid-cols-3 border-t border-border/35 px-2 py-1.5 text-xs"}>
+                        <div
+                          key={point.index}
+                          className={cn(
+                            "grid border-t border-border/35 px-2 py-1.5 text-xs",
+                            sourceSeries.length ? "grid-cols-4" : "grid-cols-3",
+                          )}
+                        >
                           <span className="numeric text-muted-foreground">{point.time}</span>
                           {sourceSeries.length > 0 && <span className="numeric text-right">{fmt(source?.observed_source_kw, 2)}</span>}
                           <span className="numeric text-right text-warn">{fmt(point.conventional_loss_kw, 3)}</span>
@@ -164,18 +197,21 @@ export function DataDrawer({ open, onOpenChange, asset, result, spot, tm, preset
             )}
           </TabsContent>
 
-          <TabsContent value="lineage" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="lineage">
+          <TabsContent value="lineage" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="lineage">
               <div className="pb-3">
                 {LINEAGE[asset.id].map(([title, detail], index) => (
-                  <div key={title} className="flex gap-3 border-b border-border/40 py-3 last:border-0">
-                    <span className="numeric flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/35 bg-primary/10 text-[10px] text-primary">{index + 1}</span>
-                    <div><p className="text-sm font-medium">{title}</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{detail}</p></div>
+                  <div key={title} className="flex gap-3 border-b border-border/45 py-3 last:border-0">
+                    <span className="numeric flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-[10px] text-primary">{index + 1}</span>
+                    <div>
+                      <p className="text-sm font-medium">{title}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{detail}</p>
+                    </div>
                   </div>
                 ))}
                 <div className="mt-3">
-                  <Row k="Mesin perhitungan" v="Pandapower · aliran daya 3 fasa" mono={false} />
-                  <Row k="Acuan validasi" v="Tidak digunakan untuk kalibrasi" mono={false} />
+                  <DrawerRow label="Mesin perhitungan" value="Pandapower · aliran daya 3 fasa" mono={false} />
+                  <DrawerRow label="Acuan validasi" value="Tidak digunakan untuk kalibrasi" mono={false} />
                 </div>
               </div>
             </ScrollArea>

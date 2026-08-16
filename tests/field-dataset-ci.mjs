@@ -60,16 +60,16 @@ try {
     { name: "ami.csv", mimeType: "text/csv", buffer: Buffer.from(ami) },
   ]);
 
-  await assertVisible(page.getByText("SOLVER READY", { exact: true }), "field solver readiness");
+  await assertVisible(page.getByText("SIAP DIHITUNG", { exact: true }), "field solver readiness");
   await assertVisible(page.getByText("100.0%", { exact: true }).first(), "AMI completeness");
 
   await page.locator('button[data-run-field="true"]').click();
   const resultPanel = page.locator('[data-field-result="true"]');
   await assertVisible(resultPanel, "field result panel", 600_000);
   const solved = await resultPanel.innerText();
-  if (!solved.includes("FIELD PHYSICS PASS")) throw new Error("Field physics preview did not pass its engineering gate.");
-  if (!solved.includes("96/96 solved")) throw new Error("Field physics preview did not solve all 96 intervals.");
-  await assertVisible(resultPanel.getByText("Technical loss", { exact: true }), "field technical-loss KPI");
+  if (!solved.includes("PERHITUNGAN LULUS")) throw new Error("Field physics preview did not pass its engineering gate.");
+  if (!solved.includes("96/96 interval selesai")) throw new Error("Field physics preview did not solve all 96 intervals.");
+  await assertVisible(resultPanel.getByText("Susut teknis", { exact: true }), "field technical-loss KPI");
 
   console.log("M5 field dataset gate PASS: four CSVs normalize, validate, and run 96 browser-local Pandapower 3φ intervals without hidden truth.");
 } finally {
