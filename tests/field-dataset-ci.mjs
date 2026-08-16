@@ -118,7 +118,7 @@ try {
 
   const fieldCockpit = page.locator('[data-field-cockpit="true"]');
   await assertVisible(fieldCockpit, "field operational cockpit");
-  await assertVisible(fieldCockpit.locator('[data-p5-cockpit="true"]'), "P5 cockpit marker");
+  await assertVisible(page.locator('[data-field-cockpit="true"][data-p5-cockpit="true"]'), "P5 cockpit marker");
   await assertVisible(fieldCockpit.locator('[data-field-source-badge="true"]'), "field source badge");
   await assertVisible(fieldCockpit.getByText("Data lapangan aktif", { exact: true }), "field active state");
   await assertVisible(fieldCockpit.locator('[data-field-sld-suppressed="true"]'), "demo SLD suppression provenance");
