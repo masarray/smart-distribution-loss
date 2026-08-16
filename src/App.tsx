@@ -70,11 +70,11 @@ export default function App() {
 
   const progressTitle =
     state.status === "running"
-      ? "Simulasi berjalan"
+      ? "Analisis berjalan"
       : state.status === "done"
-        ? "Simulasi selesai"
+        ? "Analisis selesai"
         : state.status === "error"
-          ? "Simulasi gagal"
+          ? "Analisis gagal"
           : "Siap menjalankan simulasi";
   const progressMeta =
     state.status === "running"
