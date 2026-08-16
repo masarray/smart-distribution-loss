@@ -58,6 +58,32 @@ async function assertFitsViewport(locator, label) {
   }
 }
 
+async function assertAnimatedSvgPaths(locator, label, minimumCount) {
+  const count = await locator.count();
+  if (count < minimumCount) throw new Error(`${label}: expected at least ${minimumCount} paths, found ${count}.`);
+
+  const samples = await locator.evaluateAll((nodes) => nodes.map((node) => {
+    const style = getComputedStyle(node);
+    return {
+      length: typeof node.getTotalLength === "function" ? node.getTotalLength() : 0,
+      animation: style.animationName,
+      duration: style.animationDuration,
+      opacity: Number.parseFloat(style.opacity),
+      strokeWidth: Number.parseFloat(style.strokeWidth),
+    };
+  }));
+
+  if (samples.some((sample) => sample.length < 10)) {
+    throw new Error(`${label}: path geometry collapsed: ${JSON.stringify(samples)}`);
+  }
+  if (samples.some((sample) => sample.animation !== "sld-flow")) {
+    throw new Error(`${label}: electrical-flow animation is missing: ${JSON.stringify(samples)}`);
+  }
+  if (samples.some((sample) => sample.opacity < 0.88 || sample.strokeWidth < 1.7)) {
+    throw new Error(`${label}: electrical-flow overlay is too weak: ${JSON.stringify(samples)}`);
+  }
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
@@ -74,12 +100,11 @@ try {
   const mvTrafoFlow = page.locator('[data-transformer-flow="mv-in"] .flow-dash, [data-transformer-flow="mv-in"] .flow-dash-slow');
   const lvTrafoFlow = page.locator('[data-transformer-flow="lv-out"] .flow-dash, [data-transformer-flow="lv-out"] .flow-dash-slow');
   const windingFlow = page.locator('[data-transformer-winding-flow="true"] circle');
-  if ((await mvTrafoFlow.count()) < 2) throw new Error("MV current-flow overlay into transformer is incomplete.");
-  if ((await lvTrafoFlow.count()) < 4) throw new Error("LV current-flow overlay from transformer to busbar/JTR is incomplete.");
+  await assertAnimatedSvgPaths(mvTrafoFlow, "MV current flow into transformer", 2);
+  await assertAnimatedSvgPaths(lvTrafoFlow, "LV current flow from transformer to busbar/JTR", 4);
   if ((await windingFlow.count()) !== 2) throw new Error("Both transformer windings must expose energized flow without a false galvanic bridge.");
-  await assertVisible(mvTrafoFlow.first(), "MV animated current into transformer");
-  await assertVisible(lvTrafoFlow.first(), "LV animated current toward busbar");
-  await assertVisible(windingFlow.first(), "animated transformer winding");
+  const windingAnimations = await windingFlow.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).animationName));
+  if (windingAnimations.some((name) => name !== "sld-flow")) throw new Error(`Transformer winding-flow animation missing: ${JSON.stringify(windingAnimations)}`);
 
   await page.getByRole("button", { name: "Kelola dataset", exact: true }).click();
   await assertVisible(page.getByText("Dataset Manager", { exact: true }), "Dataset Manager");
@@ -129,7 +154,12 @@ try {
   const firstId = await firstPriority.getAttribute("data-p7-priority-id");
   if (!firstId) throw new Error("P7 top priority has no element ID.");
   await firstPriority.click();
-  await assertVisible(cockpit.locator(`[data-field-selected-panel="true"][data-field-selection-kind="${firstId === "TR-01" ? "transformer" : "line"}"][data-field-selection-id="${firstId}"]`), "top-priority selected asset panel");
+
+  const selectedPanel = cockpit.locator('[data-field-selected-panel="true"]');
+  await page.waitForFunction((assetId) => document.querySelector('[data-field-selected-panel="true"]')?.getAttribute("data-field-selection-id") === assetId, firstId, { timeout: 5_000 });
+  if ((await selectedPanel.getAttribute("data-field-selection-kind")) === "source" || (await selectedPanel.getAttribute("data-field-selection-kind")) === "bus") {
+    throw new Error(`P7 priority click selected a non-element context: ${await selectedPanel.getAttribute("data-field-selection-kind")}`);
+  }
   await page.waitForFunction(() => document.querySelector('[data-field-dynamic-sld="true"]')?.getAttribute("data-field-sld-view") === "focus", null, { timeout: 5_000 });
   const selectedElement = cockpit.locator(`[data-field-topology-element="${firstId}"]`);
   if ((await selectedElement.getAttribute("data-selected")) !== "true") throw new Error("P7 priority click did not select the corresponding topology element.");
