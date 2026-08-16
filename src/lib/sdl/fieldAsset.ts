@@ -204,9 +204,9 @@ export function deriveFieldAssetDecision(view: FieldSelectedView, session: Field
   return {
     status: "NORMAL",
     source: "normal",
-    headline: "Jaringan lapangan siap dianalisis",
-    reason: "Dataset aktif lolos validasi dan seluruh aset memakai hasil solver yang sama.",
-    evidence: `${session.result.series.length}/96 interval`,
+    headline: "Data lapangan siap digunakan",
+    reason: "Dataset lolos validasi, seluruh 96 interval selesai dihitung, dan pemeriksaan teknis lulus.",
+    evidence: `${session.result.series.length}/96 interval · topology & attribution P5`,
     action: "Pilih line, trafo, atau bus pada SLD untuk melihat kontribusi dan kondisi aset secara spesifik.",
   };
 }
