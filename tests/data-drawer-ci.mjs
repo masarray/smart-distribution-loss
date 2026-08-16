@@ -10,8 +10,8 @@ async function assertVisible(locator, label) {
   if (!(await locator.isVisible())) throw new Error(`${label} is not visible.`);
 }
 
-async function assertNoVisibleText(text, label, scope = page) {
-  const matches = scope.getByText(text, { exact: false });
+async function assertNoVisibleText(text, label, scope = page, exact = false) {
+  const matches = scope.getByText(text, { exact });
   for (let index = 0; index < await matches.count(); index += 1) {
     if (await matches.nth(index).isVisible()) throw new Error(`${label}: ${text}`);
   }
@@ -34,9 +34,9 @@ try {
   const feederDrawer = page.getByRole("dialog", { name: /Data · Penyulang 20 kV/ });
   await assertVisible(feederDrawer.getByText("Data · Penyulang 20 kV", { exact: true }), "Penyulang 20 kV data drawer title");
   await assertVisible(feederDrawer.getByText("Demo sintetis · 24 jam · interval 15 menit.", { exact: true }), "compact demo context");
-  await assertNoVisibleText("DEMO SINTETIS", "Demo badge should be removed", feederDrawer);
-  await assertNoVisibleText("HASIL SIAP", "Duplicated result badge should be removed", feederDrawer);
-  await assertNoVisibleText("BELUM DIHITUNG", "Duplicated pending badge should be removed", feederDrawer);
+  await assertNoVisibleText("DEMO SINTETIS", "Demo badge should be removed", feederDrawer, true);
+  await assertNoVisibleText("HASIL SIAP", "Duplicated result badge should be removed", feederDrawer, true);
+  await assertNoVisibleText("BELUM DIHITUNG", "Duplicated pending badge should be removed", feederDrawer, true);
 
   for (const tab of ["Ringkasan", "Pengukuran", "Jaringan", "Hasil", "Jejak data"]) {
     await assertVisible(feederDrawer.getByRole("tab", { name: tab, exact: true }), `${tab} tab`);
