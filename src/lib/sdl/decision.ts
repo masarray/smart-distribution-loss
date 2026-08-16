@@ -25,7 +25,7 @@ export function deriveOperatorDecision(
       status: "PENDING",
       source: "pending",
       headline: "Belum ada hasil untuk dinilai",
-      reason: "Decision layer aktif setelah simulasi menghasilkan evidence untuk aset terpilih.",
+      reason: "Rekomendasi operasional tersedia setelah simulasi menghasilkan dasar penilaian untuk aset terpilih.",
       evidence: null,
       action: "Jalankan simulasi untuk membentuk rekomendasi operasional.",
     };
@@ -41,9 +41,9 @@ export function deriveOperatorDecision(
     return {
       status: "REVIEW",
       source: "gate",
-      headline: "Hasil memerlukan tinjauan engineering",
-      reason: "Satu atau lebih engineering gate belum memenuhi kriteria penerimaan.",
-      evidence: metrics.statusReason,
+      headline: "Hasil memerlukan tinjauan teknis",
+      reason: "Satu atau lebih pemeriksaan teknis belum memenuhi kriteria penerimaan.",
+      evidence: "Pemeriksaan teknis belum lulus.",
       action: "Buka Detail teknis dan selesaikan pemeriksaan yang belum lulus sebelum memakai hasil untuk keputusan lapangan.",
     };
   }
@@ -80,10 +80,10 @@ export function deriveOperatorDecision(
     status: "NORMAL",
     source: "normal",
     headline: "Tidak ada isu utama pada aset ini",
-    reason: "Engineering gate lulus dan kualitas input cukup untuk membaca hasil operasional.",
+    reason: "Pemeriksaan teknis lulus dan kualitas input cukup untuk membaca hasil operasional.",
     evidence: lowest
       ? `Kualitas input terendah: ${plainQualityMetricLabel(lowest.label)} ${formatPercent(lowest.percent)}`
-      : "Engineering gate lulus.",
+      : "Pemeriksaan teknis lulus.",
     action: "Lanjutkan review profil susut dan interval puncak; buka Detail teknis hanya bila perlu verifikasi lebih dalam.",
   };
 }
@@ -134,7 +134,7 @@ function decisionFromFailedCheck(assetLabel: string, check: CheckItem): Operator
   if (value.includes("voltage")) {
     return reviewDecision(
       "Tegangan model perlu ditinjau",
-      `${prefix}hasil tegangan belum memenuhi rentang plausibilitas engineering.`,
+      `${prefix}hasil tegangan belum memenuhi rentang kelayakan teknis.`,
       `${assetLabel} · pemeriksaan tegangan`,
       "Verifikasi tegangan, rasio trafo, dan parameter jaringan sebelum melanjutkan keputusan lapangan.",
     );
@@ -148,16 +148,16 @@ function decisionFromFailedCheck(assetLabel: string, check: CheckItem): Operator
     value.includes("technical-loss estimate")
   ) {
     return reviewDecision(
-      "Kecocokan model belum memenuhi gate",
+      "Kecocokan model belum memenuhi pemeriksaan",
       `${prefix}kecocokan model terhadap data uji belum cukup kuat.`,
-      `${assetLabel} · gate kecocokan model`,
+      `${assetLabel} · pemeriksaan kecocokan model`,
       "Tinjau kualitas pengukuran dan parameter yang disesuaikan di Detail teknis sebelum memakai hasil.",
     );
   }
   if (value.includes("phase assignment")) {
     return reviewDecision(
       "Estimasi fasa perlu ditinjau",
-      `${prefix}hasil estimasi fasa belum memenuhi pemeriksaan engineering.`,
+      `${prefix}hasil estimasi fasa belum memenuhi pemeriksaan teknis.`,
       `${assetLabel} · pemeriksaan fasa`,
       "Verifikasi fasa pelanggan yang belum diketahui dan jalankan kembali simulasi.",
     );
@@ -165,9 +165,9 @@ function decisionFromFailedCheck(assetLabel: string, check: CheckItem): Operator
   if (value.includes("runtime") || value.includes("budget")) {
     return reviewDecision(
       "Waktu perhitungan melewati target",
-      `${prefix}runtime belum memenuhi target operasional yang ditetapkan.`,
-      `${assetLabel} · runtime gate`,
-      "Tinjau Detail teknis dan ulangi perhitungan setelah kondisi runtime stabil.",
+      `${prefix}waktu perhitungan belum memenuhi target operasional yang ditetapkan.`,
+      `${assetLabel} · pemeriksaan waktu`,
+      "Tinjau Detail teknis dan ulangi perhitungan setelah kondisi perhitungan stabil.",
     );
   }
   if (value.includes("independent")) {
@@ -188,9 +188,9 @@ function decisionFromFailedCheck(assetLabel: string, check: CheckItem): Operator
   }
 
   return reviewDecision(
-    "Engineering gate belum lulus",
+    "Pemeriksaan teknis belum lulus",
     `${prefix}satu pemeriksaan model masih membutuhkan tinjauan.`,
-    `${assetLabel} · engineering gate`,
+    `${assetLabel} · pemeriksaan teknis`,
     "Buka Detail teknis, identifikasi pemeriksaan yang gagal, lalu koreksi data atau parameter terkait.",
   );
 }
@@ -264,5 +264,5 @@ function qualityAction(label: string | undefined) {
   if (value.includes("timing")) return "Periksa sinkronisasi waktu pencatatan dan koreksi stream yang bergeser.";
   if (value.includes("topologi")) return "Verifikasi topologi jaringan dan koneksi aset sebelum menjalankan ulang simulasi.";
   if (value.includes("load") || value.includes("p/q")) return "Lengkapi pengukuran daya aktif dan reaktif pada interval yang belum terobservasi.";
-  return "Perbaiki data dengan coverage terendah terlebih dahulu, lalu jalankan kembali simulasi.";
+  return "Perbaiki data dengan cakupan terendah terlebih dahulu, lalu jalankan kembali simulasi.";
 }
