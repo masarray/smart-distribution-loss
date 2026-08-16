@@ -67,7 +67,6 @@ export default function App() {
   const validation = validationBenefit(active?.convErr, active?.smartErr);
   const feederComponents = assets.filter((asset) => asset.id !== "feeder");
   const feederFormulaReady = feederComponents.every((asset) => asset.smartKwh != null) && active?.smartKwh != null;
-  const exceptionCount = assetMetrics.filter(({ metric }) => isException(metric.status)).length;
 
   const progressTitle =
     state.status === "running"
@@ -77,14 +76,12 @@ export default function App() {
         : state.status === "error"
           ? "Analisis gagal"
           : "Siap dianalisis";
-  const progressDetail =
+  const progressMeta =
     state.status === "running"
-      ? "Menghitung profil 24 jam."
+      ? `${state.intervals.done}/${state.intervals.total} interval · ${Math.round(state.progress.percent)}%`
       : state.status === "done"
-        ? "Hasil terbaru siap."
-        : state.status === "error"
-          ? "Buka detail teknis untuk melihat penyebab."
-          : "Pilih skenario data lalu jalankan simulasi.";
+        ? `${state.intervals.total} interval`
+        : null;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -122,9 +119,9 @@ export default function App() {
             type="button"
             onClick={() => setDatasetManagerOpen(true)}
             aria-label="Kelola dataset"
-            className="hidden items-center gap-1.5 rounded-md border border-warn/25 bg-warn/5 px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-warn transition-colors hover:border-warn/45 hover:bg-warn/10 lg:flex"
+            className="hidden items-center gap-1.5 rounded-md border border-border/60 bg-surface-2 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground lg:flex"
           >
-            <Database className="size-3" /> DEMO SINTETIS
+            <Database className="size-3" /> Dataset
           </button>
           <div className="hidden items-center gap-2 lg:flex">
             <span className="label-xs">Skenario data</span>
@@ -155,10 +152,7 @@ export default function App() {
             )}
           />
           <span className={cn("font-medium", running ? "text-foreground" : "text-muted-foreground/90")}>{progressTitle}</span>
-          <span className="truncate text-muted-foreground/75">{progressDetail}</span>
-          <span className="numeric ml-auto text-muted-foreground/75">
-            {state.intervals.done}/{state.intervals.total} interval · {Math.round(state.progress.percent)}%
-          </span>
+          {progressMeta && <span className="numeric ml-auto text-muted-foreground/75">{progressMeta}</span>}
         </div>
         <div
           className={cn(
@@ -171,12 +165,9 @@ export default function App() {
 
       <main className="grid min-h-0 flex-1 grid-cols-[248px_minmax(0,1fr)_336px] gap-3 p-3">
         <section className="panel flex min-h-0 flex-col p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="label-xs">Kualitas data aset</p>
-              <p className="mt-0.5 font-display text-sm">{operatorQualityHeadline(operational.confidence)}</p>
-            </div>
-            <ConfidenceBadge level={operational.confidence} />
+          <div>
+            <p className="label-xs">Kualitas data aset</p>
+            <p className="mt-0.5 font-display text-sm">{operatorQualityHeadline(operational.confidence)}</p>
           </div>
 
           <div className="mt-4 space-y-2.5">
@@ -199,22 +190,10 @@ export default function App() {
             ))}
           </div>
 
-          <div className="mt-4 rounded-md border border-border/45 bg-surface-2/45 p-3">
-            <div className="flex items-center justify-between">
-              <span className="label-xs">Keandalan hasil</span>
-              <span className={cn("numeric text-sm font-semibold", confidenceTextClass(operational.confidence))}>
-                {confidenceLabel(operational.confidence)}
-              </span>
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              {operational.qualityIssueCount === 0 ? "Data siap dianalisis." : `${operational.qualityIssueCount} bagian data perlu dicek.`}
-            </p>
-          </div>
-
           <Button
             variant="secondary"
             size="sm"
-            className="mt-3 h-8 w-full gap-2 text-xs"
+            className="mt-4 h-8 w-full gap-2 text-xs"
             onClick={() => setDataDrawerOpen(true)}
           >
             <Database className="size-3.5" />
@@ -275,11 +254,6 @@ export default function App() {
               <div className="min-w-0">
                 <p className="label-xs">Aset terpilih</p>
                 <p className="truncate font-display text-sm">{active?.label}</p>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <span className={cn("size-1.5 rounded-full", statusDotClass(operational.status))} />
-                  <span className={statusTextClass(operational.status)}>{statusLabel(operational.status)}</span>
-                  <span>· {operatorStatusReason(operational.status)}</span>
-                </div>
               </div>
               <span className="rounded-md bg-surface-2 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
                 {operatorDomainLabel(active?.domain)}
@@ -288,10 +262,7 @@ export default function App() {
 
             {selected === "feeder" && (
               <div className="mt-2 rounded-md border border-border/55 bg-surface-2/55 p-2" data-feeder-rollup="true">
-                <div className="flex items-center justify-between">
-                  <span className="label-xs">Total Penyulang 20 kV</span>
-                  <span className="text-[9px] font-semibold text-primary">3 aset</span>
-                </div>
+                <span className="label-xs">Total Penyulang 20 kV</span>
                 <div className="mt-1.5 space-y-1">
                   {feederComponents.map((component) => (
                     <div key={component.id} className="grid grid-cols-[minmax(0,1fr)_78px_auto] items-center gap-2 text-[10px]" data-feeder-component={component.id}>
@@ -331,40 +302,17 @@ export default function App() {
                 icon={<Percent className="size-3.5" />}
                 label="Rasio susut"
                 value={operational.lossRatePercent == null ? "—" : `${operational.lossRatePercent.toFixed(2)}%`}
-                unit="dari energi tersalurkan"
+                unit="energi tersalurkan"
                 tone="primary"
               />
               <Kpi
                 icon={<ShieldCheck className="size-3.5" />}
-                label="Keandalan"
-                value={confidenceLabel(operational.confidence)}
-                unit="kualitas data"
-                tone={confidenceTone(operational.confidence)}
+                label="Validasi"
+                value={validation == null ? "—" : `${validation.gainPoints >= 0 ? "+" : ""}${validation.gainPoints.toFixed(2)}`}
+                unit="poin akurasi"
+                tone={validation == null || validation.gainPoints >= 0 ? "success" : "warn"}
               />
             </div>
-
-            <p className="mt-1.5 text-[9.5px] text-muted-foreground" data-technical-loss-definition="true" title="Energi yang hilang pada penghantar, trafo, dan peralatan jaringan.">
-              Susut teknis: rugi energi pada jaringan dan trafo.
-            </p>
-
-            {state.status === "done" && validation && (
-              <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2" data-validation-benefit="true">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="label-xs">Akurasi demo</span>
-                  <span className={cn("numeric text-[10px] font-semibold", validation.gainPoints >= 0 ? "text-success" : "text-warn")}>
-                    {validation.gainPoints >= 0 ? "+" : ""}{validation.gainPoints.toFixed(2)} poin
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-[10.5px]">
-                  <span className="text-muted-foreground">Model dasar</span>
-                  <span className="numeric font-semibold">{validation.conventionalAccuracy.toFixed(2)}%</span>
-                  <span className="text-muted-foreground">→</span>
-                  <span className="text-muted-foreground">Smart</span>
-                  <span className="numeric font-semibold text-primary">{validation.smartAccuracy.toFixed(2)}%</span>
-                  <span className="ml-auto text-[9px] text-muted-foreground">* demo</span>
-                </div>
-              </div>
-            )}
 
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Button variant="secondary" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setDataDrawerOpen(true)}>
@@ -377,14 +325,7 @@ export default function App() {
           </div>
 
           <div className="panel min-h-0 overflow-auto p-2.5" data-asset-status-panel="true">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="label-xs">Status aset</p>
-              {exceptionCount > 0 && (
-                <span className="rounded-md border border-warn/25 bg-warn/5 px-2 py-1 text-[9px] font-semibold text-warn" data-exception-count="true">
-                  {exceptionCount} perhatian
-                </span>
-              )}
-            </div>
+            <p className="label-xs mb-2">Status aset</p>
             <div className="space-y-1.5">
               {assetMetrics.map(({ asset, metric }) => {
                 const selectedRow = selected === asset.id;
@@ -414,10 +355,7 @@ export default function App() {
                         {metric.lossRatePercent != null ? ` · ${metric.lossRatePercent.toFixed(2)}%` : ""}
                       </span>
                     </div>
-                    <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                      <span className="truncate">{operatorAssetNote(metric.status)}</span>
-                      <span className={cn("shrink-0 font-semibold", statusTextClass(metric.status))}>{statusLabel(metric.status)}</span>
-                    </div>
+                    <div className={cn("mt-0.5 text-[10px] font-semibold", statusTextClass(metric.status))}>{statusLabel(metric.status)}</div>
                   </button>
                 );
               })}
@@ -507,32 +445,11 @@ function operatorMetricLabel(label: string) {
   return labels[label] ?? label;
 }
 
-function confidenceLabel(level: ConfidenceLevel) {
-  if (level === "HIGH") return "TINGGI";
-  if (level === "MEDIUM") return "SEDANG";
-  if (level === "LOW") return "RENDAH";
-  return "TINJAU";
-}
-
 function statusLabel(status: AnalysisStatus) {
   if (status === "NORMAL") return "NORMAL";
   if (status === "ATTENTION") return "PERHATIAN";
   if (status === "REVIEW") return "TINJAU";
   return "BELUM DIHITUNG";
-}
-
-function operatorStatusReason(status: AnalysisStatus) {
-  if (status === "NORMAL") return "Hasil stabil.";
-  if (status === "ATTENTION") return "Cek kualitas data.";
-  if (status === "REVIEW") return "Perlu tinjau teknis.";
-  return "Menunggu simulasi.";
-}
-
-function operatorAssetNote(status: AnalysisStatus) {
-  if (status === "NORMAL") return "Estimasi tersedia";
-  if (status === "ATTENTION") return "Cek data";
-  if (status === "REVIEW") return "Tinjau teknis";
-  return "Belum dihitung";
 }
 
 function operatorDomainLabel(domain: string | undefined) {
@@ -559,33 +476,6 @@ function statusTextClass(status: AnalysisStatus) {
 function statusBorderClass(status: AnalysisStatus) {
   if (status === "REVIEW") return "border-destructive/35 bg-destructive/5 hover:border-destructive/55";
   return "border-warn/30 bg-warn/5 hover:border-warn/45";
-}
-
-function confidenceTextClass(level: ConfidenceLevel) {
-  if (level === "HIGH") return "text-success";
-  if (level === "MEDIUM" || level === "LOW") return "text-warn";
-  if (level === "REVIEW") return "text-destructive";
-  return "text-muted-foreground";
-}
-
-function confidenceTone(level: ConfidenceLevel): "success" | "warn" | "danger" {
-  if (level === "HIGH") return "success";
-  if (level === "MEDIUM" || level === "LOW") return "warn";
-  return "danger";
-}
-
-function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
-  return (
-    <span className={cn("rounded-md border px-2 py-1 text-[10px] font-semibold tracking-wider", confidenceBadgeClass(level))}>
-      {confidenceLabel(level)}
-    </span>
-  );
-}
-
-function confidenceBadgeClass(level: ConfidenceLevel) {
-  if (level === "HIGH") return "border-success/30 bg-success/10 text-success";
-  if (level === "MEDIUM" || level === "LOW") return "border-warn/30 bg-warn/10 text-warn";
-  return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
 function Kpi({
