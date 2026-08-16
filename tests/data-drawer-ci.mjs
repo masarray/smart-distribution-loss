@@ -61,8 +61,9 @@ try {
   await openSelectedAssetData();
   await assertVisible(page.getByText("Data · Gardu GD-01", { exact: true }), "GD-01 explicit drawer title");
   await page.getByRole("tab", { name: "Pengukuran", exact: true }).click();
-  await assertVisible(page.getByText("Meter tersedia", { exact: true }), "GD-01 meter coverage");
-  await assertVisible(page.getByText("54/90", { exact: false }), "Poor-preset meter count");
+  const gdDrawer = page.getByRole("dialog", { name: /Data · Gardu GD-01/ });
+  await assertVisible(gdDrawer.getByText("Meter tersedia", { exact: true }), "GD-01 meter coverage");
+  await assertVisible(gdDrawer.getByText("54/90", { exact: false }), "Poor-preset meter count");
 
   console.log("Data Drawer gate PASS: navigation stays unobstructed and all user-facing data language is localized.");
 } finally {
