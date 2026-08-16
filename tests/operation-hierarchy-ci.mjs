@@ -22,17 +22,27 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
   await assertVisible(page.getByText("Monitoring susut distribusi", { exact: true }), "operator identity");
+  await assertVisible(page.getByRole("button", { name: "Kelola dataset", exact: true }), "dataset action");
   await assertVisible(page.getByText("Skenario data", { exact: true }), "global data-scenario heading");
   await assertVisible(page.getByText("Kualitas data aset", { exact: true }), "selected-asset data-quality heading");
   await assertVisible(page.getByText("Data terbatas", { exact: true }), "plain-language data summary");
-  await assertVisible(page.getByText("RENDAH", { exact: true }).first(), "localized confidence");
   await assertVisible(page.getByText("Rasio susut", { exact: true }), "loss-rate KPI");
-  await assertVisible(page.getByText("Keandalan", { exact: true }), "confidence KPI");
+  await assertVisible(page.getByText("Validasi", { exact: true }), "compact validation KPI");
   await assertVisible(page.getByText("Smart Engine", { exact: true }).first(), "Smart Engine KPI");
   await assertVisible(page.getByText("Model dasar", { exact: true }).first(), "baseline KPI");
-  await assertVisible(page.locator('[data-technical-loss-definition="true"]'), "short technical-loss definition");
   await assertVisible(page.getByRole("button", { name: "Lihat data", exact: true }), "data action");
   await assertVisible(page.getByRole("button", { name: "Detail teknis", exact: true }), "technical detail action");
+
+  for (const noise of [
+    "Keandalan hasil",
+    "Susut teknis: rugi energi",
+    "Data siap dianalisis.",
+    "Estimasi tersedia",
+    "DEMO SINTETIS",
+    "Akurasi demo",
+  ]) {
+    await assertNoVisibleText(noise, "Duplicate or secondary operator noise leaked into the cockpit");
+  }
 
   for (const technicalLeak of [
     "PANDAPOWER 3φ",
@@ -51,13 +61,15 @@ try {
 
   await page.getByRole("button", { name: "Detail teknis", exact: true }).click();
   await assertVisible(page.getByText("Detail teknis · Gardu GD-01", { exact: true }), "technical-view title");
-  await assertVisible(page.getByText(/Validasi demo/), "localized validation context");
+  await assertVisible(page.getByText("Acuan validasi", { exact: true }), "compact validation reference");
   await assertVisible(page.getByText("Error model dasar", { exact: true }), "baseline error");
   await assertVisible(page.getByText("Error Smart Engine", { exact: true }), "Smart Engine error");
+  await assertNoVisibleText("Validasi demo.", "Long demo validation note should be removed");
 
   await page.getByRole("tab", { name: "Proses", exact: true }).click();
   await assertVisible(page.getByText("Sinkronisasi waktu", { exact: true }), "localized first process stage");
   await assertVisible(page.getByText("Perhitungan model Smart", { exact: true }), "localized final process stage");
+  await assertNoVisibleText("Urutan koreksi data hingga model Smart siap dihitung.", "Redundant process intro should be removed");
 
   for (const internalTerm of ["P1", "P2", "P3", "SHA-256", "runpp_3ph", "Timestamp alignment", "Missing-AMI reconstruction", "Unknown-phase inference", "Smart model build", "Ground Truth remained immutable"]) {
     await assertNoVisibleText(internalTerm, "Internal terminology leaked into technical drawer");
@@ -68,7 +80,7 @@ try {
     throw new Error("Developer validation identifiers leaked into localized checks.");
   }
 
-  console.log("P0 language gate PASS: global scenario, asset quality, Data drawer, and technical detail use user-facing Indonesian language.");
+  console.log("P0 information-noise gate PASS: duplicate status, secondary notes, and long demo copy stay out of the operator hierarchy.");
 } finally {
   await browser.close();
 }
