@@ -31,6 +31,54 @@ async function assertFitsViewport(locator, label) {
   }
 }
 
+async function assertDrawerSafe(drawer, label) {
+  await assertVisible(drawer, label);
+  await assertFitsViewport(drawer, label);
+  const rootOverflow = await drawer.evaluate((element) => element.scrollHeight - element.clientHeight);
+  if (rootOverflow > 2) {
+    throw new Error(`${label}: drawer root should stay fixed while inner content scrolls; overflow=${rootOverflow}px.`);
+  }
+  await assertVisible(drawer.getByRole("button", { name: "Close" }), `${label} close action`);
+}
+
+async function assertScrollArea(root, label, expectOverflow = false) {
+  await assertVisible(root, label);
+  const viewport = root.locator('[data-scrollarea-viewport="true"]');
+  const scrollbar = root.locator('[data-scrollarea-scrollbar="vertical"]');
+  await assertVisible(viewport, `${label} viewport`);
+  await assertVisible(scrollbar, `${label} scrollbar`);
+  const metrics = await viewport.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  if (metrics.clientHeight < 40) {
+    throw new Error(`${label}: scroll viewport collapsed to ${metrics.clientHeight}px.`);
+  }
+  if (expectOverflow && metrics.scrollHeight <= metrics.clientHeight + 2) {
+    throw new Error(`${label}: expected long content to scroll, got ${metrics.scrollHeight}/${metrics.clientHeight}px.`);
+  }
+  const barBox = await scrollbar.boundingBox();
+  if (!barBox || barBox.width < 2 || barBox.height < 20) {
+    throw new Error(`${label}: scrollbar affordance is not visually usable.`);
+  }
+}
+
+async function assertProcessedTableFills(drawer, label) {
+  const table = drawer.locator('[data-processed-table="true"]');
+  await assertVisible(table, `${label} processed table`);
+  const drawerBox = await drawer.boundingBox();
+  const tableBox = await table.boundingBox();
+  if (!drawerBox || !tableBox) throw new Error(`${label}: missing processed-table geometry.`);
+  const bottomGap = drawerBox.y + drawerBox.height - (tableBox.y + tableBox.height);
+  if (bottomGap > 44) {
+    throw new Error(`${label}: processed table leaves ${bottomGap.toFixed(1)}px unused at the drawer bottom.`);
+  }
+  if (tableBox.height < drawerBox.height * 0.5) {
+    throw new Error(`${label}: processed table should fill available height; table=${tableBox.height.toFixed(1)} drawer=${drawerBox.height.toFixed(1)}.`);
+  }
+  await assertScrollArea(drawer.locator('[data-processed-table-scroll="true"]'), `${label} processed rows`, true);
+}
+
 async function selectAndAssert(assetName, titlePattern, selectionMarker) {
   await page.getByRole("button", { name: assetName, exact: true }).first().click();
   await assertVisible(page.getByText(titlePattern), `${assetName} selected-asset chart title`);
@@ -146,7 +194,42 @@ try {
     throw new Error(`Status list does not expose kWh + loss-rate pairing: ${ledgerValues.join(" | ")}`);
   }
 
-  console.log("P0 visual-fit gate PASS: no SLD text clutter/collision, feeder roll-up is concise, compact validation remains visible, and right-side panels fit at 1440x900.");
+  // P1 drawer UX: prove the real 1366×768 viewport and the CSS viewport equivalent of 125% browser zoom.
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.getByRole("button", { name: "Data", exact: true }).click();
+  const dataDrawer = page.locator('[data-drawer="data"]');
+  await assertDrawerSafe(dataDrawer, "Data drawer at 1366x768");
+  await page.getByRole("tab", { name: "Hasil", exact: true }).click();
+  await assertProcessedTableFills(dataDrawer, "Data drawer at 1366x768");
+
+  await page.setViewportSize({ width: 1093, height: 614 });
+  await assertDrawerSafe(dataDrawer, "Data drawer at 1366x768 / 125% zoom equivalent");
+  await assertProcessedTableFills(dataDrawer, "Data drawer at 1366x768 / 125% zoom equivalent");
+  await dataDrawer.getByRole("button", { name: "Close" }).click();
+
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.getByRole("button", { name: "Detail teknis", exact: true }).click();
+  const technicalDrawer = page.locator('[data-drawer="technical"]');
+  await assertDrawerSafe(technicalDrawer, "Technical drawer at 1366x768");
+  await page.getByRole("tab", { name: "Proses", exact: true }).click();
+  await assertScrollArea(technicalDrawer.locator('[data-drawer-scroll="technical-process"]'), "Technical process at 1366x768");
+
+  await page.setViewportSize({ width: 1093, height: 614 });
+  await assertDrawerSafe(technicalDrawer, "Technical drawer at 1366x768 / 125% zoom equivalent");
+  await assertScrollArea(technicalDrawer.locator('[data-drawer-scroll="technical-process"]'), "Technical process at 125% zoom equivalent");
+  await technicalDrawer.getByRole("button", { name: "Close" }).click();
+
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.getByRole("button", { name: "Dataset", exact: true }).click();
+  const datasetDrawer = page.locator('[data-drawer="dataset-manager"]');
+  await assertDrawerSafe(datasetDrawer, "Dataset Manager at 1366x768");
+  await assertScrollArea(datasetDrawer.locator('[data-drawer-scroll="dataset-manager"]'), "Dataset Manager content at 1366x768", true);
+
+  await page.setViewportSize({ width: 1093, height: 614 });
+  await assertDrawerSafe(datasetDrawer, "Dataset Manager at 1366x768 / 125% zoom equivalent");
+  await assertScrollArea(datasetDrawer.locator('[data-drawer-scroll="dataset-manager"]'), "Dataset Manager content at 125% zoom equivalent", true);
+
+  console.log("P1 drawer UX gate PASS: Processed fills available height, drawers fit 1366x768 and 125% zoom equivalent, and long content exposes persistent scroll.");
 } finally {
   await browser.close();
 }
