@@ -12,7 +12,8 @@ import {
 import type { FieldPhysicsSeriesPoint } from "@/lib/sdl/fieldDataset";
 
 export function FieldLossProfileChart({ series }: { series: FieldPhysicsSeriesPoint[] }) {
-  if (!series.length) {
+  const first = series[0];
+  if (!first) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
         Profil data lapangan belum tersedia.
@@ -20,9 +21,10 @@ export function FieldLossProfileChart({ series }: { series: FieldPhysicsSeriesPo
     );
   }
 
-  const peak = series.reduce((best, point) =>
-    point.technical_loss_kw > best.technical_loss_kw ? point : best,
-  series[0]);
+  const peak = series.reduce(
+    (best, point) => (point.technical_loss_kw > best.technical_loss_kw ? point : best),
+    first,
+  );
 
   return (
     <div className="relative h-full w-full" data-field-loss-chart="true">
