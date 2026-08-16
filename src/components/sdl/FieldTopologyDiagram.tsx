@@ -97,6 +97,7 @@ export function FieldTopologyDiagram({ graph, selected, onSelect, assets }: Prop
               onKeyDown={(event) => activateWithKeyboard(event, () => onSelect(selection))}
               className="cursor-pointer outline-none"
               data-field-topology-element={element.element_id}
+              data-field-element-loss-kwh={loss == null ? undefined : loss.toFixed(6)}
               data-element-type={element.element_type}
               data-selected={selectedNow ? "true" : "false"}
             >
