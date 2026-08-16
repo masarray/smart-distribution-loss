@@ -1,9 +1,20 @@
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Check, ShieldCheck, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Check, X } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DRAWER_BODY_CLASS,
+  DRAWER_SCROLL_CLASS,
+  DRAWER_SHEET_CLASS,
+  DRAWER_TAB_CLASS,
+  DRAWER_TAB_CONTENT_CLASS,
+  DRAWER_TABS_LIST_CLASS,
+  DrawerHeader,
+  DrawerRow,
+} from "@/components/sdl/DrawerChrome";
 import { fmt, fmtSigned, type AssetLoss } from "@/lib/sdl/derive";
 import type { P3Result, SpotDemo, TmDemo } from "@/lib/sdl/types";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -13,15 +24,6 @@ interface Props {
   spot: SpotDemo | null;
   tm: TmDemo | null;
   stages: { label: string; detail: string; done: boolean }[];
-}
-
-function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-border/60 py-2 text-sm last:border-0">
-      <span className="text-muted-foreground">{k}</span>
-      <span className={mono ? "numeric text-right text-foreground" : "text-right text-foreground"}>{v}</span>
-    </div>
-  );
 }
 
 const PROCESS_STAGES = [
@@ -42,74 +44,71 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden border-border bg-surface p-0 sm:max-w-xl"
-        data-drawer="technical"
-      >
-        <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 pr-12 sm:px-6 sm:pb-4 sm:pt-6 sm:pr-12">
-          <SheetTitle className="truncate font-display text-base sm:text-lg">Detail teknis · {asset.short}</SheetTitle>
-          <SheetDescription className="text-xs sm:text-sm">Validasi, proses, dan batas model.</SheetDescription>
-        </SheetHeader>
+      <SheetContent side="right" className={cn(DRAWER_SHEET_CLASS, "sm:max-w-xl")} data-drawer="technical">
+        <DrawerHeader
+          icon={<ShieldCheck className="size-4" />}
+          title={<>Detail teknis · {asset.short}</>}
+          description="Validasi, proses, dan batas model."
+        />
 
-        <Tabs defaultValue="loss" className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 sm:px-6 sm:pb-4 sm:pt-4">
-          <TabsList className="grid h-auto min-h-9 shrink-0 grid-cols-5 bg-surface-2">
-            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="loss">Susut</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="residual">Kecocokan</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="gates">Pemeriksaan</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="process">Proses</TabsTrigger>
-            <TabsTrigger className="px-1 text-[11px] sm:px-2 sm:text-xs" value="held">Batas data</TabsTrigger>
+        <Tabs defaultValue="loss" className={DRAWER_BODY_CLASS} data-drawer-body="true">
+          <TabsList className={cn(DRAWER_TABS_LIST_CLASS, "grid-cols-5")} data-drawer-tabs="true">
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="loss">Susut</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="residual">Kecocokan</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="gates">Pemeriksaan</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="process">Proses</TabsTrigger>
+            <TabsTrigger className={DRAWER_TAB_CLASS} value="held">Batas data</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="loss" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-loss">
+          <TabsContent value="loss" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="technical-loss">
               <div className="pb-3">
-                <Row k="Acuan validasi" v={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
-                <Row k="Model dasar" v={`${fmt(asset.convKwh, 3)} kWh/hari`} />
-                <Row k="Smart Engine" v={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
-                <Row k="Error model dasar" v={fmtSigned(asset.convErr, 3)} />
-                <Row k="Error Smart Engine" v={fmtSigned(asset.smartErr, 3)} />
-                <Row k="Kelengkapan data" v={userObservability(asset.observability)} mono={false} />
+                <DrawerRow label="Acuan validasi" value={`${fmt(asset.truthKwh, 3)} kWh/hari`} />
+                <DrawerRow label="Model dasar" value={`${fmt(asset.convKwh, 3)} kWh/hari`} />
+                <DrawerRow label="Smart Engine" value={`${fmt(asset.smartKwh, 3)} kWh/hari`} />
+                <DrawerRow label="Error model dasar" value={fmtSigned(asset.convErr, 3)} />
+                <DrawerRow label="Error Smart Engine" value={fmtSigned(asset.smartErr, 3)} />
+                <DrawerRow label="Kelengkapan data" value={userObservability(asset.observability)} mono={false} />
               </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="residual" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-fit">
+          <TabsContent value="residual" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="technical-fit">
               <div className="pb-3">
                 {asset.domain === "LV" || asset.domain === "FEEDER" ? (
                   <>
-                    <Row k="Error daya sumber" v={`${fmt(conv?.source_nrmse_percent, 3)}% → ${fmt(smart?.source_nrmse_percent, 3)}%`} />
-                    <Row k="Error daya per fasa" v={`${fmt(conv?.phase_rmse_kw, 4)} → ${fmt(smart?.phase_rmse_kw, 4)} kW`} />
-                    <Row k="Error tegangan" v={`${fmt(conv?.voltage_rmse_pu, 6)} → ${fmt(smart?.voltage_rmse_pu, 6)} pu`} />
-                    <Row k="Skor data uji" v={`${fmt(conv?.objective_validation, 6)} → ${fmt(smart?.objective_validation, 6)}`} />
-                    <Row k="Akurasi fasa" v={`${fmt(conv?.phase_accuracy_percent_validation_only, 2)}% → ${fmt(smart?.phase_accuracy_percent_validation_only, 2)}%`} />
-                    <Row k="Data kalibrasi / uji" v={result ? `${result.split.calibration_intervals} / ${result.split.validation_intervals} interval` : "—"} />
+                    <DrawerRow label="Error daya sumber" value={`${fmt(conv?.source_nrmse_percent, 3)}% → ${fmt(smart?.source_nrmse_percent, 3)}%`} />
+                    <DrawerRow label="Error daya per fasa" value={`${fmt(conv?.phase_rmse_kw, 4)} → ${fmt(smart?.phase_rmse_kw, 4)} kW`} />
+                    <DrawerRow label="Error tegangan" value={`${fmt(conv?.voltage_rmse_pu, 6)} → ${fmt(smart?.voltage_rmse_pu, 6)} pu`} />
+                    <DrawerRow label="Skor data uji" value={`${fmt(conv?.objective_validation, 6)} → ${fmt(smart?.objective_validation, 6)}`} />
+                    <DrawerRow label="Akurasi fasa" value={`${fmt(conv?.phase_accuracy_percent_validation_only, 2)}% → ${fmt(smart?.phase_accuracy_percent_validation_only, 2)}%`} />
+                    <DrawerRow label="Data kalibrasi / uji" value={result ? `${result.split.calibration_intervals} / ${result.split.validation_intervals} interval` : "—"} />
                   </>
                 ) : (
                   <>
-                    <Row k="Error daya sumber" v={`${fmt(mvDemo?.comparison.conventional.source_nrmse_percent, 4)}% → ${fmt(mvDemo?.comparison.smart.source_nrmse_percent, 4)}%`} />
-                    <Row k="Resistansi saluran" v={`${fmt(mvDemo?.comparison.conventional.line_r_ohm_per_km, 4)} → ${fmt(mvDemo?.comparison.smart.line_r_ohm_per_km, 4)} Ω/km`} />
-                    {mvDemo?.scenario?.intervals && <Row k="Resolusi model" v={`${mvDemo.scenario.intervals} interval${mvDemo.scenario.interval_minutes ? ` · ${mvDemo.scenario.interval_minutes} menit` : ""}`} />}
-                    {mvDemo?.scenario?.line_length_km != null && <Row k="Panjang saluran" v={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
+                    <DrawerRow label="Error daya sumber" value={`${fmt(mvDemo?.comparison.conventional.source_nrmse_percent, 4)}% → ${fmt(mvDemo?.comparison.smart.source_nrmse_percent, 4)}%`} />
+                    <DrawerRow label="Resistansi saluran" value={`${fmt(mvDemo?.comparison.conventional.line_r_ohm_per_km, 4)} → ${fmt(mvDemo?.comparison.smart.line_r_ohm_per_km, 4)} Ω/km`} />
+                    {mvDemo?.scenario?.intervals && <DrawerRow label="Resolusi model" value={`${mvDemo.scenario.intervals} interval${mvDemo.scenario.interval_minutes ? ` · ${mvDemo.scenario.interval_minutes} menit` : ""}`} />}
+                    {mvDemo?.scenario?.line_length_km != null && <DrawerRow label="Panjang saluran" value={`${fmt(mvDemo.scenario.line_length_km, 2)} km`} />}
                   </>
                 )}
               </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="gates" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-checks">
+          <TabsContent value="gates" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="technical-checks">
               <div className="pb-3">
                 {checks.length === 0 && <p className="py-6 text-sm text-muted-foreground">Jalankan analisis untuk melihat hasil pemeriksaan.</p>}
                 {checks.map((check) => (
-                  <div key={check.name} className="flex gap-3 border-b border-border/60 py-2.5 last:border-0">
+                  <div key={check.name} className="flex gap-3 border-b border-border/45 py-2.5 last:border-0">
                     <span className={check.pass ? "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success/20 text-success" : "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-destructive/20 text-destructive"}>
                       {check.pass ? <Check className="size-3" /> : <X className="size-3" />}
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm text-foreground">{userCheckName(check.name)}</p>
-                      {!check.pass && <p className="text-xs text-muted-foreground">{userCheckDetail(check.name, check.detail, check.pass)}</p>}
+                      {!check.pass && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{userCheckDetail(check.name, check.detail, check.pass)}</p>}
                     </div>
                   </div>
                 ))}
@@ -117,15 +116,18 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="process" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-process">
+          <TabsContent value="process" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="technical-process">
               <ol className="space-y-1.5 pb-3">
                 {stages.map((stage, index) => {
                   const copy = PROCESS_STAGES[index] ?? ["Tahap perhitungan", "Tahap teknis model."];
                   return (
-                    <li key={`${index}-${stage.label}`} className="flex gap-3 rounded-md border border-border/45 bg-surface-2/45 p-2.5">
-                      <span className={stage.done ? "numeric flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] text-primary" : "numeric flex size-5 shrink-0 items-center justify-center rounded-full bg-surface text-[10px] text-muted-foreground"}>{index + 1}</span>
-                      <div><p className="text-sm text-foreground">{copy[0]}</p><p className="text-xs text-muted-foreground">{copy[1]}</p></div>
+                    <li key={`${index}-${stage.label}`} className="flex gap-3 rounded-md border border-border/45 bg-surface-2/35 p-2.5">
+                      <span className={stage.done ? "numeric flex size-5 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] text-primary" : "numeric flex size-5 shrink-0 items-center justify-center rounded-full border border-border/50 bg-surface text-[10px] text-muted-foreground"}>{index + 1}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm text-foreground">{copy[0]}</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{copy[1]}</p>
+                      </div>
                     </li>
                   );
                 })}
@@ -133,13 +135,23 @@ export function DetailDrawer({ open, onOpenChange, asset, result, spot, tm, stag
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="held" className="mt-3 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
-            <ScrollArea type="always" className="min-h-0 flex-1 pr-3" data-drawer-scroll="technical-boundaries">
+          <TabsContent value="held" className={DRAWER_TAB_CONTENT_CLASS}>
+            <ScrollArea type="always" className={DRAWER_SCROLL_CLASS} data-drawer-scroll="technical-boundaries">
               <div className="pb-3">
                 {mvDemo ? (
-                  <><Row k="Disesuaikan" v="Resistansi saluran" mono={false} /><Row k="Tetap" v="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} /></>
+                  <>
+                    <DrawerRow label="Disesuaikan" value="Resistansi saluran" mono={false} />
+                    <DrawerRow label="Tetap" value="Topologi, profil beban, fasa, dan waktu pencatatan" mono={false} />
+                  </>
                 ) : (
-                  <>{(result?.unresolved ?? []).map((item) => <div key={item.parameter} className="border-b border-border/60 py-2.5 last:border-0"><p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p><p className="mt-0.5 text-xs text-muted-foreground">{userUnresolvedReason(item.parameter)}</p></div>)}</>
+                  <>
+                    {(result?.unresolved ?? []).map((item) => (
+                      <div key={item.parameter} className="border-b border-border/45 py-2.5 last:border-0">
+                        <p className="text-sm text-foreground">{userUnresolvedName(item.parameter)}</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{userUnresolvedReason(item.parameter)}</p>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
             </ScrollArea>
