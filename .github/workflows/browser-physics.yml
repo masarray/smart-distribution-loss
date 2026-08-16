@@ -9,18 +9,24 @@ on:
       - "public/engine/**"
       - "src/main.tsx"
       - "src/App.tsx"
+      - "src/progress-motion.css"
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
+      - "src/components/sdl/FieldAssetProfileChart.tsx"
       - "src/components/sdl/FieldLossProfileChart.tsx"
       - "src/components/sdl/FieldOperationalCockpit.tsx"
+      - "src/components/sdl/FieldOperationalCockpitP5.tsx"
+      - "src/components/sdl/FieldTopologyDiagram.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
       - "src/components/sdl/OperatorDecisionStrip.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
       - "src/lib/sdl/decision.ts"
       - "src/lib/sdl/derive.ts"
+      - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/fieldOperational.ts"
+      - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
@@ -42,18 +48,24 @@ on:
       - "public/engine/**"
       - "src/main.tsx"
       - "src/App.tsx"
+      - "src/progress-motion.css"
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
+      - "src/components/sdl/FieldAssetProfileChart.tsx"
       - "src/components/sdl/FieldLossProfileChart.tsx"
       - "src/components/sdl/FieldOperationalCockpit.tsx"
+      - "src/components/sdl/FieldOperationalCockpitP5.tsx"
+      - "src/components/sdl/FieldTopologyDiagram.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
       - "src/components/sdl/OperatorDecisionStrip.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
       - "src/lib/sdl/decision.ts"
       - "src/lib/sdl/derive.ts"
+      - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/fieldOperational.ts"
+      - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
@@ -74,7 +86,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P4 field bridge · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P5 real field topology · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -135,7 +147,7 @@ jobs:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/operational-sld-ci.mjs
 
-      - name: Prove P4 field import, activation, and fail-safe source switching
+      - name: Prove P5 field topology, attribution, navigation, and fail-safe source switching
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/field-dataset-ci.mjs

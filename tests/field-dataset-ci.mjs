@@ -56,10 +56,34 @@ async function assertFitsViewport(locator, label) {
   }
 }
 
+function numericAfter(text, label) {
+  const normalized = text.replace(/\r/g, "");
+  const match = normalized.match(new RegExp(`${label}\\s+([0-9]+(?:\\.[0-9]+)?)`, "i"));
+  return match ? Number(match[1]) : null;
+}
+
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+
+  const runStrip = page.locator('[data-analysis-run-state]').first();
+  const mainProgress = runStrip.locator(':scope > div:last-child');
+  await runStrip.evaluate((element) => element.setAttribute("data-analysis-run-state", "running"));
+  const progressMotion = await mainProgress.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const after = getComputedStyle(element, "::after");
+    return { duration: style.transitionDuration, timing: style.transitionTimingFunction, animation: after.animationName };
+  });
+  if (!progressMotion.duration.includes("30s") || progressMotion.timing !== "linear" || progressMotion.animation !== "p5-progress-travel") {
+    throw new Error(`P5 slow progress motion missing: ${JSON.stringify(progressMotion)}`);
+  }
+  await runStrip.evaluate((element) => element.setAttribute("data-analysis-run-state", "idle"));
+
   await page.getByRole("button", { name: "Kelola dataset", exact: true }).click();
   await assertVisible(page.getByText("Dataset Manager", { exact: true }), "Dataset Manager");
+
+  const fieldProgress = page.locator('[data-drawer="dataset-manager"] .h-1.bg-primary.transition-all[style*="width"]');
+  const fieldTraveler = await fieldProgress.evaluate((element) => getComputedStyle(element, "::after").animationName);
+  if (fieldTraveler !== "p5-progress-travel") throw new Error("Dataset progress bar must retain continuous traveler motion.");
 
   const input = page.locator('input[data-field-files="true"]');
   await input.setInputFiles([
@@ -87,20 +111,71 @@ try {
 
   const fieldCockpit = page.locator('[data-field-cockpit="true"]');
   await assertVisible(fieldCockpit, "field operational cockpit");
+  await assertVisible(page.locator('[data-field-cockpit="true"][data-p5-cockpit="true"]'), "P5 cockpit marker");
   await assertVisible(fieldCockpit.locator('[data-field-source-badge="true"]'), "field source badge");
   await assertVisible(fieldCockpit.getByText("Data lapangan aktif", { exact: true }), "field active state");
-  await assertVisible(fieldCockpit.locator('[data-field-sld-suppressed="true"]'), "synthetic SLD suppression notice");
-  await assertVisible(fieldCockpit.locator('[data-field-loss-chart="true"]'), "field loss profile chart");
+  await assertVisible(fieldCockpit.locator('[data-field-sld-suppressed="true"]'), "demo SLD suppression provenance");
+  await assertVisible(fieldCockpit.locator('[data-field-dynamic-sld="true"]'), "dynamic field SLD");
+  await assertVisible(fieldCockpit.locator('[data-field-loss-chart="true"]'), "field profile chart");
   await assertVisible(fieldCockpit.locator('[data-field-provenance="true"]'), "field provenance");
   await assertVisible(fieldCockpit.locator('[data-operator-decision="true"]'), "field operator decision");
-  await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "field decision headline");
+  await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "field source decision headline");
+
+  const sourceNode = fieldCockpit.locator('[data-field-topology-source="GRID"]');
+  const lineNode = fieldCockpit.locator('[data-field-topology-element="MV-L1"]');
+  const trafoNode = fieldCockpit.locator('[data-field-topology-element="TR-01"]');
+  const rootBus = fieldCockpit.locator('[data-field-topology-bus="GRID20"]');
+  const hvBus = fieldCockpit.locator('[data-field-topology-bus="TRHV"]');
+  const lvBus = fieldCockpit.locator('[data-field-topology-bus="LVMAIN"]');
+  for (const [locator, label] of [[sourceNode, "GRID source"], [lineNode, "MV-L1"], [trafoNode, "TR-01"], [rootBus, "GRID20"], [hvBus, "TRHV"], [lvBus, "LVMAIN"]]) {
+    await assertVisible(locator, label);
+  }
+
+  const sourcePanel = fieldCockpit.locator('[data-field-selected-panel="true"]');
+  const sourceText = await sourcePanel.innerText();
+  const totalLoss = numericAfter(sourceText, "SUSUT TEKNIS");
+  if (totalLoss == null || totalLoss <= 0) throw new Error(`Source loss KPI missing: ${sourceText}`);
+
+  const lineLoss = Number(await lineNode.getAttribute("data-field-element-loss-kwh"));
+  const trafoLoss = Number(await trafoNode.getAttribute("data-field-element-loss-kwh"));
+  if (!Number.isFinite(lineLoss) || !Number.isFinite(trafoLoss) || Math.abs(lineLoss + trafoLoss - totalLoss) > 0.02) {
+    throw new Error(`Direct asset attribution does not reconcile: line=${lineLoss}, trafo=${trafoLoss}, total=${totalLoss}`);
+  }
+
+  await lineNode.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="line"]'), "line selection panel");
+  let selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
+  if (!selectedText.includes("mv-l1") || !selectedText.includes("kontribusi") || !selectedText.includes("susut teknis")) {
+    throw new Error(`Line selection did not expose field loss attribution: ${selectedText}`);
+  }
+  await assertVisible(fieldCockpit.locator('[data-field-asset-chart="element"]'), "line asset chart");
+
+  await trafoNode.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="transformer"]'), "transformer selection panel");
+  selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
+  if (!selectedText.includes("tr-01") || !selectedText.includes("kontribusi") || !selectedText.includes("loading maksimum")) {
+    throw new Error(`Transformer selection did not expose field loading/loss: ${selectedText}`);
+  }
+
+  await lvBus.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="bus"]'), "bus selection panel");
+  selectedText = (await sourcePanel.innerText()).toLocaleLowerCase("id-ID");
+  for (const label of ["lvmain", "beban puncak", "energi beban", "pelanggan", "tegangan minimum"]) {
+    if (!selectedText.includes(label)) throw new Error(`Bus selection missing ${label}: ${selectedText}`);
+  }
+  if (selectedText.includes("kontribusi")) throw new Error("Bus selection must not fabricate technical-loss attribution.");
+  await assertVisible(fieldCockpit.locator('[data-field-asset-chart="bus"]'), "bus voltage/load chart");
+
+  await sourceNode.click();
+  await assertVisible(page.locator('[data-field-selected-panel="true"][data-field-selection-kind="source"]'), "source selection restored");
+  await assertVisible(fieldCockpit.getByText("Data lapangan siap digunakan", { exact: true }), "source decision restored");
 
   const fieldText = (await fieldCockpit.innerText()).toLocaleLowerCase("id-ID");
-  for (const label of ["susut teknis", "rasio susut", "tegangan minimum", "loading maksimum"]) {
-    if (!fieldText.includes(label)) throw new Error(`Field cockpit does not expose ${label} KPI.`);
+  for (const label of ["susut teknis", "tegangan minimum", "loading maksimum", "topology live", "attribution"]) {
+    if (!fieldText.includes(label)) throw new Error(`P5 field cockpit does not expose ${label}.`);
   }
   if (!fieldText.includes("sld demo tidak digunakan pada field mode")) {
-    throw new Error("Field mode must explicitly suppress the synthetic demo SLD rather than imply imported topology.");
+    throw new Error("Field mode must explicitly distinguish the real imported SLD from the synthetic demo SLD.");
   }
 
   await page.setViewportSize({ width: 1366, height: 768 });
@@ -113,7 +188,6 @@ try {
   await assertVisible(drawer, "Dataset Manager reopened from Field Mode");
   await assertVisible(drawer.locator('[data-field-active-indicator="true"]'), "Field Mode active indicator in manager");
 
-  // Fail-safe: beginning a new, invalid import must immediately revoke the active field source.
   const reopenedInput = drawer.locator('input[data-field-files="true"]');
   await reopenedInput.setInputFiles([
     { name: "network.csv", mimeType: "text/csv", buffer: Buffer.from(network) },
@@ -128,7 +202,7 @@ try {
   await drawer.getByRole("button", { name: "Close" }).click();
   await assertVisible(page.getByRole("button", { name: "Jalankan simulasi", exact: true }), "demo cockpit restored after invalid re-import");
 
-  console.log("P4 field operational bridge PASS: validated 96/96 field physics can replace demo cockpit, provenance and P3 guidance are field-backed, synthetic SLD is suppressed, and invalid re-import revokes Field Mode.");
+  console.log("P5 field topology PASS: runpp_3ph exposes direct line/trafo attribution and bus voltage, imported topology renders as an interactive SLD, selection changes KPI/chart domain, bus loss is not fabricated, progress motion stays alive, and P4 fail-safe source switching remains intact.");
 } finally {
   await browser.close();
 }

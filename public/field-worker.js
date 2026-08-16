@@ -1,6 +1,5 @@
-/* M5 field-dataset physics worker.
- * Kept separate from the synthetic P3 worker so importing/previewing field data
- * cannot mutate the current demo session or its warm runtime state.
+/* P5 field-dataset physics worker.
+ * Separate from the synthetic worker so field imports cannot mutate demo state.
  */
 
 const PYODIDE_VERSION = '0.28.3';
@@ -53,9 +52,9 @@ assert _pp_field_check.__version__ == "3.1.2"
 
 async function ensureFieldEngine() {
   if (fieldEngineLoaded) return;
-  const url = new URL('./engine/field_dataset.py', self.location.href);
+  const url = new URL('./engine/field_dataset_p5.py', self.location.href);
   const response = await fetch(url, { cache: 'no-cache' });
-  if (!response.ok) throw new Error(`Could not load field_dataset.py: HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Could not load field_dataset_p5.py: HTTP ${response.status}`);
   const source = await response.text();
   await pyodide.runPythonAsync(source);
   fieldEngineLoaded = true;
