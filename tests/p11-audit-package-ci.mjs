@@ -166,12 +166,21 @@ try {
   await assertVisible(p12, "P12 audit replay");
   if ((await p12.getAttribute("data-p12-expected-hash")) !== auditPackage.integrity.acceptedResultSha256) throw new Error("P12 did not bind replay to the accepted-result fingerprint from the package.");
   const activePhysicsBeforeReplay = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
+  console.log("P12 replay starting: reconstructed package is valid; running fresh 96-interval Pandapower replay.");
   await p12.locator('button[data-p12-run-replay="true"]').click();
-  await page.waitForFunction(() => document.querySelector('[data-p12-replay="true"]')?.getAttribute("data-p12-replay-status") === "MATCH", null, { timeout: 600_000 });
-  const replayMatch = p11.locator('[data-p12-result="MATCH"]');
-  await assertVisible(replayMatch, "P12 replay match", 600_000);
+  await page.waitForFunction(() => {
+    const state = document.querySelector('[data-p12-replay="true"]')?.getAttribute("data-p12-replay-status");
+    return state === "MATCH" || state === "DIFFERENT" || state === "ERROR";
+  }, null, { timeout: 600_000 });
+  const replayState = await p12.getAttribute("data-p12-replay-status");
   const replayExpectedHash = await p12.getAttribute("data-p12-expected-hash");
   const replayActualHash = await p12.getAttribute("data-p12-actual-hash");
+  console.log(`P12 replay terminal state=${replayState} expected=${replayExpectedHash} actual=${replayActualHash}`);
+  if (replayState !== "MATCH") {
+    throw new Error(`P12 replay did not reproduce accepted physics. state=${replayState}; expected=${replayExpectedHash}; actual=${replayActualHash}; panel=${await p12.innerText()}`);
+  }
+  const replayMatch = p11.locator('[data-p12-result="MATCH"]');
+  await assertVisible(replayMatch, "P12 replay match");
   if (!replayExpectedHash || replayExpectedHash !== replayActualHash) throw new Error(`P12 replay fingerprint mismatch: ${replayExpectedHash} != ${replayActualHash}`);
   if ((await p12.getAttribute("data-p12-series-count")) !== "96") throw new Error("P12 replay did not reproduce all 96 intervals.");
   const activePhysicsAfterReplay = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
