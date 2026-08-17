@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Download, FileArchive, FileCheck2, Upload } from "lucide-react";
+import { AlertTriangle, Download, FileArchive, FileCheck2, LoaderCircle, RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   buildFieldAuditPackage,
@@ -9,8 +9,14 @@ import {
   verifyFieldAuditPackageText,
   type FieldAuditVerification,
 } from "@/lib/sdl/fieldAudit";
+import {
+  runFieldAuditReplay,
+  type FieldAuditReplayReport,
+} from "@/lib/sdl/fieldAuditReplay";
 import { useFieldOperationalSession } from "@/lib/sdl/fieldOperational";
 import { cn } from "@/lib/utils";
+
+type ReplayUiState = "IDLE" | "RUNNING" | "MATCH" | "DIFFERENT" | "ERROR";
 
 export function FieldAuditPanel() {
   const session = useFieldOperationalSession();
@@ -19,6 +25,10 @@ export function FieldAuditPanel() {
   const [lastPackageHash, setLastPackageHash] = useState<string | null>(null);
   const [verification, setVerification] = useState<FieldAuditVerification | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [replayState, setReplayState] = useState<ReplayUiState>("IDLE");
+  const [replayReport, setReplayReport] = useState<FieldAuditReplayReport | null>(null);
+  const [replayError, setReplayError] = useState<string | null>(null);
+  const [replayProgress, setReplayProgress] = useState({ percent: 0, label: "Siap replay", detail: "" });
 
   const trail = session?.auditTrail;
   if (!session || !trail?.events.length) return null;
@@ -54,10 +64,30 @@ export function FieldAuditPanel() {
   const verifyPackage = async (file: File | null) => {
     if (!file) return;
     setVerifying(true);
+    setReplayState("IDLE");
+    setReplayReport(null);
+    setReplayError(null);
+    setReplayProgress({ percent: 0, label: "Siap replay", detail: "" });
     try {
       setVerification(await verifyFieldAuditPackageText(await file.text()));
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const replayPackage = async () => {
+    if (!verification?.valid) return;
+    setReplayState("RUNNING");
+    setReplayReport(null);
+    setReplayError(null);
+    setReplayProgress({ percent: 0, label: "Menyiapkan replay", detail: "Dataset hasil rekonstruksi P11" });
+    try {
+      const report = await runFieldAuditReplay(verification, setReplayProgress);
+      setReplayReport(report);
+      setReplayState(report.status);
+    } catch (error) {
+      setReplayError(error instanceof Error ? error.message : "Replay physics gagal dijalankan.");
+      setReplayState("ERROR");
     }
   };
 
@@ -134,7 +164,7 @@ export function FieldAuditPanel() {
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-[8.5px] font-semibold text-foreground">Verifikasi paket yang diekspor</p>
-            <p className="mt-0.5 text-[7.5px] text-muted-foreground">Import ulang tidak mengaktifkan atau mengubah Field Mode. P11 hanya memeriksa manifest, checksum, rekonstruksi dataset, validation, dan topology.</p>
+            <p className="mt-0.5 text-[7.5px] text-muted-foreground">Import ulang tidak mengaktifkan atau mengubah Field Mode. P11 memeriksa manifest, checksum, rekonstruksi dataset, validation, dan topology.</p>
           </div>
           <label className="shrink-0">
             <input
@@ -151,6 +181,14 @@ export function FieldAuditPanel() {
         </div>
 
         <VerificationState verification={verification} />
+        <ReplayState
+          verification={verification}
+          state={replayState}
+          report={replayReport}
+          error={replayError}
+          progress={replayProgress}
+          onRun={() => void replayPackage()}
+        />
       </div>
     </div>
   );
@@ -172,6 +210,104 @@ function VerificationState({ verification }: { verification: FieldAuditVerificat
       <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">{verification.errors[0] ?? "Integrity check gagal."}</p>
     </div>
   );
+}
+
+function ReplayState({
+  verification,
+  state,
+  report,
+  error,
+  progress,
+  onRun,
+}: {
+  verification: FieldAuditVerification | null;
+  state: ReplayUiState;
+  report: FieldAuditReplayReport | null;
+  error: string | null;
+  progress: { percent: number; label: string; detail: string };
+  onRun: () => void;
+}) {
+  if (!verification?.valid) return null;
+
+  const running = state === "RUNNING";
+  const expectedHash = report?.expectedSha256 ?? verification.auditPackage?.integrity.acceptedResultSha256 ?? "";
+  const actualHash = report?.actualSha256 ?? "";
+
+  return (
+    <div
+      className="mt-2 rounded-md border border-primary/25 bg-background/30 p-2"
+      data-p12-replay="true"
+      data-p12-replay-status={state}
+      data-p12-expected-hash={expectedHash || undefined}
+      data-p12-actual-hash={actualHash || undefined}
+      data-p12-series-count={report?.seriesCount ?? undefined}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-primary">
+            <RefreshCw className={cn("size-3.5", running && "animate-spin")} />
+            <p className="label-xs" style={{ color: "inherit" }}>Audit replay & reproducibility · P12</p>
+          </div>
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-muted-foreground">Menjalankan ulang dataset hasil rekonstruksi melalui Pandapower secara terisolasi. Replay tidak mengaktifkan dataset dan tidak mengubah KPI Field Mode.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRun}
+          disabled={running}
+          className="h-7 shrink-0 gap-1.5 bg-transparent px-2 text-[8.5px]"
+          data-p12-run-replay="true"
+        >
+          {running ? <LoaderCircle className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+          {running ? "Replay…" : report ? "Replay ulang" : "Jalankan replay"}
+        </Button>
+      </div>
+
+      {running && (
+        <div className="mt-2" data-p12-progress={Math.max(0, Math.min(100, progress.percent)).toFixed(1)}>
+          <div className="flex items-center justify-between gap-2 text-[7.5px] text-muted-foreground">
+            <span className="truncate">{progress.label}</span>
+            <span className="numeric shrink-0">{Math.round(progress.percent)}%</span>
+          </div>
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-primary transition-[width] duration-700 ease-linear" style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }} />
+          </div>
+          {progress.detail && <p className="mt-1 truncate text-[7px] text-muted-foreground/80">{progress.detail}</p>}
+        </div>
+      )}
+
+      {state === "IDLE" && <p className="mt-2 text-[8px] text-muted-foreground">Paket sudah lolos integrity check. Jalankan replay untuk membuktikan fingerprint physics dapat direproduksi.</p>}
+
+      {state === "MATCH" && report && (
+        <div className="mt-2 rounded border border-success/30 bg-success/5 px-2 py-1.5 text-success" data-p12-result="MATCH">
+          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><FileCheck2 className="size-3" /> REPLAY SESUAI · {report.seriesCount}/96 interval</div>
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-success/85">Fresh Pandapower result menghasilkan accepted-result fingerprint yang sama persis.</p>
+          <p className="numeric mt-1 truncate text-[7px] text-success/75">SHA-256 · {report.actualSha256}</p>
+        </div>
+      )}
+
+      {state === "DIFFERENT" && report && (
+        <div className="mt-2 rounded border border-warn/30 bg-warn/5 px-2 py-1.5 text-warn" data-p12-result="DIFFERENT">
+          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><AlertTriangle className="size-3" /> REPLAY BERBEDA</div>
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">Dataset lolos P11, tetapi hasil fresh solver tidak menghasilkan fingerprint accepted yang sama. Tinjau environment solver dan provenance sebelum memakai paket sebagai bukti reproduksi.</p>
+          <div className="mt-1 space-y-0.5">
+            {report.deltas.slice(0, 3).map((item) => (
+              <p key={item.key} className="numeric text-[7px] text-warn/80" data-p12-delta={item.key} data-p12-delta-value={item.delta}>
+                {item.label}: Δ {formatDelta(item.delta)} {item.unit}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {state === "ERROR" && <p className="mt-2 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-[8px] text-destructive" data-p12-result="ERROR">{error ?? "Replay physics gagal."}</p>}
+    </div>
+  );
+}
+
+function formatDelta(value: number) {
+  if (Math.abs(value) < 1e-12) return "0";
+  return value.toExponential(3);
 }
 
 function downloadText(filename: string, content: string, type: string) {
