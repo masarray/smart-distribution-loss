@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FieldCorrectionWorkspace } from "@/components/sdl/FieldCorrectionWorkspace";
 import { FieldMeasurementPanel } from "@/components/sdl/FieldMeasurementPanel";
 import type { FieldInvestigationPlan } from "@/lib/sdl/fieldInvestigation";
 import {
@@ -60,16 +61,24 @@ export function FieldMeasurementWorkspace({ plan }: Props) {
   };
 
   return (
-    <FieldMeasurementPanel
-      plan={plan}
-      intervals={intervals}
-      context={context}
-      record={record}
-      reconciliation={reconciliation}
-      onTimeChange={(time) => updateTarget({ time })}
-      onSideChange={(side) => updateTarget({ side })}
-      onRecordChange={updateRecord}
-      onOpenDataset={openDatasetManager}
-    />
+    <>
+      <FieldMeasurementPanel
+        plan={plan}
+        intervals={intervals}
+        context={context}
+        record={record}
+        reconciliation={reconciliation}
+        onTimeChange={(time) => updateTarget({ time })}
+        onSideChange={(side) => updateTarget({ side })}
+        onRecordChange={updateRecord}
+        onOpenDataset={openDatasetManager}
+      />
+      <FieldCorrectionWorkspace
+        plan={plan}
+        context={context}
+        record={record}
+        reconciliation={reconciliation}
+      />
+    </>
   );
 }
