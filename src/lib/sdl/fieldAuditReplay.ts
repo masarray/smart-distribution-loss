@@ -15,8 +15,10 @@ export interface FieldAuditReplayDelta {
 
 export interface FieldAuditReplayReport {
   status: FieldAuditReplayStatus;
-  expectedSha256: string;
-  actualSha256: string;
+  expectedPhysicsSha256: string;
+  actualPhysicsSha256: string;
+  acceptedIntegritySha256: string;
+  replayRawSha256: string;
   acceptedGatePass: boolean;
   replayGatePass: boolean;
   seriesCount: number;
@@ -25,10 +27,17 @@ export interface FieldAuditReplayReport {
 
 const SUMMARY_METRICS = [
   ["technical_loss_kwh", "Susut teknis", "kWh"],
-  ["loss_rate_percent", "Rasio susut", "%"],
-  ["min_voltage_pu", "Tegangan minimum", "pu"],
-  ["max_loading_percent", "Loading maksimum", "%"],
   ["supplied_energy_kwh", "Energi suplai", "kWh"],
+  ["load_energy_kwh", "Energi beban", "kWh"],
+  ["loss_rate_percent", "Rasio susut", "%"],
+  ["peak_loss_kw", "Puncak susut", "kW"],
+  ["min_voltage_pu", "Tegangan minimum", "pu"],
+  ["max_voltage_pu", "Tegangan maksimum", "pu"],
+  ["max_loading_percent", "Loading maksimum", "%"],
+  ["max_line_loading_percent", "Loading saluran maksimum", "%"],
+  ["max_transformer_loading_percent", "Loading trafo maksimum", "%"],
+  ["source_nrmse_percent", "Source NRMSE", "%"],
+  ["source_measurement_intervals", "Interval pengukuran source", "interval"],
 ] as const;
 
 export async function runFieldAuditReplay(
@@ -39,19 +48,25 @@ export async function runFieldAuditReplay(
     throw new Error("Paket harus lolos verifikasi P11 sebelum replay physics dijalankan.");
   }
 
+  const acceptedSnapshot = verification.auditPackage.accepted.result;
   const replayResult = await runFieldDatasetCandidate(verification.reconstructedDataset, onProgress);
   const replaySnapshot = snapshotReplayResult(replayResult);
-  const actualSha256 = await sha256(stableStringify(replaySnapshot));
-  const expectedSha256 = verification.auditPackage.integrity.acceptedResultSha256;
+  const [expectedPhysicsSha256, actualPhysicsSha256, replayRawSha256] = await Promise.all([
+    physicsFingerprint(acceptedSnapshot),
+    physicsFingerprint(replaySnapshot),
+    sha256(stableStringify(replaySnapshot)),
+  ]);
 
   return {
-    status: actualSha256 === expectedSha256 ? "MATCH" : "DIFFERENT",
-    expectedSha256,
-    actualSha256,
-    acceptedGatePass: Boolean(verification.auditPackage.accepted.result.gate.pass),
+    status: actualPhysicsSha256 === expectedPhysicsSha256 ? "MATCH" : "DIFFERENT",
+    expectedPhysicsSha256,
+    actualPhysicsSha256,
+    acceptedIntegritySha256: verification.auditPackage.integrity.acceptedResultSha256,
+    replayRawSha256,
+    acceptedGatePass: Boolean(acceptedSnapshot.gate.pass),
     replayGatePass: Boolean(replaySnapshot.gate.pass),
     seriesCount: replaySnapshot.seriesCount,
-    deltas: compareSummary(verification.auditPackage.accepted.result, replaySnapshot),
+    deltas: compareSummary(acceptedSnapshot, replaySnapshot),
   };
 }
 
@@ -65,26 +80,47 @@ function snapshotReplayResult(result: FieldDatasetResult): FieldAuditResultSnaps
   };
 }
 
+async function physicsFingerprint(snapshot: FieldAuditResultSnapshot) {
+  return sha256(stableStringify(canonicalPhysicsSnapshot(snapshot)));
+}
+
+function canonicalPhysicsSnapshot(snapshot: FieldAuditResultSnapshot) {
+  return {
+    gate: deepClone(snapshot.gate),
+    summary: deepClone(snapshot.summary),
+    checks: snapshot.checks.map((check) => ({ ...check })),
+    provenance: Object.fromEntries(
+      Object.entries(snapshot.provenance)
+        .filter(([key]) => !key.startsWith("p10_"))
+        .sort(([a], [b]) => a.localeCompare(b)),
+    ),
+    seriesCount: snapshot.seriesCount,
+  };
+}
+
 function compareSummary(accepted: FieldAuditResultSnapshot, replay: FieldAuditResultSnapshot): FieldAuditReplayDelta[] {
   const acceptedSummary = accepted.summary as unknown as Record<string, unknown>;
   const replaySummary = replay.summary as unknown as Record<string, unknown>;
   return SUMMARY_METRICS.map(([key, label, unit]) => {
-    const acceptedValue = finiteNumber(acceptedSummary[key]);
-    const replayValue = finiteNumber(replaySummary[key]);
+    const acceptedValue = nullableFiniteNumber(acceptedSummary[key]);
+    const replayValue = nullableFiniteNumber(replaySummary[key]);
+    const acceptedComparable = acceptedValue ?? 0;
+    const replayComparable = replayValue ?? 0;
     return {
       key,
       label,
       unit,
-      accepted: acceptedValue,
-      replay: replayValue,
-      delta: replayValue - acceptedValue,
+      accepted: acceptedComparable,
+      replay: replayComparable,
+      delta: replayComparable - acceptedComparable,
     };
   });
 }
 
-function finiteNumber(value: unknown) {
+function nullableFiniteNumber(value: unknown) {
+  if (value == null) return null;
   const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
+  return Number.isFinite(number) ? number : null;
 }
 
 async function sha256(text: string) {
