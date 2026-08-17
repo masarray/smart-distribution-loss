@@ -230,16 +230,19 @@ function ReplayState({
   if (!verification?.valid) return null;
 
   const running = state === "RUNNING";
-  const expectedHash = report?.expectedSha256 ?? verification.auditPackage?.integrity.acceptedResultSha256 ?? "";
-  const actualHash = report?.actualSha256 ?? "";
+  const acceptedIntegrityHash = report?.acceptedIntegritySha256 ?? verification.auditPackage?.integrity.acceptedResultSha256 ?? "";
+  const expectedPhysicsHash = report?.expectedPhysicsSha256 ?? "";
+  const actualPhysicsHash = report?.actualPhysicsSha256 ?? "";
 
   return (
     <div
       className="mt-2 rounded-md border border-primary/25 bg-background/30 p-2"
       data-p12-replay="true"
       data-p12-replay-status={state}
-      data-p12-expected-hash={expectedHash || undefined}
-      data-p12-actual-hash={actualHash || undefined}
+      data-p12-accepted-integrity-hash={acceptedIntegrityHash || undefined}
+      data-p12-expected-physics-hash={expectedPhysicsHash || undefined}
+      data-p12-actual-physics-hash={actualPhysicsHash || undefined}
+      data-p12-replay-raw-hash={report?.replayRawSha256 || undefined}
       data-p12-series-count={report?.seriesCount ?? undefined}
     >
       <div className="flex items-start justify-between gap-2">
@@ -276,22 +279,23 @@ function ReplayState({
         </div>
       )}
 
-      {state === "IDLE" && <p className="mt-2 text-[8px] text-muted-foreground">Paket sudah lolos integrity check. Jalankan replay untuk membuktikan fingerprint physics dapat direproduksi.</p>}
+      {state === "IDLE" && <p className="mt-2 text-[8px] text-muted-foreground">Paket sudah lolos integrity check. Jalankan replay untuk membuktikan fingerprint physics dapat direproduksi. Metadata audit P10 tidak dipakai sebagai physics fingerprint.</p>}
 
       {state === "MATCH" && report && (
         <div className="mt-2 rounded border border-success/30 bg-success/5 px-2 py-1.5 text-success" data-p12-result="MATCH">
           <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><FileCheck2 className="size-3" /> REPLAY SESUAI · {report.seriesCount}/96 interval</div>
-          <p className="mt-0.5 text-[7.5px] leading-relaxed text-success/85">Fresh Pandapower result menghasilkan accepted-result fingerprint yang sama persis.</p>
-          <p className="numeric mt-1 truncate text-[7px] text-success/75">SHA-256 · {report.actualSha256}</p>
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-success/85">Fresh Pandapower result menghasilkan canonical physics fingerprint yang sama persis: gate, seluruh summary, checks, solver provenance non-audit, dan jumlah interval cocok.</p>
+          <p className="numeric mt-1 truncate text-[7px] text-success/75">Physics SHA-256 · {report.actualPhysicsSha256}</p>
+          <p className="numeric mt-0.5 truncate text-[7px] text-muted-foreground">P11 integrity SHA tetap · {report.acceptedIntegritySha256}</p>
         </div>
       )}
 
       {state === "DIFFERENT" && report && (
         <div className="mt-2 rounded border border-warn/30 bg-warn/5 px-2 py-1.5 text-warn" data-p12-result="DIFFERENT">
           <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><AlertTriangle className="size-3" /> REPLAY BERBEDA</div>
-          <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">Dataset lolos P11, tetapi hasil fresh solver tidak menghasilkan fingerprint accepted yang sama. Tinjau environment solver dan provenance sebelum memakai paket sebagai bukti reproduksi.</p>
-          <div className="mt-1 space-y-0.5">
-            {report.deltas.slice(0, 3).map((item) => (
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">Dataset lolos P11, tetapi fresh solver tidak menghasilkan canonical physics fingerprint yang sama. Tinjau solver/provenance sebelum memakai paket sebagai bukti reproduksi.</p>
+          <div className="mt-1 max-h-20 space-y-0.5 overflow-auto">
+            {report.deltas.map((item) => (
               <p key={item.key} className="numeric text-[7px] text-warn/80" data-p12-delta={item.key} data-p12-delta-value={item.delta}>
                 {item.label}: Δ {formatDelta(item.delta)} {item.unit}
               </p>
