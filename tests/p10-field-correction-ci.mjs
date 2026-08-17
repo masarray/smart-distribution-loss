@@ -102,7 +102,8 @@ try {
   const baselineSource = await cockpit.locator('[data-field-source-badge="true"]').innerText();
   if (baselineSource.includes("P10 kandidat")) throw new Error("Baseline unexpectedly starts as a P10 candidate.");
 
-  const beforeValue = Number(await p10.getAttribute("data-p10-before-value"));
+  const baselineParameterRow = p10.locator('[data-p10-before-value]');
+  const beforeValue = Number(await baselineParameterRow.getAttribute("data-p10-before-value"));
   if (!Number.isFinite(beforeValue) || beforeValue <= 0) throw new Error(`P10 default correction baseline is invalid: ${beforeValue}`);
   const parameter = await p10.locator('select[data-p10-parameter="true"]').inputValue();
   if (!parameter) throw new Error("P10 did not expose a correction parameter.");
