@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldAssetProfileChart } from "@/components/sdl/FieldAssetProfileChart";
+import { FieldInvestigationPanel } from "@/components/sdl/FieldInvestigationPanel";
 import { FieldTopologyDiagram } from "@/components/sdl/FieldTopologyDiagram";
 import { OperatorDecisionStrip } from "@/components/sdl/OperatorDecisionStrip";
 import {
@@ -24,6 +25,7 @@ import {
   fieldPriorityHeadline,
   type FieldAssetPriority,
 } from "@/lib/sdl/fieldIntelligence";
+import { deriveFieldInvestigationPlan } from "@/lib/sdl/fieldInvestigation";
 import {
   clearFieldOperational,
   deriveFieldOperationalMetrics,
@@ -37,6 +39,7 @@ import { cn } from "@/lib/utils";
 export function FieldOperationalCockpitP5() {
   const session = useFieldOperationalSession();
   const [selected, setSelected] = useState<FieldTopologySelection>({ kind: "source", id: "" });
+  const [investigationChecks, setInvestigationChecks] = useState<Record<string, string[]>>({});
   const graph = useMemo(() => (session ? buildFieldTopology(session.dataset) : null), [session]);
 
   if (!session || !graph) return null;
@@ -61,6 +64,11 @@ export function FieldOperationalCockpitP5() {
   const priorities = deriveFieldAssetPriorities(assets);
   const topPriorities = priorities.slice(0, 3);
   const topPriority = priorities[0] ?? null;
+  const selectedPriority = effectiveSelected.kind === "element"
+    ? priorities.find((priority) => priority.elementId === effectiveSelected.id) ?? null
+    : null;
+  const investigationPlan = deriveFieldInvestigationPlan(session, graph, effectiveSelected, selectedPriority);
+  const completedInvestigationIds = investigationPlan ? investigationChecks[investigationPlan.elementId] ?? [] : [];
   const passedChecks = session.result.checks.filter((check) => check.pass).length;
   const solverLabel = String(session.result.provenance["solver"] ?? "pandapower.runpp_3ph");
 
@@ -71,8 +79,18 @@ export function FieldOperationalCockpitP5() {
     });
   };
 
+  const toggleInvestigationCheck = (checkId: string) => {
+    if (!investigationPlan) return;
+    const elementId = investigationPlan.elementId;
+    setInvestigationChecks((current) => {
+      const existing = current[elementId] ?? [];
+      const next = existing.includes(checkId) ? existing.filter((id) => id !== checkId) : [...existing, checkId];
+      return { ...current, [elementId]: next };
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-40 flex h-screen flex-col overflow-hidden bg-background" data-field-cockpit="true" data-operational-source="field" data-p5-cockpit="true" data-p6-cockpit="true" data-p7-cockpit="true">
+    <div className="fixed inset-0 z-40 flex h-screen flex-col overflow-hidden bg-background" data-field-cockpit="true" data-operational-source="field" data-p5-cockpit="true" data-p6-cockpit="true" data-p7-cockpit="true" data-p8-cockpit="true">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/70 bg-surface px-4">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md bg-primary/15 text-primary"><CircuitBoard className="size-4.5" /></span>
@@ -105,7 +123,7 @@ export function FieldOperationalCockpitP5() {
           <span className="hidden truncate text-muted-foreground/75 md:inline">
             {networkSummary.networkElements} elemen · {graph.buses.length} bus · {networkSummary.customers} pelanggan
           </span>
-          <span className="numeric ml-auto text-muted-foreground/75">{session.result.series.length}/96 interval · topology P6 · intelligence P7</span>
+          <span className="numeric ml-auto text-muted-foreground/75">{session.result.series.length}/96 interval · topology P6 · intelligence P7 · investigasi P8</span>
         </div>
         <div className="absolute bottom-0 left-0 h-0.5 w-full bg-success/30" />
       </div>
@@ -241,27 +259,32 @@ export function FieldOperationalCockpitP5() {
           </div>
 
           <div className="panel min-h-0 overflow-auto p-2.5" data-field-status-panel="true">
-            <div className="flex items-center justify-between gap-3"><p className="label-xs">Detail & provenance</p><span className="numeric text-[10px] text-muted-foreground">{passedChecks}/{session.result.checks.length} cek</span></div>
-            <div className="mt-2 space-y-1.5">
-              <StatusRow label="Topology radial" value={graph.supported ? "VALID" : "BLOKIR"} pass={graph.supported} />
-              <StatusRow label="Observability aset" value={assetObservabilityReady ? "SIAP" : "ULANGI"} pass={assetObservabilityReady} />
-              <StatusRow label="Physics 3 fasa" value={`${session.result.series.length}/96`} pass={session.result.series.length === 96} />
-              <StatusRow label="Attribution aset" value={assets.length ? `${assets.length} aset` : "—"} pass={assets.length > 0} />
-              <StatusRow label="Prioritas P7" value={priorities.length ? `${priorities.length} diranking` : "—"} pass={priorities.length > 0} />
-            </div>
+            <FieldInvestigationPanel plan={investigationPlan} completedIds={completedInvestigationIds} onToggle={toggleInvestigationCheck} />
 
-            <div className="mt-3 border-t border-border/45 pt-2.5 text-[10px] leading-relaxed text-muted-foreground">
-              <p><span className="font-medium text-foreground">Dasar:</span> {view.provenance}</p>
-              {selectedElement && <p className="mt-1"><span className="font-medium text-foreground">Path:</span> {selectedElement.from_bus} → {selectedElement.to_bus}</p>}
-              {selectedElement?.element_type === "line" && <p className="mt-1"><span className="font-medium text-foreground">Line:</span> {fmt(selectedElement.length_km, 3)} km · R {fmt(selectedElement.r_ohm_per_km, 3)} Ω/km · rating {fmt(selectedElement.max_i_ka, 3)} kA</p>}
-              {selectedElement?.element_type === "transformer" && <p className="mt-1"><span className="font-medium text-foreground">Trafo:</span> {fmt(selectedElement.rated_kva, 0)} kVA · uk {fmt(selectedElement.vk_percent, 2)}%</p>}
-              {selectedBus && <p className="mt-1"><span className="font-medium text-foreground">Bus:</span> {selectedBus.kv == null ? "—" : `${fmt(selectedBus.kv, selectedBus.kv >= 10 ? 0 : 2)} kV`} · {selectedBus.meters} meter</p>}
-              <p className="mt-1"><span className="font-medium text-foreground">Solver:</span> {solverLabel}</p>
-              <p className="mt-1"><span className="font-medium text-foreground">Truth policy:</span> tidak ada hidden truth pada Field Mode.</p>
-            </div>
+            <div className="mt-3 border-t border-border/45 pt-2.5" data-field-detail-provenance="true">
+              <div className="flex items-center justify-between gap-3"><p className="label-xs">Detail & provenance</p><span className="numeric text-[10px] text-muted-foreground">{passedChecks}/{session.result.checks.length} cek</span></div>
+              <div className="mt-2 space-y-1.5">
+                <StatusRow label="Topology radial" value={graph.supported ? "VALID" : "BLOKIR"} pass={graph.supported} />
+                <StatusRow label="Observability aset" value={assetObservabilityReady ? "SIAP" : "ULANGI"} pass={assetObservabilityReady} />
+                <StatusRow label="Physics 3 fasa" value={`${session.result.series.length}/96`} pass={session.result.series.length === 96} />
+                <StatusRow label="Attribution aset" value={assets.length ? `${assets.length} aset` : "—"} pass={assets.length > 0} />
+                <StatusRow label="Prioritas P7" value={priorities.length ? `${priorities.length} diranking` : "—"} pass={priorities.length > 0} />
+                <StatusRow label="Investigasi P8" value={investigationPlan ? `${completedInvestigationIds.length}/${investigationPlan.checklist.length}` : "PILIH ASET"} pass={Boolean(investigationPlan)} />
+              </div>
 
-            {!assetObservabilityReady && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">Hasil aktif berasal dari adapter lama. Jalankan ulang dataset untuk memperoleh observability aset terbaru.</div>}
-            {!graph.supported && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">{graph.reason}</div>}
+              <div className="mt-3 border-t border-border/45 pt-2.5 text-[10px] leading-relaxed text-muted-foreground">
+                <p><span className="font-medium text-foreground">Dasar:</span> {view.provenance}</p>
+                {selectedElement && <p className="mt-1"><span className="font-medium text-foreground">Path:</span> {selectedElement.from_bus} → {selectedElement.to_bus}</p>}
+                {selectedElement?.element_type === "line" && <p className="mt-1"><span className="font-medium text-foreground">Line:</span> {fmt(selectedElement.length_km, 3)} km · R {fmt(selectedElement.r_ohm_per_km, 3)} Ω/km · rating {fmt(selectedElement.max_i_ka, 3)} kA</p>}
+                {selectedElement?.element_type === "transformer" && <p className="mt-1"><span className="font-medium text-foreground">Trafo:</span> {fmt(selectedElement.rated_kva, 0)} kVA · uk {fmt(selectedElement.vk_percent, 2)}%</p>}
+                {selectedBus && <p className="mt-1"><span className="font-medium text-foreground">Bus:</span> {selectedBus.kv == null ? "—" : `${fmt(selectedBus.kv, selectedBus.kv >= 10 ? 0 : 2)} kV`} · {selectedBus.meters} meter</p>}
+                <p className="mt-1"><span className="font-medium text-foreground">Solver:</span> {solverLabel}</p>
+                <p className="mt-1"><span className="font-medium text-foreground">Truth policy:</span> tidak ada hidden truth pada Field Mode.</p>
+              </div>
+
+              {!assetObservabilityReady && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">Hasil aktif berasal dari adapter lama. Jalankan ulang dataset untuk memperoleh observability aset terbaru.</div>}
+              {!graph.supported && <div className="mt-3 rounded-md border border-warn/25 bg-warn/5 p-2.5 text-[10px] leading-relaxed text-warn">{graph.reason}</div>}
+            </div>
           </div>
         </section>
       </main>

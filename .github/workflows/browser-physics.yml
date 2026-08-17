@@ -15,6 +15,7 @@ on:
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
+      - "src/components/sdl/FieldInvestigationPanel.tsx"
       - "src/components/sdl/FieldLossProfileChart.tsx"
       - "src/components/sdl/FieldOperationalCockpit.tsx"
       - "src/components/sdl/FieldOperationalCockpitP5.tsx"
@@ -27,6 +28,7 @@ on:
       - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/fieldIntelligence.ts"
+      - "src/lib/sdl/fieldInvestigation.ts"
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/operation.ts"
@@ -37,6 +39,7 @@ on:
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
+      - "tests/p8-investigation-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -57,6 +60,7 @@ on:
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
+      - "src/components/sdl/FieldInvestigationPanel.tsx"
       - "src/components/sdl/FieldLossProfileChart.tsx"
       - "src/components/sdl/FieldOperationalCockpit.tsx"
       - "src/components/sdl/FieldOperationalCockpitP5.tsx"
@@ -69,6 +73,7 @@ on:
       - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldDataset.ts"
       - "src/lib/sdl/fieldIntelligence.ts"
+      - "src/lib/sdl/fieldInvestigation.ts"
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/operation.ts"
@@ -79,6 +84,7 @@ on:
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
+      - "tests/p8-investigation-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -92,7 +98,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P7 asset intelligence · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P8 investigation workflow · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -162,6 +168,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/p7-field-intelligence-ci.mjs
+
+      - name: Prove P8 investigation evidence, related route, and manual checklist workflow
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/p8-investigation-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:
