@@ -69,6 +69,18 @@ async function activateFieldMode() {
 
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+
+  const aboutTrigger = page.locator('[data-about-trigger="true"]');
+  await assertVisible(aboutTrigger, "About launcher");
+  await aboutTrigger.click();
+  const aboutPanel = page.locator('[data-about-panel="true"]');
+  await assertVisible(aboutPanel, "About panel");
+  if (!(await aboutPanel.innerText()).includes("Ari Sulistiono")) throw new Error("About panel does not identify Ari Sulistiono.");
+  const linkedin = aboutPanel.locator('a[data-about-linkedin="true"]');
+  if ((await linkedin.getAttribute("href")) !== "https://id.linkedin.com/in/ari-sulistiono") throw new Error("About panel points to the wrong LinkedIn profile.");
+  await aboutPanel.locator('[data-drawer-close="true"]').click();
+  await aboutPanel.waitFor({ state: "hidden" });
+
   await activateFieldMode();
   const cockpit = page.locator('[data-field-cockpit="true"]');
   await assertVisible(cockpit, "field cockpit");
@@ -84,7 +96,7 @@ try {
   const nominalKv = Number(await p9.getAttribute("data-p9-nominal-kv"));
   await p9.locator('input[data-p9-input="current"]').fill((ratedCurrentA * (modelLoading + 25) / 100).toFixed(6));
   await p9.locator('input[data-p9-input="voltage"]').fill((nominalKv * (modelVoltagePu + 0.05)).toFixed(6));
-  await p9.locator('input[data-p9-reference="true"]').fill("Nameplate + clamp meter · regression P11");
+  await p9.locator('input[data-p9-reference="true"]').fill("Nameplate + clamp meter · regression P12");
   await page.waitForFunction(() => document.querySelector('[data-p9-reconciliation="true"]')?.getAttribute("data-p9-status") === "DISCREPANCY");
 
   const parameter = await p10.locator('select[data-p10-parameter="true"]').inputValue();
@@ -93,7 +105,7 @@ try {
   const proposedValue = beforeValue * 1.5;
   await p10.locator('input[data-p10-proposed="true"]').fill(proposedValue.toFixed(8));
   const evidence = p10.locator('input[data-p10-evidence="true"]');
-  if (!(await evidence.inputValue())) await evidence.fill("Verified as-built/nameplate regression P11");
+  if (!(await evidence.inputValue())) await evidence.fill("Verified as-built/nameplate regression P12");
   await p10.locator('input[data-p10-verified="true"]').check();
   await p10.locator('button[data-p10-save-revision="true"]').click();
   await page.waitForFunction(() => document.querySelector('[data-p10-correction="true"]')?.getAttribute("data-p10-draft-version") === "1");
@@ -125,7 +137,7 @@ try {
   if (auditPackage.schema !== "smart-distribution-loss-audit-package-v1" || auditPackage.packageVersion !== 1) throw new Error("P11 exported the wrong package schema.");
   if (auditPackage.policy.sourceMutation !== "never") throw new Error("P11 audit package does not preserve no-overwrite source policy.");
   if (auditPackage.corrections?.length !== 1 || auditPackage.corrections[0].elementId !== elementId) throw new Error("P11 correction manifest is incomplete.");
-  if (auditPackage.corrections[0].measurement?.record?.reference !== "Nameplate + clamp meter · regression P11") throw new Error("P11 package lost P9 measurement provenance.");
+  if (auditPackage.corrections[0].measurement?.record?.reference !== "Nameplate + clamp meter · regression P12") throw new Error("P11 package lost P9 measurement provenance.");
   if (auditPackage.accepted?.result?.seriesCount !== 96 || auditPackage.accepted?.result?.gate?.pass !== true) throw new Error("P11 package lost accepted physics gate fingerprint.");
   for (const hash of Object.values(auditPackage.integrity ?? {})) if (!/^[a-f0-9]{64}$/.test(String(hash))) throw new Error(`P11 checksum is malformed: ${hash}`);
 
@@ -150,23 +162,39 @@ try {
   await assertVisible(verified, "valid P11 re-import verification");
   if ((await verified.getAttribute("data-p11-verified-events")) !== "1") throw new Error("P11 valid package verification lost event count.");
 
+  const p12 = p11.locator('[data-p12-replay="true"]');
+  await assertVisible(p12, "P12 audit replay");
+  if ((await p12.getAttribute("data-p12-expected-hash")) !== auditPackage.integrity.acceptedResultSha256) throw new Error("P12 did not bind replay to the accepted-result fingerprint from the package.");
+  const activePhysicsBeforeReplay = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
+  await p12.locator('button[data-p12-run-replay="true"]').click();
+  await page.waitForFunction(() => document.querySelector('[data-p12-replay="true"]')?.getAttribute("data-p12-replay-status") === "MATCH", null, { timeout: 600_000 });
+  const replayMatch = p11.locator('[data-p12-result="MATCH"]');
+  await assertVisible(replayMatch, "P12 replay match", 600_000);
+  const replayExpectedHash = await p12.getAttribute("data-p12-expected-hash");
+  const replayActualHash = await p12.getAttribute("data-p12-actual-hash");
+  if (!replayExpectedHash || replayExpectedHash !== replayActualHash) throw new Error(`P12 replay fingerprint mismatch: ${replayExpectedHash} != ${replayActualHash}`);
+  if ((await p12.getAttribute("data-p12-series-count")) !== "96") throw new Error("P12 replay did not reproduce all 96 intervals.");
+  const activePhysicsAfterReplay = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
+  if (activePhysicsAfterReplay !== activePhysicsBeforeReplay) throw new Error("P12 replay mutated active Field Mode physics or KPI state.");
+
   const tampered = structuredClone(auditPackage);
   tampered.corrections[0].corrections[0].proposedValue = proposedValue * 1.1;
   await importInput.setInputFiles({ name: "sdl-audit-tampered.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(tampered)) });
   await page.waitForFunction(() => document.querySelector('[data-p11-verification-status]')?.getAttribute("data-p11-verification-status") === "INVALID", null, { timeout: 15_000 });
   await assertVisible(p11.locator('[data-p11-verification-status="INVALID"]'), "tampered P11 package rejection");
+  if (await p11.locator('[data-p12-replay="true"]').count()) throw new Error("P12 replay remained available for an invalid/tampered package.");
 
   const activePhysicsAfterAudit = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
-  if (activePhysicsAfterAudit !== activePhysicsBeforeAudit) throw new Error("P11 export/import verification mutated active Field Mode physics or KPI state.");
+  if (activePhysicsAfterAudit !== activePhysicsBeforeAudit) throw new Error("P11/P12 export, verification, or replay mutated active Field Mode physics or KPI state.");
 
   await page.setViewportSize({ width: 1366, height: 768 });
   const statusPanel = cockpit.locator('[data-field-status-panel="true"]');
-  await assertVisible(statusPanel, "P11 scrollable workspace at 1366x768");
+  await assertVisible(statusPanel, "P12 scrollable workspace at 1366x768");
   const box = await statusPanel.boundingBox();
   const viewport = page.viewportSize();
-  if (!box || !viewport || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) throw new Error(`P11 workspace escapes viewport: ${JSON.stringify(box)}`);
+  if (!box || !viewport || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) throw new Error(`P12 workspace escapes viewport: ${JSON.stringify(box)}`);
 
-  console.log("P11 audit gate PASS: accepted corrections preserve baseline + P9 evidence, export a self-contained checksummed package and corrected network CSV, valid packages reconstruct deterministically, tampering is rejected, and import/export never mutates active physics.");
+  console.log("P12 audit replay gate PASS: About identifies Ari Sulistiono and links the verified LinkedIn profile; accepted corrections preserve P11 integrity; a valid package reconstructs and reruns 96 Pandapower intervals to the exact accepted-result fingerprint; tampering is rejected; replay never mutates active Field Mode physics.");
 } finally {
   await browser.close();
 }
