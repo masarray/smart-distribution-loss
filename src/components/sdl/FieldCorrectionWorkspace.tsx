@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FieldCorrectionPanel, type FieldCorrectionRunState } from "@/components/sdl/FieldCorrectionPanel";
+import { createFieldCorrectionAuditTrail } from "@/lib/sdl/fieldAudit";
 import { runFieldDatasetCandidate } from "@/lib/sdl/fieldCandidateRunner";
 import {
   buildFieldCorrectionCandidate,
@@ -96,6 +97,15 @@ export function FieldCorrectionWorkspace({ plan, context, record, reconciliation
   const storedDraft = drafts[plan.elementId] ?? null;
   const draft = storedDraft?.baselineActivatedAt === session.activatedAt ? storedDraft : null;
   const candidate = candidates[plan.elementId] ?? EMPTY_CANDIDATE;
+  const candidateActivatable = Boolean(
+    ready &&
+    context &&
+    reconciliation?.status === "DISCREPANCY" &&
+    candidate.session &&
+    candidate.comparison &&
+    draft &&
+    candidate.testedVersion === draft.version,
+  );
 
   const updateForm = (patch: Partial<CorrectionFormState>) => {
     setForms((current) => ({
@@ -208,8 +218,17 @@ export function FieldCorrectionWorkspace({ plan, context, record, reconciliation
   };
 
   const activateCandidate = () => {
-    if (!draft || candidate.testedVersion !== draft.version || !candidate.session) return;
-    activateFieldOperational(candidate.session);
+    if (!candidateActivatable || !draft || !context || !candidate.session || !candidate.comparison || !reconciliation) return;
+    const auditTrail = createFieldCorrectionAuditTrail({
+      baseline: session,
+      candidate: candidate.session,
+      draft,
+      comparison: candidate.comparison,
+      context,
+      record,
+      reconciliation,
+    });
+    activateFieldOperational({ ...candidate.session, auditTrail });
   };
 
   const discardCandidate = () => {
@@ -234,7 +253,7 @@ export function FieldCorrectionWorkspace({ plan, context, record, reconciliation
       progress={candidate.progress}
       runError={candidate.error}
       comparison={candidate.comparison}
-      candidateActivatable={Boolean(candidate.session && draft && candidate.testedVersion === draft.version)}
+      candidateActivatable={candidateActivatable}
       onParameterChange={(parameter) => updateForm({ parameter, proposedValue: "", verified: false })}
       onProposedChange={(proposedValue) => updateForm({ proposedValue })}
       onEvidenceChange={(evidence) => updateForm({ evidence })}
