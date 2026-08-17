@@ -11,6 +11,7 @@ on:
       - "src/App.tsx"
       - "src/styles.css"
       - "src/progress-motion.css"
+      - "src/components/sdl/AboutSheet.tsx"
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
@@ -33,6 +34,7 @@ on:
       - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldAudit.ts"
       - "src/lib/sdl/fieldAuditAugment.ts"
+      - "src/lib/sdl/fieldAuditReplay.ts"
       - "src/lib/sdl/fieldCandidateRunner.ts"
       - "src/lib/sdl/fieldCorrection.ts"
       - "src/lib/sdl/fieldDataset.ts"
@@ -69,6 +71,7 @@ on:
       - "src/App.tsx"
       - "src/styles.css"
       - "src/progress-motion.css"
+      - "src/components/sdl/AboutSheet.tsx"
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
@@ -91,6 +94,7 @@ on:
       - "src/lib/sdl/fieldAsset.ts"
       - "src/lib/sdl/fieldAudit.ts"
       - "src/lib/sdl/fieldAuditAugment.ts"
+      - "src/lib/sdl/fieldAuditReplay.ts"
       - "src/lib/sdl/fieldCandidateRunner.ts"
       - "src/lib/sdl/fieldCorrection.ts"
       - "src/lib/sdl/fieldDataset.ts"
@@ -124,7 +128,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P11 correction audit package · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P12 reproducible audit replay · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -210,7 +214,7 @@ jobs:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/p10-field-correction-ci.mjs
 
-      - name: Prove P11 audit package export, deterministic reconstruction, checksum verification, and tamper rejection
+      - name: Prove P11 integrity plus P12 deterministic physics replay and About identity
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/p11-audit-package-ci.mjs
