@@ -164,7 +164,7 @@ try {
 
   const p12 = p11.locator('[data-p12-replay="true"]');
   await assertVisible(p12, "P12 audit replay");
-  if ((await p12.getAttribute("data-p12-expected-hash")) !== auditPackage.integrity.acceptedResultSha256) throw new Error("P12 did not bind replay to the accepted-result fingerprint from the package.");
+  if ((await p12.getAttribute("data-p12-accepted-integrity-hash")) !== auditPackage.integrity.acceptedResultSha256) throw new Error("P12 did not preserve the immutable P11 accepted-result integrity hash.");
   const activePhysicsBeforeReplay = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
   console.log("P12 replay starting: reconstructed package is valid; running fresh 96-interval Pandapower replay.");
   await p12.locator('button[data-p12-run-replay="true"]').click();
@@ -173,15 +173,18 @@ try {
     return state === "MATCH" || state === "DIFFERENT" || state === "ERROR";
   }, null, { timeout: 600_000 });
   const replayState = await p12.getAttribute("data-p12-replay-status");
-  const replayExpectedHash = await p12.getAttribute("data-p12-expected-hash");
-  const replayActualHash = await p12.getAttribute("data-p12-actual-hash");
-  console.log(`P12 replay terminal state=${replayState} expected=${replayExpectedHash} actual=${replayActualHash}`);
+  const expectedPhysicsHash = await p12.getAttribute("data-p12-expected-physics-hash");
+  const actualPhysicsHash = await p12.getAttribute("data-p12-actual-physics-hash");
+  const acceptedIntegrityHash = await p12.getAttribute("data-p12-accepted-integrity-hash");
+  const replayRawHash = await p12.getAttribute("data-p12-replay-raw-hash");
+  console.log(`P12 replay terminal state=${replayState} physics_expected=${expectedPhysicsHash} physics_actual=${actualPhysicsHash} p11_integrity=${acceptedIntegrityHash} replay_raw=${replayRawHash}`);
   if (replayState !== "MATCH") {
-    throw new Error(`P12 replay did not reproduce accepted physics. state=${replayState}; expected=${replayExpectedHash}; actual=${replayActualHash}; panel=${await p12.innerText()}`);
+    throw new Error(`P12 replay did not reproduce accepted physics. state=${replayState}; expectedPhysics=${expectedPhysicsHash}; actualPhysics=${actualPhysicsHash}; panel=${await p12.innerText()}`);
   }
   const replayMatch = p11.locator('[data-p12-result="MATCH"]');
   await assertVisible(replayMatch, "P12 replay match");
-  if (!replayExpectedHash || replayExpectedHash !== replayActualHash) throw new Error(`P12 replay fingerprint mismatch: ${replayExpectedHash} != ${replayActualHash}`);
+  if (!expectedPhysicsHash || expectedPhysicsHash !== actualPhysicsHash) throw new Error(`P12 canonical physics fingerprint mismatch: ${expectedPhysicsHash} != ${actualPhysicsHash}`);
+  if (acceptedIntegrityHash !== auditPackage.integrity.acceptedResultSha256) throw new Error("P12 changed the P11 accepted-result integrity hash while replaying physics.");
   if ((await p12.getAttribute("data-p12-series-count")) !== "96") throw new Error("P12 replay did not reproduce all 96 intervals.");
   const activePhysicsAfterReplay = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
   if (activePhysicsAfterReplay !== activePhysicsBeforeReplay) throw new Error("P12 replay mutated active Field Mode physics or KPI state.");
@@ -203,7 +206,7 @@ try {
   const viewport = page.viewportSize();
   if (!box || !viewport || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) throw new Error(`P12 workspace escapes viewport: ${JSON.stringify(box)}`);
 
-  console.log("P12 audit replay gate PASS: About identifies Ari Sulistiono and links the verified LinkedIn profile; accepted corrections preserve P11 integrity; a valid package reconstructs and reruns 96 Pandapower intervals to the exact accepted-result fingerprint; tampering is rejected; replay never mutates active Field Mode physics.");
+  console.log("P12 audit replay gate PASS: About identifies Ari Sulistiono and links the verified LinkedIn profile; P11 raw integrity remains immutable; a valid package reconstructs and reruns 96 Pandapower intervals to the exact canonical physics fingerprint; tampering is rejected; replay never mutates active Field Mode physics.");
 } finally {
   await browser.close();
 }
