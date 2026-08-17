@@ -88,8 +88,8 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-p9-reconciliation="true"]')?.getAttribute("data-p9-status") === "DISCREPANCY");
 
   const parameter = await p10.locator('select[data-p10-parameter="true"]').inputValue();
-  const correctionRow = p10.locator(`[data-p10-parameter-row="${parameter}"]`);
-  const beforeValue = Number(await correctionRow.getAttribute("data-p10-before-value"));
+  const baselineParameter = p10.locator(`[data-p10-baseline-parameter="${parameter}"]`);
+  const beforeValue = Number(await baselineParameter.getAttribute("data-p10-before-value"));
   const proposedValue = beforeValue * 1.5;
   await p10.locator('input[data-p10-proposed="true"]').fill(proposedValue.toFixed(8));
   const evidence = p10.locator('input[data-p10-evidence="true"]');
