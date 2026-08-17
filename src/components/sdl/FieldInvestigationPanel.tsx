@@ -1,4 +1,5 @@
 import { Check, ClipboardCheck, Clock3, Route } from "lucide-react";
+import { FieldMeasurementWorkspace } from "@/components/sdl/FieldMeasurementWorkspace";
 import type { FieldInvestigationPlan } from "@/lib/sdl/fieldInvestigation";
 import { cn } from "@/lib/utils";
 
@@ -131,8 +132,10 @@ export function FieldInvestigationPanel({ plan, completedIds, onToggle }: Props)
         </div>
       </div>
 
+      <FieldMeasurementWorkspace plan={plan} />
+
       <p className="mt-1.5 text-[8px] leading-relaxed text-muted-foreground/75">
-        Centang hanya setelah verifikasi lapangan. Status checklist tersimpan di memori selama Field Mode aktif dan tidak mengubah hasil physics.
+        Centang hanya setelah verifikasi lapangan. Status checklist dan evidence P9 tersimpan di memori selama Field Mode aktif dan tidak mengubah hasil physics.
       </p>
     </div>
   );
