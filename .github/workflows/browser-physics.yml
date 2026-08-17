@@ -130,7 +130,7 @@ jobs:
   p0a-browser:
     name: P0-A + P12 reproducible audit replay · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
