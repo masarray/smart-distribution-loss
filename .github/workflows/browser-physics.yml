@@ -15,6 +15,7 @@ on:
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
+      - "src/components/sdl/FieldAuditPanel.tsx"
       - "src/components/sdl/FieldCorrectionPanel.tsx"
       - "src/components/sdl/FieldCorrectionWorkspace.tsx"
       - "src/components/sdl/FieldInvestigationPanel.tsx"
@@ -30,6 +31,8 @@ on:
       - "src/lib/sdl/decision.ts"
       - "src/lib/sdl/derive.ts"
       - "src/lib/sdl/fieldAsset.ts"
+      - "src/lib/sdl/fieldAudit.ts"
+      - "src/lib/sdl/fieldAuditAugment.ts"
       - "src/lib/sdl/fieldCandidateRunner.ts"
       - "src/lib/sdl/fieldCorrection.ts"
       - "src/lib/sdl/fieldDataset.ts"
@@ -49,6 +52,7 @@ on:
       - "tests/p8-investigation-ci.mjs"
       - "tests/p9-field-measurement-ci.mjs"
       - "tests/p10-field-correction-ci.mjs"
+      - "tests/p11-audit-package-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -69,6 +73,7 @@ on:
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
+      - "src/components/sdl/FieldAuditPanel.tsx"
       - "src/components/sdl/FieldCorrectionPanel.tsx"
       - "src/components/sdl/FieldCorrectionWorkspace.tsx"
       - "src/components/sdl/FieldInvestigationPanel.tsx"
@@ -84,6 +89,8 @@ on:
       - "src/lib/sdl/decision.ts"
       - "src/lib/sdl/derive.ts"
       - "src/lib/sdl/fieldAsset.ts"
+      - "src/lib/sdl/fieldAudit.ts"
+      - "src/lib/sdl/fieldAuditAugment.ts"
       - "src/lib/sdl/fieldCandidateRunner.ts"
       - "src/lib/sdl/fieldCorrection.ts"
       - "src/lib/sdl/fieldDataset.ts"
@@ -103,6 +110,7 @@ on:
       - "tests/p8-investigation-ci.mjs"
       - "tests/p9-field-measurement-ci.mjs"
       - "tests/p10-field-correction-ci.mjs"
+      - "tests/p11-audit-package-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -116,7 +124,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P10 verified correction rerun · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P11 correction audit package · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -201,6 +209,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/p10-field-correction-ci.mjs
+
+      - name: Prove P11 audit package export, deterministic reconstruction, checksum verification, and tamper rejection
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/p11-audit-package-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:
