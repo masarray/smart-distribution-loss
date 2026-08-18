@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AlertTriangle, Crosshair, Database, ShieldCheck, Sigma, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FieldUnexplainedLossReport } from "@/lib/sdl/fieldUnexplainedLoss";
@@ -102,7 +103,7 @@ export function FieldUnexplainedLossPanel({ report, onOpenDataset }: Props) {
   );
 }
 
-function Metric({ icon, label, value, detail, valueClass }: { icon: React.ReactNode; label: string; value: string; detail: string; valueClass?: string }) {
+function Metric({ icon, label, value, detail, valueClass }: { icon: ReactNode; label: string; value: string; detail: string; valueClass?: string }) {
   return (
     <div className="rounded-md border border-border/40 bg-background/35 px-2 py-1.5">
       <div className="flex items-center gap-1 text-[7.5px] text-muted-foreground">{icon}<span>{label}</span></div>
