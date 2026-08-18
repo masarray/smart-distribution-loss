@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { AlertTriangle, Download, FileArchive, FileCheck2, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  FileArchive,
+  FileCheck2,
+  RefreshCw,
+  Upload,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   buildFieldAuditPackage,
@@ -9,8 +18,15 @@ import {
   verifyFieldAuditPackageText,
   type FieldAuditVerification,
 } from "@/lib/sdl/fieldAudit";
+import {
+  compareFieldAuditReplay,
+  type FieldAuditReplayComparison,
+} from "@/lib/sdl/fieldAuditReplay";
+import { runFieldDatasetCandidate } from "@/lib/sdl/fieldCandidateRunner";
 import { useFieldOperationalSession } from "@/lib/sdl/fieldOperational";
 import { cn } from "@/lib/utils";
+
+type ReplayRunState = "idle" | "running" | "done" | "error";
 
 export function FieldAuditPanel() {
   const session = useFieldOperationalSession();
@@ -19,11 +35,18 @@ export function FieldAuditPanel() {
   const [lastPackageHash, setLastPackageHash] = useState<string | null>(null);
   const [verification, setVerification] = useState<FieldAuditVerification | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [replayRunState, setReplayRunState] = useState<ReplayRunState>("idle");
+  const [replayProgress, setReplayProgress] = useState({ percent: 0, label: "Belum dijalankan", detail: "" });
+  const [replayComparison, setReplayComparison] = useState<FieldAuditReplayComparison | null>(null);
+  const [replayError, setReplayError] = useState<string | null>(null);
 
   const trail = session?.auditTrail;
   if (!session || !trail?.events.length) return null;
 
   const latest = trail.events[trail.events.length - 1] ?? null;
+  const replayReady = Boolean(
+    verification?.valid && verification.auditPackage && verification.reconstructedDataset,
+  );
 
   const exportAudit = async () => {
     setExporting(true);
@@ -51,13 +74,52 @@ export function FieldAuditPanel() {
     );
   };
 
+  const resetReplay = () => {
+    setReplayRunState("idle");
+    setReplayProgress({ percent: 0, label: "Belum dijalankan", detail: "" });
+    setReplayComparison(null);
+    setReplayError(null);
+  };
+
   const verifyPackage = async (file: File | null) => {
     if (!file) return;
     setVerifying(true);
+    resetReplay();
     try {
       setVerification(await verifyFieldAuditPackageText(await file.text()));
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const runReplay = async () => {
+    if (
+      replayRunState === "running" ||
+      !verification?.valid ||
+      !verification.auditPackage ||
+      !verification.reconstructedDataset
+    ) return;
+
+    setReplayRunState("running");
+    setReplayComparison(null);
+    setReplayError(null);
+    setReplayProgress({ percent: 2, label: "Menyiapkan replay", detail: "Field Mode aktif tetap tidak diubah" });
+    try {
+      const rawResult = await runFieldDatasetCandidate(
+        verification.reconstructedDataset,
+        (progress) => setReplayProgress(progress),
+      );
+      const comparison = await compareFieldAuditReplay(verification.auditPackage, rawResult);
+      setReplayComparison(comparison);
+      setReplayRunState("done");
+      setReplayProgress({
+        percent: 100,
+        label: comparison.status === "MATCH" ? "Replay sesuai" : "Replay berbeda",
+        detail: comparison.fingerprintMatch ? "Fingerprint accepted cocok" : "Fingerprint accepted tidak cocok",
+      });
+    } catch (error) {
+      setReplayRunState("error");
+      setReplayError(error instanceof Error ? error.message : "Replay physics gagal dijalankan.");
     }
   };
 
@@ -152,6 +214,42 @@ export function FieldAuditPanel() {
 
         <VerificationState verification={verification} />
       </div>
+
+      <div
+        className="mt-2 border-t border-border/45 pt-2"
+        data-p12-replay="true"
+        data-p12-replay-status={replayRunState === "done" ? replayComparison?.status ?? "ERROR" : replayRunState.toUpperCase()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 text-primary">
+              <RefreshCw className={cn("size-3.5", replayRunState === "running" && "animate-spin")} />
+              <p className="label-xs" style={{ color: "inherit" }}>Audit replay & reproducible re-run · P12</p>
+            </div>
+            <p className="mt-0.5 text-[7.5px] leading-relaxed text-muted-foreground">
+              Dataset hasil rekonstruksi P11 dijalankan ulang lewat Pandapower 3φ. Fresh result dibandingkan dengan accepted-result fingerprint tanpa mengaktifkan dataset replay atau mengubah KPI aktif.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void runReplay()}
+            disabled={!replayReady || replayRunState === "running"}
+            className="h-7 shrink-0 gap-1.5 bg-transparent px-2 text-[8.5px]"
+            data-p12-replay-start="true"
+          >
+            <RefreshCw className="size-3" /> {replayRunState === "running" ? "Replay…" : "Jalankan replay"}
+          </Button>
+        </div>
+
+        <ReplayState
+          runState={replayRunState}
+          progress={replayProgress}
+          comparison={replayComparison}
+          error={replayError}
+          ready={replayReady}
+        />
+      </div>
     </div>
   );
 }
@@ -167,11 +265,105 @@ function VerificationState({ verification }: { verification: FieldAuditVerificat
     );
   }
   return (
-    <div className={cn("mt-2 rounded border border-warn/30 bg-warn/5 px-2 py-1.5 text-warn")} data-p11-verification-status="INVALID">
+    <div className="mt-2 rounded border border-warn/30 bg-warn/5 px-2 py-1.5 text-warn" data-p11-verification-status="INVALID">
       <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><AlertTriangle className="size-3" /> PAKET TIDAK VALID</div>
       <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">{verification.errors[0] ?? "Integrity check gagal."}</p>
     </div>
   );
+}
+
+function ReplayState({ runState, progress, comparison, error, ready }: {
+  runState: ReplayRunState;
+  progress: { percent: number; label: string; detail: string };
+  comparison: FieldAuditReplayComparison | null;
+  error: string | null;
+  ready: boolean;
+}) {
+  if (runState === "idle") {
+    return (
+      <div className="mt-2 rounded border border-border/40 bg-background/25 px-2 py-1.5 text-[8px] text-muted-foreground" data-p12-replay-state="IDLE">
+        {ready ? "Paket valid siap direplay. Fresh solver run belum dijalankan." : "Import paket audit P11 yang valid untuk membuka replay physics."}
+      </div>
+    );
+  }
+
+  if (runState === "running") {
+    const percent = Math.max(0, Math.min(100, progress.percent));
+    return (
+      <div className="mt-2 rounded border border-primary/25 bg-primary/5 px-2 py-1.5" data-p12-replay-state="RUNNING" data-p12-replay-percent={percent.toFixed(2)}>
+        <div className="flex items-center justify-between gap-2 text-[8px]"><span className="font-semibold text-primary">{progress.label}</span><span className="numeric text-muted-foreground">{Math.round(percent)}%</span></div>
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-background/60"><div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${percent}%` }} /></div>
+        <p className="mt-1 text-[7.5px] text-muted-foreground">{progress.detail || "Pandapower 3φ menghitung ulang dataset hasil rekonstruksi."}</p>
+      </div>
+    );
+  }
+
+  if (runState === "error") {
+    return (
+      <div className="mt-2 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-destructive" data-p12-replay-state="ERROR">
+        <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><XCircle className="size-3" /> REPLAY GAGAL</div>
+        <p className="mt-0.5 text-[7.5px] leading-relaxed text-destructive/85">{error ?? "Mesin replay gagal dijalankan."}</p>
+      </div>
+    );
+  }
+
+  if (!comparison) return null;
+  const match = comparison.status === "MATCH";
+  return (
+    <div
+      className={cn("mt-2 rounded border px-2 py-1.5", match ? "border-success/30 bg-success/5 text-success" : "border-warn/30 bg-warn/5 text-warn")}
+      data-p12-replay-state={comparison.status}
+      data-p12-fingerprint-match={comparison.fingerprintMatch ? "true" : "false"}
+      data-p12-expected-hash={comparison.expectedSha256}
+      data-p12-replay-hash={comparison.replaySha256}
+    >
+      <div className="flex items-center gap-1.5 text-[8.5px] font-semibold">
+        {match ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
+        {match ? "REPLAY SESUAI" : "REPLAY BERBEDA"}
+      </div>
+      <p className="mt-0.5 text-[7.5px] leading-relaxed opacity-85">
+        {match
+          ? "Fresh Pandapower run mereproduksi accepted-result fingerprint P11 secara identik."
+          : "Fresh Pandapower run tidak mereproduksi accepted-result fingerprint. Paket tetap utuh, tetapi hasil physics perlu ditinjau."}
+      </p>
+      <div className="mt-1.5 grid grid-cols-2 gap-1 text-[7.5px]">
+        <ReplayCheck label="Fingerprint" pass={comparison.fingerprintMatch} />
+        <ReplayCheck label="Gate" pass={comparison.gateMatch} />
+        <ReplayCheck label="96 interval" pass={comparison.seriesCountMatch} />
+        <ReplayCheck label="Checks" pass={comparison.checksMatch} />
+        <ReplayCheck label="Provenance" pass={comparison.provenanceMatch} />
+        <ReplayCheck label="Summary shape" pass={comparison.summaryShapeMatch} />
+      </div>
+      <div className="mt-1.5 space-y-0.5">
+        {comparison.metrics.map((item) => (
+          <div
+            key={item.key}
+            className="flex items-center justify-between gap-2 rounded bg-background/25 px-1.5 py-1 text-[7px]"
+            data-p12-metric={item.key}
+            data-p12-metric-match={item.match ? "true" : "false"}
+            data-p12-metric-expected={item.expected ?? "null"}
+            data-p12-metric-actual={item.actual ?? "null"}
+          >
+            <span className="truncate">{item.label}</span>
+            <span className="numeric shrink-0">{formatMetric(item.actual)} {item.unit}</span>
+          </div>
+        ))}
+      </div>
+      <p className="numeric mt-1.5 truncate text-[6.5px] opacity-70">Expected {comparison.expectedSha256}</p>
+      <p className="numeric truncate text-[6.5px] opacity-70">Replay {comparison.replaySha256}</p>
+    </div>
+  );
+}
+
+function ReplayCheck({ label, pass }: { label: string; pass: boolean }) {
+  return <span className={cn("rounded border px-1.5 py-1", pass ? "border-success/25 bg-success/5" : "border-warn/25 bg-warn/5")}>{label} · {pass ? "COCOK" : "BEDA"}</span>;
+}
+
+function formatMetric(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  if (Math.abs(value) >= 100) return value.toFixed(3);
+  if (Math.abs(value) >= 1) return value.toFixed(6);
+  return value.toFixed(9);
 }
 
 function downloadText(filename: string, content: string, type: string) {
