@@ -1,0 +1,4 @@
+customer_id,bus_id,phase,meter_id,contract_kva,pf
+C-001,LVA,A,M-001,23,0.95
+C-002,LVB,B,M-002,23,0.95
+C-003,LVB,C,M-003,23,0.95
