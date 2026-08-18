@@ -35,6 +35,9 @@ jobs:
       - name: Security audit
         run: npm run security:audit
 
+      - name: Public release readiness contract
+        run: npm run release:check
+
       - name: Brand hygiene
         shell: bash
         run: |
@@ -60,11 +63,18 @@ jobs:
           test -f dist/.nojekyll
           test -f dist/favicon.svg
           test -f dist/sdl-worker.js
+          test -f dist/field-worker.js
           test -f dist/engine/p0a_engine.py
           test -f dist/engine/p0b_engine.py
           test -f dist/engine/p1_ground_truth.py
           test -f dist/engine/p2_degradation.py
           test -f dist/engine/p3_smart_calibration.py
+          test -f dist/engine/field_dataset_p5.py
+          test -f dist/LICENSE.txt
+          test -f dist/THIRD_PARTY_NOTICES.txt
+          grep -Fq "MIT License" dist/LICENSE.txt
+          grep -Fq "pandapower 3.1.2" dist/THIRD_PARTY_NOTICES.txt
+          grep -Fq "Pyodide 0.28.3" dist/THIRD_PARTY_NOTICES.txt
 
           owner="${GITHUB_REPOSITORY%%/*}"
           repo="${GITHUB_REPOSITORY#*/}"
@@ -77,6 +87,7 @@ jobs:
           echo "Expected Pages base: $expected_base"
           grep -Fq "${expected_base}assets/" dist/index.html
           grep -Fq "${expected_base}favicon.svg?v=3" dist/index.html
+          grep -Fq "Public Engineering Beta" dist/index.html
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

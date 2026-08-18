@@ -1,0 +1,2 @@
+timestamp,asset_id,measurement_type,phase,value,unit,quality
+00:00,GRID,P,ABC,31.0000,kW,GOOD

@@ -7,6 +7,8 @@ on:
       - "public/sdl-worker.js"
       - "public/field-worker.js"
       - "public/engine/**"
+      - "public/LICENSE.txt"
+      - "public/THIRD_PARTY_NOTICES.txt"
       - "src/main.tsx"
       - "src/App.tsx"
       - "src/styles.css"
@@ -58,10 +60,22 @@ on:
       - "tests/p10-field-correction-ci.mjs"
       - "tests/p11-audit-package-ci.mjs"
       - "tests/p13-unexplained-loss-ci.mjs"
+      - "tests/p14-public-release-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
+      - "examples/field-v1/**"
+      - "README.md"
+      - "AUDIT.md"
+      - "METHODOLOGY.md"
+      - "ENGINEERING_LIMITATIONS.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "LICENSE"
+      - "RELEASE_NOTES.md"
+      - "index.html"
       - ".github/workflows/browser-physics.yml"
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/public-beta-release.yml"
       - "package.json"
       - "vite.config.ts"
   pull_request:
@@ -70,6 +84,8 @@ on:
       - "public/sdl-worker.js"
       - "public/field-worker.js"
       - "public/engine/**"
+      - "public/LICENSE.txt"
+      - "public/THIRD_PARTY_NOTICES.txt"
       - "src/main.tsx"
       - "src/App.tsx"
       - "src/styles.css"
@@ -121,10 +137,22 @@ on:
       - "tests/p10-field-correction-ci.mjs"
       - "tests/p11-audit-package-ci.mjs"
       - "tests/p13-unexplained-loss-ci.mjs"
+      - "tests/p14-public-release-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
+      - "examples/field-v1/**"
+      - "README.md"
+      - "AUDIT.md"
+      - "METHODOLOGY.md"
+      - "ENGINEERING_LIMITATIONS.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "LICENSE"
+      - "RELEASE_NOTES.md"
+      - "index.html"
       - ".github/workflows/browser-physics.yml"
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/public-beta-release.yml"
       - "package.json"
       - "vite.config.ts"
   workflow_dispatch:
@@ -134,7 +162,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P13 unexplained energy intelligence · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P14 public release readiness · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 35
 
@@ -149,6 +177,9 @@ jobs:
 
       - name: Install application dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Prove P14 public release contract
+        run: npm run release:check
 
       - name: Build static application at root base
         env:

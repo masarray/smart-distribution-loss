@@ -1,0 +1,20 @@
+SMART DISTRIBUTION LOSS — THIRD-PARTY NOTICES
+
+Project license: MIT. See LICENSE.txt.
+
+Major browser runtime components:
+- Pyodide 0.28.3 — Mozilla Public License 2.0 — https://github.com/pyodide/pyodide
+- pandapower 3.1.2 — BSD 3-Clause — https://github.com/e2nIEE/pandapower
+
+Major JavaScript/UI dependencies declared by the project include:
+- React / React DOM — MIT — https://github.com/facebook/react
+- Radix UI primitives — MIT — https://github.com/radix-ui/primitives
+- Recharts — MIT — https://github.com/recharts/recharts
+- Lucide — ISC, with portions derived from Feather Icons under MIT — https://github.com/lucide-icons/lucide
+- clsx — MIT — https://github.com/lukeed/clsx
+- tailwind-merge — MIT — https://github.com/dcastil/tailwind-merge
+- class-variance-authority — MIT — https://github.com/joe-bell/cva
+
+Additional Python packages are loaded by Pyodide or installed with micropip as required by pandapower and the browser adapter. Build-time JavaScript tooling and transitive dependencies remain under their own upstream license terms.
+
+This file is an attribution index, not a replacement for upstream license files. Redistributors of modified/offline/vendor-bundled packages must review the exact dependency set they ship and preserve all required notices.
