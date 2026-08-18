@@ -33,21 +33,48 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Siap menjalankan simulasi", "Ready to run simulation"],
   ["hasil siap", "results ready"],
   ["Kualitas data aset", "Asset data quality"],
+  ["Data lengkap", "Complete data"],
+  ["Data cukup", "Adequate data"],
+  ["Data terbatas", "Limited data"],
   ["Lihat data", "View data"],
   ["Jaringan distribusi", "Distribution network"],
+  ["Penyulang 20 kV", "20 kV feeder"],
+  ["3 JTR", "3 LV feeders"],
+  ["GI 150/20 kV", "Grid substation 150/20 kV"],
+  ["Masuk dari GI", "Grid substation incoming"],
+  ["QF-01 / PMT", "QF-01 / CB"],
   ["Profil susut", "Loss profile"],
   ["Puncak susut", "Peak loss"],
   ["Selisih terbesar", "Largest deviation"],
   ["Model dasar", "Baseline model"],
   ["Aset terpilih", "Selected asset"],
+  ["Status aset", "Asset status"],
   ["Total Penyulang 20 kV", "20 kV feeder total"],
   ["Total penyulang", "Feeder total"],
   ["Total harian", "Daily total"],
+  ["Gardu distribusi", "Distribution substation"],
   ["Susut teknis", "Technical loss"],
   ["Susut Smart", "Smart loss"],
   ["Susut dasar", "Baseline loss"],
-  ["susut teknis", "technical loss"],
+  ["Rasio susut", "Loss ratio"],
+  ["Kontribusi susut", "Loss contribution"],
   ["kWh/hari", "kWh/day"],
+  ["24 jam", "24 hours"],
+  ["Faktor daya", "Power factor"],
+  ["Pemetaan pelanggan", "Customer mapping"],
+  ["Pemetaan jaringan", "Network mapping"],
+  ["Beban terukur", "Measured load"],
+  ["Data pelanggan TM", "MV customer data"],
+  ["Meter GD-01", "GD-01 meters"],
+  ["Data fasa GD-01", "GD-01 phase data"],
+  ["Pemetaan GD-01", "GD-01 mapping"],
+  ["energi tersalurkan", "supplied energy"],
+  ["poin akurasi", "accuracy points"],
+  ["Detail teknis", "Technical details"],
+  ["Legenda", "Legend"],
+  ["aliran daya", "power flow"],
+  ["plg", "cust."],
+  ["TR/JTR", "LV"],
   ["Dataset lapangan v1", "Field Dataset v1"],
   ["Cockpit sedang memakai hasil lapangan yang sudah lulus.", "Cockpit is using a validated field result."],
   ["Cockpit tetap memakai demo sampai hasil lapangan diaktifkan.", "Cockpit keeps using the demo until a field result is activated."],
@@ -86,6 +113,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Menghitung interval", "Calculating intervals"],
   ["Menyiapkan hasil", "Preparing results"],
   ["Belum dijalankan", "Not run yet"],
+  ["Belum dihitung", "Not calculated"],
   ["PERHITUNGAN LULUS", "CALCULATION PASSED"],
   ["PERLU TINJAU", "REVIEW REQUIRED"],
   ["interval selesai", "intervals complete"],
@@ -144,7 +172,6 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Referensi TM", "MV reference"],
   ["Prioritas investigasi", "Investigation priority"],
   ["Bukti lapangan", "Field evidence"],
-  ["Kontribusi susut", "Loss contribution"],
   ["Tegangan terendah", "Lowest voltage"],
   ["Loading maksimum", "Maximum loading"],
   ["interval terburuk", "worst intervals"],
@@ -167,27 +194,21 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Pemetaan", "Mapping"],
   ["Penyulang", "Feeder"],
   ["Pelanggan", "Customers"],
-  ["pelanggan", "customers"],
   ["Gardu", "Distribution substation"],
   ["Trafo", "Transformer"],
   ["Tegangan", "Voltage"],
-  ["tegangan", "voltage"],
   ["Beban", "Load"],
-  ["beban", "load"],
   ["Fasa", "Phase"],
-  ["fasa", "phase"],
   ["saluran", "line"],
   ["Daya", "Power"],
   ["Sumber", "Source"],
   ["Waktu", "Time"],
   ["Hasil", "Results"],
-  ["hasil", "results"],
   ["Puncak", "Peak"],
   ["Baik", "Good"],
   ["Cukup", "Typical"],
   ["Terbatas", "Limited"],
   ["Selesai", "Complete"],
-  ["selesai", "complete"],
   ["Catatan", "Notes"],
   ["Periksa", "Check"],
   ["Lokasi", "Location"],
@@ -198,6 +219,41 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Dipilih", "Selected"],
   ["Detail", "Details"],
   ["menit", "minutes"],
+  ["Aset", "Asset"],
+  ["Validasi", "Validation"],
+  ["Perhatian", "Attention"],
+  ["Tinjau", "Review"],
+  ["Siap", "Ready"],
+  ["Dasar", "Basis"],
+  ["Tindakan", "Action"],
+  ["Susut", "Loss"],
+  ["TM", "MV"],
+  ["Kualitas input membatasi keyakinan hasil", "Input quality limits result confidence"],
+  ["menjadi batas utama kualitas data aset ini.", "are the main constraints on this asset's data quality."],
+  ["Kualitas input belum cukup kuat untuk keputusan lapangan tanpa verifikasi tambahan.", "Input quality is not yet strong enough for field decisions without additional verification."],
+  ["Lengkapi atau verifikasi faktor daya pelanggan yang belum diketahui, lalu jalankan kembali simulasi.", "Complete or verify unknown customer power factor values, then rerun the simulation."],
+  ["Verifikasi fasa pelanggan yang belum diketahui, lalu jalankan kembali simulasi.", "Verify customers with unknown phase assignment, then rerun the simulation."],
+  ["Lengkapi interval meter/AMI yang hilang sebelum menggunakan hasil untuk keputusan lapangan.", "Complete missing meter/AMI intervals before using the results for field decisions."],
+  ["Verifikasi pemetaan pelanggan ke cabang yang benar sebelum menggunakan hasil untuk tindakan lapangan.", "Verify customer-to-branch mapping before using the results for field actions."],
+  ["Periksa sinkronisasi waktu pencatatan dan koreksi stream yang bergeser.", "Check timestamp synchronization and correct shifted data streams."],
+  ["Verifikasi topologi jaringan dan koneksi aset sebelum menjalankan ulang simulasi.", "Verify network topology and asset connectivity before rerunning the simulation."],
+  ["Lengkapi pengukuran daya aktif dan reaktif pada interval yang belum terobservasi.", "Complete active and reactive power measurements for unobserved intervals."],
+  ["Perbaiki data dengan cakupan terendah terlebih dahulu, lalu jalankan kembali simulasi.", "Improve the lowest-coverage data first, then rerun the simulation."],
+  ["Belum ada hasil untuk dinilai", "No results are available yet"],
+  ["Rekomendasi operasional tersedia setelah simulasi menghasilkan dasar penilaian untuk aset terpilih.", "Operational guidance becomes available after the simulation produces an assessment basis for the selected asset."],
+  ["Jalankan simulasi untuk membentuk rekomendasi operasional.", "Run the simulation to generate operational guidance."],
+  ["Hasil memerlukan tinjauan teknis", "Results require technical review"],
+  ["Satu atau lebih pemeriksaan teknis belum memenuhi kriteria penerimaan.", "One or more technical checks have not met the acceptance criteria."],
+  ["Pemeriksaan teknis belum lulus.", "Technical checks have not passed."],
+  ["Buka Detail teknis dan selesaikan pemeriksaan yang belum lulus sebelum memakai hasil untuk keputusan lapangan.", "Open Technical details and resolve failed checks before using the results for field decisions."],
+  ["Tidak ada isu utama pada aset ini", "No major issues detected for this asset"],
+  ["Pemeriksaan teknis lulus dan kualitas input cukup untuk membaca hasil operasional.", "Technical checks passed and input quality is sufficient for operational interpretation."],
+  ["Kualitas input terendah", "Lowest input quality"],
+  ["Lanjutkan review profil susut dan interval puncak; buka Detail teknis hanya bila perlu verifikasi lebih dalam.", "Continue reviewing the loss profile and peak intervals; open Technical details only when deeper verification is needed."],
+  ["Menunggu hasil simulasi.", "Waiting for simulation results."],
+  ["Engineering gate memerlukan review.", "Engineering gate requires review."],
+  ["Hasil tersedia, tetapi kualitas input perlu perhatian.", "Results are available, but input quality needs attention."],
+  ["Gate lulus dan kualitas input memadai.", "Gate passed and input quality is adequate."],
 ] as const;
 
 const SORTED_TEXT_PAIRS = [...TEXT_PAIRS].sort((a, b) => b[0].length - a[0].length);
@@ -214,15 +270,22 @@ function phrasePattern(source: string) {
   const last = source[source.length - 1] ?? "";
   const startsWord = /[A-Za-z0-9]/.test(first);
   const endsWord = /[A-Za-z0-9]/.test(last);
-  return new RegExp(`${startsWord ? "\\b" : ""}${escapeRegExp(source)}${endsWord ? "\\b" : ""}`, "g");
+  return new RegExp(`${startsWord ? "\\b" : ""}${escapeRegExp(source)}${endsWord ? "\\b" : ""}`, "gi");
+}
+
+function applyReplacementCase(match: string, replacement: string) {
+  const letters = match.replace(/[^A-Za-z]/g, "");
+  if (!letters) return replacement;
+  if (letters === letters.toUpperCase()) return replacement.toUpperCase();
+  if (letters === letters.toLowerCase()) return replacement.toLowerCase();
+  return replacement;
 }
 
 export function translateUiText(value: string, language: AppLanguage) {
   if (language === "id" || !value.trim()) return value;
   let translated = value;
   for (const [idText, enText] of SORTED_TEXT_PAIRS) {
-    if (!translated.includes(idText)) continue;
-    translated = translated.replace(phrasePattern(idText), enText);
+    translated = translated.replace(phrasePattern(idText), (match) => applyReplacementCase(match, enText));
   }
   return translated;
 }
@@ -247,8 +310,6 @@ function translateTextNode(node: Text, language: AppLanguage) {
     if (expectedEnglish !== remembered && current === expectedEnglish) {
       node.data = remembered;
     } else if (current !== remembered) {
-      // React produced new Indonesian source copy; keep the new source instead of
-      // restoring the previous render. This is essential for live asset/status updates.
       originalText.set(node, current);
     }
     return;
@@ -326,9 +387,6 @@ function translateSubtree(root: Node, language: AppLanguage) {
 
 function installDomTranslation(language: AppLanguage) {
   translateSubtree(document.body, language);
-
-  // Indonesian is the source language. Once an English view is restored there is
-  // nothing to observe, keeping the default/local path effectively zero-overhead.
   if (language === "id") return () => undefined;
 
   const observer = new MutationObserver((mutations) => {
