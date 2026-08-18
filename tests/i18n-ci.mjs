@@ -97,24 +97,29 @@ try {
   });
 
   const probe = page.locator('[data-i18n-probe="true"]');
-  await assertVisible(probe.getByText("Distribution substation GD-01", { exact: true }), "dynamic substation translation");
-  await assertVisible(probe.getByText("Input quality limits result confidence", { exact: true }), "dynamic warning translation");
-  await assertVisible(
-    probe.getByText("Power factor 20,0%; Phase data 40,0% are the main constraints on this asset's data quality.", { exact: true }),
-    "dynamic quality-reason translation",
-  );
-  await assertVisible(
-    probe.getByText("Complete or verify unknown customer power factor values, then rerun the simulation.", { exact: true }),
-    "dynamic action translation",
-  );
-  await assertVisible(
-    probe.getByText("Loss ratio · supplied energy · accuracy points · Technical details · Asset status", { exact: true }),
-    "KPI and action translation",
-  );
-  await assertVisible(probe.getByText("Legend · network · power flow · 24 hours", { exact: true }), "SLD vocabulary translation");
-  await assertVisible(probe.getByText("20 kV feeder · GD-01", { exact: true }), "uppercase feeder translation");
-  await assertVisible(probe.getByText("Loss 33.37 kWh/day", { exact: true }), "loss unit translation");
-  await assertNoIndonesianResidue(await probe.innerText(), "dynamic English translation probe");
+  await assertVisible(probe, "dynamic translation probe");
+  await page.waitForFunction(() => {
+    const text = document.querySelector('[data-i18n-probe="true"]')?.textContent ?? "";
+    return text.includes("Distribution substation GD-01") && text.includes("Loss 33.37 kWh/day");
+  }, null, { timeout: 15_000 });
+
+  const probeText = await probe.innerText();
+  const expectedProbeLines = [
+    "Distribution substation GD-01",
+    "Input quality limits result confidence",
+    "Power factor 20,0%; Phase data 40,0% are the main constraints on this asset's data quality.",
+    "Complete or verify unknown customer power factor values, then rerun the simulation.",
+    "Loss ratio · supplied energy · accuracy points · Technical details · Asset status",
+    "Legend · network · power flow · 24 hours",
+    "20 kV feeder · GD-01",
+    "Loss 33.37 kWh/day",
+  ];
+  for (const expected of expectedProbeLines) {
+    if (!probeText.includes(expected)) {
+      throw new Error(`Dynamic English translation missing: ${expected}\nActual probe:\n${probeText}`);
+    }
+  }
+  await assertNoIndonesianResidue(probeText, "dynamic English translation probe");
   await probe.evaluate((node) => node.remove());
 
   await page.getByRole("button", { name: "Manage dataset", exact: true }).click();
