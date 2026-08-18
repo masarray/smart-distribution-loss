@@ -26,6 +26,7 @@ on:
       - "src/components/sdl/FieldOperationalCockpit.tsx"
       - "src/components/sdl/FieldOperationalCockpitP5.tsx"
       - "src/components/sdl/FieldTopologyDiagram.tsx"
+      - "src/components/sdl/FieldUnexplainedLossPanel.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
       - "src/components/sdl/OperatorDecisionStrip.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
@@ -43,6 +44,7 @@ on:
       - "src/lib/sdl/fieldMeasurement.ts"
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
+      - "src/lib/sdl/fieldUnexplainedLoss.ts"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
@@ -55,6 +57,7 @@ on:
       - "tests/p9-field-measurement-ci.mjs"
       - "tests/p10-field-correction-ci.mjs"
       - "tests/p11-audit-package-ci.mjs"
+      - "tests/p13-unexplained-loss-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -86,6 +89,7 @@ on:
       - "src/components/sdl/FieldOperationalCockpit.tsx"
       - "src/components/sdl/FieldOperationalCockpitP5.tsx"
       - "src/components/sdl/FieldTopologyDiagram.tsx"
+      - "src/components/sdl/FieldUnexplainedLossPanel.tsx"
       - "src/components/sdl/LossProfileChart.tsx"
       - "src/components/sdl/OperatorDecisionStrip.tsx"
       - "src/components/sdl/SingleLineDiagram.tsx"
@@ -103,6 +107,7 @@ on:
       - "src/lib/sdl/fieldMeasurement.ts"
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
+      - "src/lib/sdl/fieldUnexplainedLoss.ts"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
@@ -115,6 +120,7 @@ on:
       - "tests/p9-field-measurement-ci.mjs"
       - "tests/p10-field-correction-ci.mjs"
       - "tests/p11-audit-package-ci.mjs"
+      - "tests/p13-unexplained-loss-ci.mjs"
       - "tests/operation-hierarchy-ci.mjs"
       - "tests/operator-decision-ci.mjs"
       - "tests/operational-sld-ci.mjs"
@@ -128,9 +134,9 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P12 reproducible audit replay · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P13 unexplained energy intelligence · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -218,6 +224,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/p11-audit-package-ci.mjs
+
+      - name: Prove P13 technical-loss freeze, unexplained residual, and no-theft-overclaim policy
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/p13-unexplained-loss-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:

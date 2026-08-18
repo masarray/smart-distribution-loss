@@ -1,7 +1,10 @@
 import { Check, ClipboardCheck, Clock3, Route } from "lucide-react";
 import { FieldAuditPanel } from "@/components/sdl/FieldAuditPanel";
 import { FieldMeasurementWorkspace } from "@/components/sdl/FieldMeasurementWorkspace";
+import { FieldUnexplainedLossPanel } from "@/components/sdl/FieldUnexplainedLossPanel";
 import type { FieldInvestigationPlan } from "@/lib/sdl/fieldInvestigation";
+import { openDatasetManager, useFieldOperationalSession } from "@/lib/sdl/fieldOperational";
+import { deriveFieldUnexplainedLoss } from "@/lib/sdl/fieldUnexplainedLoss";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -14,7 +17,8 @@ export function FieldInvestigationPanel({ plan, completedIds, onToggle }: Props)
   if (!plan) {
     return (
       <>
-        <div className="rounded-md border border-primary/15 bg-primary/5 p-2.5" data-p8-investigation="true" data-p8-ready="false">
+        <P13Layer />
+        <div className="mt-2 rounded-md border border-primary/15 bg-primary/5 p-2.5" data-p8-investigation="true" data-p8-ready="false">
           <div className="flex items-center gap-1.5 text-primary">
             <ClipboardCheck className="size-3.5" />
             <p className="label-xs" style={{ color: "inherit" }}>Investigasi lapangan · P8</p>
@@ -36,8 +40,9 @@ export function FieldInvestigationPanel({ plan, completedIds, onToggle }: Props)
 
   return (
     <>
+      <P13Layer />
       <div
-        className="rounded-md border border-primary/20 bg-primary/[0.035] p-2.5"
+        className="mt-2 rounded-md border border-primary/20 bg-primary/[0.035] p-2.5"
         data-p8-investigation="true"
         data-p8-ready="true"
         data-p8-element-id={plan.elementId}
@@ -106,6 +111,12 @@ export function FieldInvestigationPanel({ plan, completedIds, onToggle }: Props)
       <FieldAuditPanel />
     </>
   );
+}
+
+function P13Layer() {
+  const session = useFieldOperationalSession();
+  if (!session) return null;
+  return <FieldUnexplainedLossPanel report={deriveFieldUnexplainedLoss(session)} onOpenDataset={openDatasetManager} />;
 }
 
 function EvidenceCard({ label, value, detail, dataName, numericValue, time }: { label: string; value: string; detail: string; dataName: string; numericValue?: number | undefined; time?: string | undefined }) {
