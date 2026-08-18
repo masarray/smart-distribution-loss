@@ -12,11 +12,12 @@ import {
 import {
   runFieldAuditReplay,
   type FieldAuditReplayReport,
+  type FieldAuditReplayStatus,
 } from "@/lib/sdl/fieldAuditReplay";
 import { useFieldOperationalSession } from "@/lib/sdl/fieldOperational";
 import { cn } from "@/lib/utils";
 
-type ReplayUiState = "IDLE" | "RUNNING" | "MATCH" | "DIFFERENT" | "ERROR";
+type ReplayUiState = "IDLE" | "RUNNING" | FieldAuditReplayStatus | "ERROR";
 
 export function FieldAuditPanel() {
   const session = useFieldOperationalSession();
@@ -242,6 +243,8 @@ function ReplayState({
       data-p12-accepted-integrity-hash={acceptedIntegrityHash || undefined}
       data-p12-expected-physics-hash={expectedPhysicsHash || undefined}
       data-p12-actual-physics-hash={actualPhysicsHash || undefined}
+      data-p12-accepted-engine-hash={report?.acceptedEngineSha256 || undefined}
+      data-p12-replay-engine-hash={report?.replayEngineSha256 || undefined}
       data-p12-replay-raw-hash={report?.replayRawSha256 || undefined}
       data-p12-series-count={report?.seriesCount ?? undefined}
     >
@@ -279,34 +282,57 @@ function ReplayState({
         </div>
       )}
 
-      {state === "IDLE" && <p className="mt-2 text-[8px] text-muted-foreground">Paket sudah lolos integrity check. Jalankan replay untuk membuktikan fingerprint physics dapat direproduksi. Metadata audit P10 tidak dipakai sebagai physics fingerprint.</p>}
+      {state === "IDLE" && <p className="mt-2 text-[8px] text-muted-foreground">Paket sudah lolos integrity check. Replay membedakan hasil identik, numerical drift dengan identity engine yang sama, dan engine drift bila identity/provenance solver berubah. Metadata audit P10 tidak dipakai sebagai physics fingerprint.</p>}
 
       {state === "MATCH" && report && (
         <div className="mt-2 rounded border border-success/30 bg-success/5 px-2 py-1.5 text-success" data-p12-result="MATCH">
-          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><FileCheck2 className="size-3" /> REPLAY SESUAI · {report.seriesCount}/96 interval</div>
+          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><FileCheck2 className="size-3" /> REPRODUCIBLE · {report.seriesCount}/96 interval</div>
           <p className="mt-0.5 text-[7.5px] leading-relaxed text-success/85">Fresh Pandapower result menghasilkan canonical physics fingerprint yang sama persis: gate, seluruh summary, checks, solver provenance non-audit, dan jumlah interval cocok.</p>
           <p className="numeric mt-1 truncate text-[7px] text-success/75">Physics SHA-256 · {report.actualPhysicsSha256}</p>
           <p className="numeric mt-0.5 truncate text-[7px] text-muted-foreground">P11 integrity SHA tetap · {report.acceptedIntegritySha256}</p>
         </div>
       )}
 
-      {state === "DIFFERENT" && report && (
-        <div className="mt-2 rounded border border-warn/30 bg-warn/5 px-2 py-1.5 text-warn" data-p12-result="DIFFERENT">
-          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><AlertTriangle className="size-3" /> REPLAY BERBEDA</div>
-          <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">Dataset lolos P11, tetapi fresh solver tidak menghasilkan canonical physics fingerprint yang sama. Tinjau solver/provenance sebelum memakai paket sebagai bukti reproduksi.</p>
-          <div className="mt-1 max-h-20 space-y-0.5 overflow-auto">
-            {report.deltas.map((item) => (
-              <p key={item.key} className="numeric text-[7px] text-warn/80" data-p12-delta={item.key} data-p12-delta-value={item.delta}>
-                {item.label}: Δ {formatDelta(item.delta)} {item.unit}
-              </p>
-            ))}
+      {state === "NUMERICAL_DRIFT" && report && (
+        <div className="mt-2 rounded border border-warn/30 bg-warn/5 px-2 py-1.5 text-warn" data-p12-result="NUMERICAL_DRIFT">
+          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><AlertTriangle className="size-3" /> NUMERICAL DRIFT</div>
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-warn/85">Identity engine/provenance yang dideklarasikan tetap sama, tetapi fresh replay menghasilkan physics fingerprint berbeda. Tinjau perubahan numerik/runtime sebelum memakai paket sebagai bukti reproduksi.</p>
+          <ReplayDeltas report={report} />
+        </div>
+      )}
+
+      {state === "ENGINE_DRIFT" && report && (
+        <div className="mt-2 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-destructive" data-p12-result="ENGINE_DRIFT">
+          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold"><AlertTriangle className="size-3" /> ENGINE DRIFT</div>
+          <p className="mt-0.5 text-[7.5px] leading-relaxed text-destructive/85">Identity/provenance engine yang dideklarasikan berbeda antara hasil accepted dan replay. Status ini tidak mengklaim binary/code hash bila engine tidak mempublikasikan version/hash; ia menandai perubahan identity yang tersedia di provenance.</p>
+          <div className="mt-1 grid grid-cols-2 gap-1 text-[7px]">
+            <p className="truncate rounded bg-background/30 px-1.5 py-1" data-p12-engine-accepted="true">Accepted · {formatEngineIdentity(report.acceptedEngineIdentity)}</p>
+            <p className="truncate rounded bg-background/30 px-1.5 py-1" data-p12-engine-replay="true">Replay · {formatEngineIdentity(report.replayEngineIdentity)}</p>
           </div>
+          <ReplayDeltas report={report} />
         </div>
       )}
 
       {state === "ERROR" && <p className="mt-2 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-[8px] text-destructive" data-p12-result="ERROR">{error ?? "Replay physics gagal."}</p>}
     </div>
   );
+}
+
+function ReplayDeltas({ report }: { report: FieldAuditReplayReport }) {
+  return (
+    <div className="mt-1 max-h-20 space-y-0.5 overflow-auto">
+      {report.deltas.map((item) => (
+        <p key={item.key} className="numeric text-[7px] opacity-85" data-p12-delta={item.key} data-p12-delta-value={item.delta}>
+          {item.label}: Δ {formatDelta(item.delta)} {item.unit}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function formatEngineIdentity(identity: Record<string, string>) {
+  const entries = Object.entries(identity);
+  return entries.length ? entries.map(([key, value]) => `${key}=${value}`).join(" · ") : "identity tidak dipublikasikan";
 }
 
 function formatDelta(value: number) {
