@@ -17,6 +17,7 @@ on:
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
+      - "src/components/sdl/LanguageControl.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
       - "src/components/sdl/FieldAuditPanel.tsx"
       - "src/components/sdl/FieldCorrectionPanel.tsx"
@@ -47,6 +48,7 @@ on:
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/fieldUnexplainedLoss.ts"
+      - "src/lib/sdl/i18n.tsx"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/plnSampleDataset.ts"
       - "src/lib/sdl/useEngine.ts"
@@ -55,6 +57,7 @@ on:
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/i18n-ci.mjs"
       - "tests/pln-sample-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
       - "tests/p8-investigation-ci.mjs"
@@ -96,6 +99,7 @@ on:
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
+      - "src/components/sdl/LanguageControl.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
       - "src/components/sdl/FieldAuditPanel.tsx"
       - "src/components/sdl/FieldCorrectionPanel.tsx"
@@ -126,6 +130,7 @@ on:
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/fieldUnexplainedLoss.ts"
+      - "src/lib/sdl/i18n.tsx"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/plnSampleDataset.ts"
       - "src/lib/sdl/useEngine.ts"
@@ -134,6 +139,7 @@ on:
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/i18n-ci.mjs"
       - "tests/pln-sample-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
       - "tests/p8-investigation-ci.mjs"
@@ -166,7 +172,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P14 public release readiness · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P15 global public readiness · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 40
 
@@ -210,69 +216,74 @@ jobs:
           cat /tmp/sdl-http.log
           exit 1
 
-      - name: Prove explicit Data & Input drawer interaction
+      - name: Prove P15 dual-language public UI and permissionless locale handling
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/i18n-ci.mjs
+
+      - name: Prove explicit Data & Input drawer interaction
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/data-drawer-ci.mjs
 
       - name: Prove operator-first hierarchy and Engineering View separation
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/operation-hierarchy-ci.mjs
 
       - name: Prove P3 evidence-backed operator decisions
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/operator-decision-ci.mjs
 
       - name: Prove operational SLD and M4 manager intelligence
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/operational-sld-ci.mjs
 
       - name: Prove PLN-like sample import, ABC loads, 96-interval physics, and cockpit activation
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/pln-sample-ci.mjs
 
       - name: Prove P6 topology scale, activation gate, navigation, and visible electrical flow
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/field-dataset-ci.mjs
 
       - name: Prove P7 asset intelligence, AC source symbol, and transformer flow continuity
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/p7-field-intelligence-ci.mjs
 
       - name: Prove P8 investigation evidence, related route, and manual checklist workflow
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/p8-investigation-ci.mjs
 
       - name: Prove P9 interval-aligned field measurement reconciliation without physics mutation
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/p9-field-measurement-ci.mjs
 
       - name: Prove P10 versioned verified correction, isolated rerun, before-after comparison, and explicit adoption
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/p10-field-correction-ci.mjs
 
       - name: Prove P11 integrity plus P12 deterministic physics replay and About identity
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/p11-audit-package-ci.mjs
 
       - name: Prove P13 technical-loss freeze, unexplained residual, and no-theft-overclaim policy
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
         run: node tests/p13-unexplained-loss-ci.mjs
 
       - name: Run real browser physics gate + warm benchmark
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
           SDL_TIMEOUT_MS: "600000"
           SDL_ARTIFACT_DIR: artifacts/browser-physics
           SDL_EXPECTED_PANDAPOWER: "3.1.2"
@@ -280,7 +291,7 @@ jobs:
 
       - name: Prove unified 15-minute data contract and independent MV assets
         env:
-          SDL_BASE_URL: http://127.0.0.1:8000/
+          SDL_BASE_URL: http://127.0.0.1:8000/?lang=id
           SDL_TIMEOUT_MS: "600000"
           SDL_ARTIFACT_DIR: artifacts/browser-physics
         run: node tests/mv-independence-ci.mjs
