@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Cpu, Database, FileCheck2, Network, RotateCcw, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Cpu, Database, Download, FileCheck2, Network, RotateCcw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ import {
   useFieldOperationalSession,
 } from "@/lib/sdl/fieldOperational";
 import { buildFieldTopology } from "@/lib/sdl/fieldTopology";
+import { createPlnSampleFiles, downloadPlnSampleCsv, PLN_SAMPLE_META } from "@/lib/sdl/plnSampleDataset";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -48,7 +49,10 @@ export function DatasetManager({ open, onOpenChange }: Props) {
     return () => window.removeEventListener("sdl-open-dataset-manager", openManager);
   }, [onOpenChange]);
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = async (
+    files: FileList | File[] | null,
+    sourceLabel = "Imported Field Dataset",
+  ) => {
     if (!files?.length) return;
     clearFieldOperational();
     setImporting(true);
@@ -58,10 +62,14 @@ export function DatasetManager({ open, onOpenChange }: Props) {
     setRunState("idle");
     setRunProgress({ percent: 0, label: "Belum dijalankan", detail: "" });
     try {
-      setFieldImport(await importFieldDataset(files));
+      setFieldImport(await importFieldDataset(files, sourceLabel));
     } finally {
       setImporting(false);
     }
+  };
+
+  const loadPlnSample = () => {
+    void handleFiles(createPlnSampleFiles(), PLN_SAMPLE_META.sourceLabel);
   };
 
   const getWorker = () => {
@@ -149,7 +157,7 @@ export function DatasetManager({ open, onOpenChange }: Props) {
             </div>
 
             <DrawerSection>
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="label-xs">Impor dataset lapangan</p>
                   <p className="mt-1 text-sm font-medium">4 CSV · satu rentang 24 jam</p>
@@ -157,20 +165,52 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                     File dibaca lokal di browser. Memilih import baru akan menonaktifkan Field Mode lama agar cockpit tidak pernah menampilkan hasil yang sudah tidak sesuai dengan dataset yang sedang diperiksa.
                   </p>
                 </div>
-                <label className="shrink-0">
-                  <input
-                    className="sr-only"
-                    type="file"
-                    accept=".csv,text/csv"
-                    multiple
-                    onChange={(event) => void handleFiles(event.target.files)}
-                    data-field-files="true"
-                  />
-                  <span className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border/70 bg-transparent px-3 text-xs font-medium text-foreground transition-colors hover:border-primary/30 hover:bg-surface">
-                    <Upload className="size-3.5" />
-                    {importing ? "Membaca…" : "Pilih 4 CSV"}
-                  </span>
-                </label>
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 bg-transparent px-2.5 text-xs"
+                    onClick={loadPlnSample}
+                    disabled={importing || runState === "running"}
+                    data-load-pln-sample="true"
+                  >
+                    <Database className="size-3.5" />
+                    Muat contoh PLN
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 bg-transparent px-2.5 text-xs"
+                    onClick={downloadPlnSampleCsv}
+                    disabled={runState === "running"}
+                    data-download-pln-sample="true"
+                  >
+                    <Download className="size-3.5" />
+                    Unduh 4 CSV
+                  </Button>
+                  <label className="shrink-0">
+                    <input
+                      className="sr-only"
+                      type="file"
+                      accept=".csv,text/csv"
+                      multiple
+                      onChange={(event) => void handleFiles(event.target.files)}
+                      data-field-files="true"
+                    />
+                    <span className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border/70 bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:border-primary/30 hover:bg-surface">
+                      <Upload className="size-3.5" />
+                      {importing ? "Membaca…" : "Pilih 4 CSV"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5" data-pln-sample-note="true">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-xs font-medium text-foreground">{PLN_SAMPLE_META.title}</span>
+                  <span className="numeric text-[10px] text-primary">{PLN_SAMPLE_META.detail}</span>
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{PLN_SAMPLE_META.disclaimer}</p>
               </div>
 
               <div className="mt-4 grid gap-2">
@@ -193,6 +233,9 @@ export function DatasetManager({ open, onOpenChange }: Props) {
                       <p className={cn("mt-0.5 text-sm font-semibold", report.solverReady ? "text-success" : report.valid ? "text-warn" : "text-destructive")}>
                         {report.solverReady ? "SIAP DIHITUNG" : report.valid ? "VALID · DATA BELUM LENGKAP" : "PERIKSA STRUKTUR DATA"}
                       </p>
+                      {fieldImport?.dataset?.source_label && (
+                        <p className="mt-0.5 text-[10px] text-muted-foreground" data-field-source-label="true">{fieldImport.dataset.source_label}</p>
+                      )}
                     </div>
                   </div>
                   <span className="numeric text-[10px] text-muted-foreground">96 × 15 menit</span>
@@ -373,6 +416,9 @@ export function DatasetManager({ open, onOpenChange }: Props) {
 
             <div className="mt-3 rounded-lg border border-border/45 bg-surface-2/25 p-3 text-xs leading-relaxed text-muted-foreground">
               <span className="font-medium text-foreground">Batas topology saat ini:</span> cockpit operasional mengaktifkan jaringan radial yang tervalidasi. Mesh/loop, multi-parent, elemen terputus, atau pelanggan di luar jaringan tetap diblokir dan ditunjukkan lokasinya sebelum aktivasi.
+            </div>
+            <div className="mt-2 rounded-lg border border-border/45 bg-surface-2/25 p-3 text-[10px] leading-relaxed text-muted-foreground" data-field-phase-note="true">
+              <span className="font-medium text-foreground">Mapping fasa:</span> A/B/C tetap dibaca per fasa. Untuk AB/BC/CA/ABC, nilai <span className="numeric">p_kw</span> dan <span className="numeric">q_kvar</span> pada AMI dibaca sebagai total meter dan dibagi merata ke fasa yang dideklarasikan. Gunakan data per-fasa terpisah bila diperlukan untuk studi ketidakseimbangan yang lebih detail.
             </div>
             <div className="h-1" />
           </div>

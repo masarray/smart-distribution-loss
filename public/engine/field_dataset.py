@@ -220,6 +220,14 @@ def _measurement_lookup(dataset, source_id):
     return result
 
 
+def _active_phases(phase_code):
+    normalized = str(phase_code or "").upper()
+    phases = [phase.lower() for phase in PHASES if phase in normalized]
+    if not phases:
+        raise ValueError(f"unsupported customer phase code: {phase_code}")
+    return phases
+
+
 def _set_interval_loads(net, metadata, ami, interval):
     total_kw = 0.0
     total_kvar = 0.0
@@ -237,10 +245,13 @@ def _set_interval_loads(net, metadata, ami, interval):
             q_kvar = p_kw * math.tan(math.acos(pf))
         else:
             q_kvar = float(q_raw)
-        phase = metadata["customer_by_meter"][meter_id]["phase"].lower()
+        customer = metadata["customer_by_meter"][meter_id]
+        active_phases = _active_phases(customer["phase"])
+        p_phase_mw = p_kw / len(active_phases) / 1000.0
+        q_phase_mvar = q_kvar / len(active_phases) / 1000.0
         for ph in ("a", "b", "c"):
-            net.asymmetric_load.at[load_index, f"p_{ph}_mw"] = p_kw / 1000.0 if ph == phase else 0.0
-            net.asymmetric_load.at[load_index, f"q_{ph}_mvar"] = q_kvar / 1000.0 if ph == phase else 0.0
+            net.asymmetric_load.at[load_index, f"p_{ph}_mw"] = p_phase_mw if ph in active_phases else 0.0
+            net.asymmetric_load.at[load_index, f"q_{ph}_mvar"] = q_phase_mvar if ph in active_phases else 0.0
         total_kw += p_kw
         total_kvar += q_kvar
     return total_kw, total_kvar
@@ -362,6 +373,7 @@ def run_field_dataset(dataset):
             "truth_policy": "no hidden truth exists in field mode",
             "solver": "pandapower.runpp_3ph",
             "calibration": "none; M5 physics preview requires complete AMI P coverage",
+            "phase_mapping": "multi-phase meter P/Q is divided evenly across declared active phases",
             "transformer_zero_sequence_defaults": "mag0_percent=100, mag0_rx=0, si0_hv_partial=0.9 in field-v1 adapter",
         },
         "runtime": {

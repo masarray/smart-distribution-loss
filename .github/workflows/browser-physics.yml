@@ -48,12 +48,14 @@ on:
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/fieldUnexplainedLoss.ts"
       - "src/lib/sdl/operation.ts"
+      - "src/lib/sdl/plnSampleDataset.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/pln-sample-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
       - "tests/p8-investigation-ci.mjs"
       - "tests/p9-field-measurement-ci.mjs"
@@ -125,12 +127,14 @@ on:
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/fieldUnexplainedLoss.ts"
       - "src/lib/sdl/operation.ts"
+      - "src/lib/sdl/plnSampleDataset.ts"
       - "src/lib/sdl/useEngine.ts"
       - "src/lib/sdl/types.ts"
       - "tests/worker-physics-ci.mjs"
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/pln-sample-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
       - "tests/p8-investigation-ci.mjs"
       - "tests/p9-field-measurement-ci.mjs"
@@ -164,7 +168,7 @@ jobs:
   p0a-browser:
     name: P0-A + P14 public release readiness · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -225,6 +229,11 @@ jobs:
         env:
           SDL_BASE_URL: http://127.0.0.1:8000/
         run: node tests/operational-sld-ci.mjs
+
+      - name: Prove PLN-like sample import, ABC loads, 96-interval physics, and cockpit activation
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/pln-sample-ci.mjs
 
       - name: Prove P6 topology scale, activation gate, navigation, and visible electrical flow
         env:
