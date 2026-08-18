@@ -238,8 +238,19 @@ function translateTextNode(node: Text, language: AppLanguage) {
   const remembered = originalText.get(node);
 
   if (language === "id") {
-    if (remembered != null && current !== remembered) node.data = remembered;
-    if (remembered == null) originalText.set(node, current);
+    if (remembered == null) {
+      originalText.set(node, current);
+      return;
+    }
+
+    const expectedEnglish = translateUiText(remembered, "en");
+    if (expectedEnglish !== remembered && current === expectedEnglish) {
+      node.data = remembered;
+    } else if (current !== remembered) {
+      // React produced new Indonesian source copy; keep the new source instead of
+      // restoring the previous render. This is essential for live asset/status updates.
+      originalText.set(node, current);
+    }
     return;
   }
 
@@ -268,8 +279,17 @@ function translateElementAttributes(element: Element, language: AppLanguage) {
     const source = remembered.get(attribute);
 
     if (language === "id") {
-      if (source != null && current !== source) element.setAttribute(attribute, source);
-      if (source == null) remembered.set(attribute, current);
+      if (source == null) {
+        remembered.set(attribute, current);
+        continue;
+      }
+
+      const expectedEnglish = translateUiText(source, "en");
+      if (expectedEnglish !== source && current === expectedEnglish) {
+        element.setAttribute(attribute, source);
+      } else if (current !== source) {
+        remembered.set(attribute, current);
+      }
       continue;
     }
 
@@ -306,6 +326,11 @@ function translateSubtree(root: Node, language: AppLanguage) {
 
 function installDomTranslation(language: AppLanguage) {
   translateSubtree(document.body, language);
+
+  // Indonesian is the source language. Once an English view is restored there is
+  // nothing to observe, keeping the default/local path effectively zero-overhead.
+  if (language === "id") return () => undefined;
+
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === "characterData") {
@@ -337,10 +362,6 @@ export function detectInitialLanguage(): AppLanguage {
 
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "id" || stored === "en") return stored;
-
-  // Existing browser-regression suites intentionally use the established Indonesian copy.
-  // Real visitors still receive locale/timezone detection without geolocation or IP lookup.
-  if (navigator.webdriver) return "id";
 
   const browserLanguages = [...navigator.languages, navigator.language]
     .filter(Boolean)
