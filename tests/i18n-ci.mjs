@@ -55,7 +55,8 @@ try {
   if ((await control.getAttribute("data-language")) !== "id") throw new Error("Language toggle did not switch to Indonesian.");
   if ((await page.evaluate(() => localStorage.getItem("sdl-language"))) !== "id") throw new Error("Indonesian preference was not persisted.");
 
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  // Drop the explicit query override before testing stored preference precedence.
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await assertVisible(page.getByText("Monitoring susut distribusi", { exact: true }), "persisted Indonesian UI");
 
   const reloadedControl = page.locator('[data-language-control="true"]');
