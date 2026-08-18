@@ -21,7 +21,12 @@ export function LanguageControl() {
   }, []);
 
   const control = (
-    <div className="shrink-0" data-i18n-skip="true" data-language-control="true">
+    <div
+      className="shrink-0"
+      data-i18n-skip="true"
+      data-language-control="true"
+      data-language={language}
+    >
       <button
         type="button"
         onClick={toggleLanguage}
