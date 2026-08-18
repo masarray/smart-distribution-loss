@@ -17,6 +17,7 @@ on:
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
+      - "src/components/sdl/LanguageControl.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
       - "src/components/sdl/FieldAuditPanel.tsx"
       - "src/components/sdl/FieldCorrectionPanel.tsx"
@@ -47,6 +48,7 @@ on:
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/fieldUnexplainedLoss.ts"
+      - "src/lib/sdl/i18n.tsx"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/plnSampleDataset.ts"
       - "src/lib/sdl/useEngine.ts"
@@ -55,6 +57,7 @@ on:
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/i18n-ci.mjs"
       - "tests/pln-sample-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
       - "tests/p8-investigation-ci.mjs"
@@ -96,6 +99,7 @@ on:
       - "src/components/sdl/DataDrawer.tsx"
       - "src/components/sdl/DatasetManager.tsx"
       - "src/components/sdl/DetailDrawer.tsx"
+      - "src/components/sdl/LanguageControl.tsx"
       - "src/components/sdl/FieldAssetProfileChart.tsx"
       - "src/components/sdl/FieldAuditPanel.tsx"
       - "src/components/sdl/FieldCorrectionPanel.tsx"
@@ -126,6 +130,7 @@ on:
       - "src/lib/sdl/fieldOperational.ts"
       - "src/lib/sdl/fieldTopology.ts"
       - "src/lib/sdl/fieldUnexplainedLoss.ts"
+      - "src/lib/sdl/i18n.tsx"
       - "src/lib/sdl/operation.ts"
       - "src/lib/sdl/plnSampleDataset.ts"
       - "src/lib/sdl/useEngine.ts"
@@ -134,6 +139,7 @@ on:
       - "tests/mv-independence-ci.mjs"
       - "tests/data-drawer-ci.mjs"
       - "tests/field-dataset-ci.mjs"
+      - "tests/i18n-ci.mjs"
       - "tests/pln-sample-ci.mjs"
       - "tests/p7-field-intelligence-ci.mjs"
       - "tests/p8-investigation-ci.mjs"
@@ -166,7 +172,7 @@ permissions:
 
 jobs:
   p0a-browser:
-    name: P0-A + P14 public release readiness · Chromium / Pyodide / Pandapower 3φ
+    name: P0-A + P15 global public readiness · Chromium / Pyodide / Pandapower 3φ
     runs-on: ubuntu-24.04
     timeout-minutes: 40
 
@@ -209,6 +215,11 @@ jobs:
           done
           cat /tmp/sdl-http.log
           exit 1
+
+      - name: Prove P15 dual-language public UI and permissionless locale handling
+        env:
+          SDL_BASE_URL: http://127.0.0.1:8000/
+        run: node tests/i18n-ci.mjs
 
       - name: Prove explicit Data & Input drawer interaction
         env:
