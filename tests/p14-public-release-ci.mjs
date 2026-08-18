@@ -54,7 +54,8 @@ const methodology = readFileSync("METHODOLOGY.md", "utf8");
 for (const phrase of [
   "64 of 96 intervals",
   "32 of 96 intervals",
-  "Field Mode does **not** run the synthetic auto-calibration routine",
+  "Real Field Mode path",
+  "does **not** run the synthetic auto-calibration routine over user data",
   "measured source energy",
   "unexplained energy",
   "runpp_3ph()",
