@@ -170,7 +170,7 @@ try {
   await p12.locator('button[data-p12-run-replay="true"]').click();
   await page.waitForFunction(() => {
     const state = document.querySelector('[data-p12-replay="true"]')?.getAttribute("data-p12-replay-status");
-    return state === "MATCH" || state === "DIFFERENT" || state === "ERROR";
+    return state === "MATCH" || state === "NUMERICAL_DRIFT" || state === "ENGINE_DRIFT" || state === "ERROR";
   }, null, { timeout: 600_000 });
   const replayState = await p12.getAttribute("data-p12-replay-status");
   const expectedPhysicsHash = await p12.getAttribute("data-p12-expected-physics-hash");
@@ -182,7 +182,7 @@ try {
     throw new Error(`P12 replay did not reproduce accepted physics. state=${replayState}; expectedPhysics=${expectedPhysicsHash}; actualPhysics=${actualPhysicsHash}; panel=${await p12.innerText()}`);
   }
   const replayMatch = p11.locator('[data-p12-result="MATCH"]');
-  await assertVisible(replayMatch, "P12 replay match");
+  await assertVisible(replayMatch, "P12 reproducible replay match");
   if (!expectedPhysicsHash || expectedPhysicsHash !== actualPhysicsHash) throw new Error(`P12 canonical physics fingerprint mismatch: ${expectedPhysicsHash} != ${actualPhysicsHash}`);
   if (acceptedIntegrityHash !== auditPackage.integrity.acceptedResultSha256) throw new Error("P12 changed the P11 accepted-result integrity hash while replaying physics.");
   if ((await p12.getAttribute("data-p12-series-count")) !== "96") throw new Error("P12 replay did not reproduce all 96 intervals.");
@@ -199,14 +199,22 @@ try {
   const activePhysicsAfterAudit = await cockpit.locator('[data-field-selected-panel="true"]').innerText();
   if (activePhysicsAfterAudit !== activePhysicsBeforeAudit) throw new Error("P11/P12 export, verification, or replay mutated active Field Mode physics or KPI state.");
 
-  await page.setViewportSize({ width: 1366, height: 768 });
   const statusPanel = cockpit.locator('[data-field-status-panel="true"]');
+  await page.setViewportSize({ width: 1366, height: 768 });
   await assertVisible(statusPanel, "P12 scrollable workspace at 1366x768");
-  const box = await statusPanel.boundingBox();
-  const viewport = page.viewportSize();
-  if (!box || !viewport || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) throw new Error(`P12 workspace escapes viewport: ${JSON.stringify(box)}`);
+  let box = await statusPanel.boundingBox();
+  let viewport = page.viewportSize();
+  if (!box || !viewport || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) throw new Error(`P12 workspace escapes 1366x768 viewport: ${JSON.stringify(box)}`);
 
-  console.log("P12 audit replay gate PASS: About identifies Ari Sulistiono and links the verified LinkedIn profile; P11 raw integrity remains immutable; a valid package reconstructs and reruns 96 Pandapower intervals to the exact canonical physics fingerprint; tampering is rejected; replay never mutates active Field Mode physics.");
+  await page.setViewportSize({ width: 1093, height: 614 });
+  await assertVisible(statusPanel, "P12 scrollable workspace at 125% equivalent viewport");
+  box = await statusPanel.boundingBox();
+  viewport = page.viewportSize();
+  if (!box || !viewport || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) throw new Error(`P12 workspace escapes 1093x614 viewport: ${JSON.stringify(box)}`);
+  const scrollMetrics = await statusPanel.evaluate((element) => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, overflowY: getComputedStyle(element).overflowY }));
+  if (scrollMetrics.scrollHeight > scrollMetrics.clientHeight + 2 && !["auto", "scroll"].includes(scrollMetrics.overflowY)) throw new Error(`P12 long audit/replay content is not scroll-accessible at 125% equivalent: ${JSON.stringify(scrollMetrics)}`);
+
+  console.log("P12 audit replay gate PASS: P11 integrity remains immutable; valid packages rerun 96 Pandapower intervals to the exact canonical physics fingerprint; drift states are explicit; tampering is blocked; replay never mutates active Field Mode; 1366x768 and 125% equivalent footprints remain safe.");
 } finally {
   await browser.close();
 }
