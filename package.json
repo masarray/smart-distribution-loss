@@ -1,7 +1,13 @@
 {
   "name": "smart-distribution-loss",
-  "version": "0.3.0",
+  "version": "0.4.0-beta.1",
   "private": true,
+  "description": "Browser-based three-phase distribution-loss engineering beta with field-data reconciliation, audit replay, and unexplained-energy separation.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/masarray/smart-distribution-loss.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.12 <25"
@@ -13,6 +19,7 @@
     "build": "npm run typecheck && vite build",
     "check": "npm run lint && npm run build",
     "security:audit": "npm audit --audit-level=high",
+    "release:check": "node tests/p14-public-release-ci.mjs",
     "preview": "vite preview",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
