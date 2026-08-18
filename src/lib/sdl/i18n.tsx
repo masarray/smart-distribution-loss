@@ -37,7 +37,6 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Jaringan distribusi", "Distribution network"],
   ["Profil susut", "Loss profile"],
   ["Puncak susut", "Peak loss"],
-  ["Puncak", "Peak"],
   ["Selisih terbesar", "Largest deviation"],
   ["Model dasar", "Baseline model"],
   ["Aset terpilih", "Selected asset"],
@@ -48,9 +47,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Susut Smart", "Smart loss"],
   ["Susut dasar", "Baseline loss"],
   ["susut teknis", "technical loss"],
-  ["susut", "loss"],
   ["kWh/hari", "kWh/day"],
-  ["Kesiapan data", "Data readiness"],
   ["Dataset lapangan v1", "Field Dataset v1"],
   ["Cockpit sedang memakai hasil lapangan yang sudah lulus.", "Cockpit is using a validated field result."],
   ["Cockpit tetap memakai demo sampai hasil lapangan diaktifkan.", "Cockpit keeps using the demo until a field result is activated."],
@@ -65,6 +62,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Membaca…", "Reading…"],
   ["Contoh Penyulang Perkotaan 20 kV", "20 kV Urban Feeder Sample"],
   ["Dataset sintetis/anonymized untuk contoh alur PLN; bukan data operasional atau format ekspor resmi PLN.", "Synthetic/anonymized dataset illustrating a PLN-style workflow; not operational PLN data or an official PLN export format."],
+  ["Kesiapan data", "Data readiness"],
   ["SIAP DIHITUNG", "READY TO CALCULATE"],
   ["VALID · DATA BELUM LENGKAP", "VALID · DATA INCOMPLETE"],
   ["PERIKSA STRUKTUR DATA", "CHECK DATA STRUCTURE"],
@@ -74,7 +72,6 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Topology operasional", "Operational topology"],
   ["RADIAL · SIAP DIAKTIFKAN", "RADIAL · READY TO ACTIVATE"],
   ["BLOKIR AKTIVASI", "ACTIVATION BLOCKED"],
-  ["cabang", "branches"],
   ["ujung jaringan", "network endpoints"],
   ["Kesalahan", "Errors"],
   ["Peringatan", "Warnings"],
@@ -111,9 +108,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Pengukuran", "Measurements"],
   ["Jaringan", "Network"],
   ["Jejak data", "Data lineage"],
-  ["Sumber", "Source"],
   ["Demo sintetis", "Synthetic demo"],
-  ["Interval", "Interval"],
   ["Meter tersedia", "Available meters"],
   ["Fasa diketahui", "Known phase"],
   ["Faktor daya diketahui", "Known power factor"],
@@ -123,23 +118,20 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Daya aktif & reaktif", "Active & reactive power"],
   ["Data fasa", "Phase data"],
   ["Topologi jaringan", "Network topology"],
-  ["Pemetaan", "Mapping"],
   ["Waktu pencatatan", "Timestamp alignment"],
   ["Data terukur", "Measured data"],
   ["Dihitung sendiri", "Calculated independently"],
-  ["Panjang saluran", "Line length"],
   ["Panjang saluran model", "Model line length"],
+  ["Panjang saluran", "Line length"],
   ["Faktor daya model", "Model power factor"],
   ["Mesin perhitungan", "Calculation engine"],
   ["aliran daya 3 fasa", "three-phase power flow"],
   ["Jalankan simulasi untuk melihat hasil per interval.", "Run the simulation to view interval results."],
-  ["Waktu", "Time"],
   ["Beban (kW)", "Load (kW)"],
   ["Acuan validasi", "Validation reference"],
   ["Tidak digunakan untuk kalibrasi", "Not used for calibration"],
   ["Profil beban", "Load profile"],
   ["Profil pelanggan", "Customer profile"],
-  ["Data terukur", "Measured data"],
   ["Koreksi Smart", "Smart correction"],
   ["Rekonstruksi Smart", "Smart reconstruction"],
   ["Perhitungan 3 fasa", "Three-phase calculation"],
@@ -150,60 +142,61 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["Hasil per aset", "Per-asset results"],
   ["Pelanggan TM", "MV customer"],
   ["Referensi TM", "MV reference"],
-  ["Gardu", "Distribution substation"],
-  ["Penyulang", "Feeder"],
-  ["Pelanggan", "Customers"],
-  ["pelanggan", "customers"],
-  ["beban", "load"],
-  ["tegangan", "voltage"],
-  ["saluran", "line"],
-  ["Fasa", "Phase"],
-  ["fasa", "phase"],
-  ["Trafo", "Transformer"],
-  ["Daya", "Power"],
-  ["Hasil", "Results"],
-  ["hasil", "results"],
-  ["Baik", "Good"],
-  ["Cukup", "Typical"],
-  ["Terbatas", "Limited"],
-  ["Normal", "Normal"],
-  ["Perlu perhatian", "Attention required"],
-  ["Perlu tinjau", "Review required"],
   ["Prioritas investigasi", "Investigation priority"],
-  ["Investigasi", "Investigation"],
   ["Bukti lapangan", "Field evidence"],
-  ["Rekonsiliasi", "Reconciliation"],
-  ["Koreksi", "Correction"],
-  ["Audit", "Audit"],
-  ["Verifikasi", "Verification"],
-  ["Terverifikasi", "Verified"],
-  ["Belum diverifikasi", "Not verified"],
-  ["Terapkan", "Apply"],
-  ["Batalkan", "Cancel"],
-  ["Unduh", "Download"],
-  ["Ekspor", "Export"],
-  ["Impor", "Import"],
-  ["Pilih", "Select"],
-  ["Dipilih", "Selected"],
-  ["Detail", "Details"],
-  ["Status", "Status"],
   ["Kontribusi susut", "Loss contribution"],
   ["Tegangan terendah", "Lowest voltage"],
   ["Loading maksimum", "Maximum loading"],
   ["interval terburuk", "worst intervals"],
   ["Rute upstream", "Upstream route"],
   ["Rute downstream", "Downstream route"],
-  ["Selesai", "Complete"],
-  ["selesai", "complete"],
-  ["Aktif", "Active"],
-  ["Tidak aktif", "Inactive"],
+  ["Perlu perhatian", "Attention required"],
+  ["Perlu tinjau", "Review required"],
+  ["Belum diverifikasi", "Not verified"],
+  ["Terverifikasi", "Verified"],
+  ["Investigasi", "Investigation"],
+  ["Rekonsiliasi", "Reconciliation"],
+  ["Verifikasi", "Verification"],
+  ["Koreksi", "Correction"],
+  ["Batalkan", "Cancel"],
+  ["Terapkan", "Apply"],
   ["Diterima", "Accepted"],
   ["Ditolak", "Rejected"],
-  ["Belum", "Not yet"],
+  ["Tidak aktif", "Inactive"],
+  ["Aktif", "Active"],
+  ["Pemetaan", "Mapping"],
+  ["Penyulang", "Feeder"],
+  ["Pelanggan", "Customers"],
+  ["pelanggan", "customers"],
+  ["Gardu", "Distribution substation"],
+  ["Trafo", "Transformer"],
+  ["Tegangan", "Voltage"],
+  ["tegangan", "voltage"],
+  ["Beban", "Load"],
+  ["beban", "load"],
+  ["Fasa", "Phase"],
+  ["fasa", "phase"],
+  ["saluran", "line"],
+  ["Daya", "Power"],
+  ["Sumber", "Source"],
+  ["Waktu", "Time"],
+  ["Hasil", "Results"],
+  ["hasil", "results"],
+  ["Puncak", "Peak"],
+  ["Baik", "Good"],
+  ["Cukup", "Typical"],
+  ["Terbatas", "Limited"],
+  ["Selesai", "Complete"],
+  ["selesai", "complete"],
   ["Catatan", "Notes"],
   ["Periksa", "Check"],
   ["Lokasi", "Location"],
-  ["Hari", "Day"],
+  ["Unduh", "Download"],
+  ["Ekspor", "Export"],
+  ["Impor", "Import"],
+  ["Pilih", "Select"],
+  ["Dipilih", "Selected"],
+  ["Detail", "Details"],
   ["menit", "minutes"],
 ] as const;
 
@@ -250,9 +243,8 @@ function translateTextNode(node: Text, language: AppLanguage) {
     return;
   }
 
-  if (remembered == null) {
-    originalText.set(node, current);
-  } else {
+  if (remembered == null) originalText.set(node, current);
+  else {
     const expectedEnglish = translateUiText(remembered, "en");
     if (current !== expectedEnglish && current !== remembered) originalText.set(node, current);
   }
@@ -281,9 +273,8 @@ function translateElementAttributes(element: Element, language: AppLanguage) {
       continue;
     }
 
-    if (source == null) {
-      remembered.set(attribute, current);
-    } else {
+    if (source == null) remembered.set(attribute, current);
+    else {
       const expectedEnglish = translateUiText(source, "en");
       if (current !== expectedEnglish && current !== source) remembered.set(attribute, current);
     }
@@ -348,13 +339,15 @@ export function detectInitialLanguage(): AppLanguage {
   if (stored === "id" || stored === "en") return stored;
 
   // Existing browser-regression suites intentionally use the established Indonesian copy.
-  // Real visitors still receive lightweight locale/timezone detection without geolocation or IP lookup.
+  // Real visitors still receive locale/timezone detection without geolocation or IP lookup.
   if (navigator.webdriver) return "id";
 
-  const browserLanguages = [...(navigator.languages ?? []), navigator.language]
+  const browserLanguages = [...navigator.languages, navigator.language]
     .filter(Boolean)
     .map((value) => value.toLowerCase());
-  const indonesiaLocale = browserLanguages.some((value) => value === "id" || value.startsWith("id-") || value.endsWith("-id"));
+  const indonesiaLocale = browserLanguages.some(
+    (value) => value === "id" || value.startsWith("id-") || value.endsWith("-id"),
+  );
   if (indonesiaLocale) return "id";
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -365,22 +358,16 @@ export function detectInitialLanguage(): AppLanguage {
 
 function updateDocumentMetadata(language: AppLanguage) {
   document.documentElement.lang = language;
-  document.body.dataset.language = language;
+  document.body.setAttribute("data-language", language);
 
   const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-  if (language === "id") {
-    document.title = "Smart Distribution Loss — Public Engineering Beta";
-    description?.setAttribute(
-      "content",
-      "Public Engineering Beta untuk analisis susut distribusi tiga fasa di browser, rekonsiliasi data lapangan, audit yang dapat direproduksi, serta pemisahan susut teknis dan energi tak terjelaskan.",
-    );
-  } else {
-    document.title = "Smart Distribution Loss — Public Engineering Beta";
-    description?.setAttribute(
-      "content",
-      "Public Engineering Beta for browser-based three-phase distribution-loss analysis, field-data reconciliation, reproducible audit replay, and technical-loss / unexplained-energy separation.",
-    );
-  }
+  document.title = "Smart Distribution Loss — Public Engineering Beta";
+  description?.setAttribute(
+    "content",
+    language === "id"
+      ? "Public Engineering Beta untuk analisis susut distribusi tiga fasa di browser, rekonsiliasi data lapangan, audit yang dapat direproduksi, serta pemisahan susut teknis dan energi tak terjelaskan."
+      : "Public Engineering Beta for browser-based three-phase distribution-loss analysis, field-data reconciliation, reproducible audit replay, and technical-loss / unexplained-energy separation.",
+  );
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
