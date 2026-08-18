@@ -206,6 +206,14 @@ def _measurement_lookup(dataset, source_id):
     return result
 
 
+def _active_phases(phase_code):
+    normalized = str(phase_code or "").upper()
+    phases = [phase.lower() for phase in PHASES if phase in normalized]
+    if not phases:
+        raise ValueError(f"unsupported customer phase code: {phase_code}")
+    return phases
+
+
 def _set_interval_loads(net, metadata, ami, interval):
     total_kw = 0.0
     total_kvar = 0.0
@@ -225,10 +233,12 @@ def _set_interval_loads(net, metadata, ami, interval):
         else:
             q_kvar = float(q_raw)
         customer = metadata["customer_by_meter"][meter_id]
-        phase = customer["phase"].lower()
+        active_phases = _active_phases(customer["phase"])
+        p_phase_mw = p_kw / len(active_phases) / 1000.0
+        q_phase_mvar = q_kvar / len(active_phases) / 1000.0
         for ph in ("a", "b", "c"):
-            net.asymmetric_load.at[load_index, f"p_{ph}_mw"] = p_kw / 1000.0 if ph == phase else 0.0
-            net.asymmetric_load.at[load_index, f"q_{ph}_mvar"] = q_kvar / 1000.0 if ph == phase else 0.0
+            net.asymmetric_load.at[load_index, f"p_{ph}_mw"] = p_phase_mw if ph in active_phases else 0.0
+            net.asymmetric_load.at[load_index, f"q_{ph}_mvar"] = q_phase_mvar if ph in active_phases else 0.0
         bus = customer["bus_id"]
         bus_load_kw[bus] = bus_load_kw.get(bus, 0.0) + p_kw
         total_kw += p_kw
@@ -447,7 +457,7 @@ def run_field_dataset(dataset):
             "source_type": "user_imported_field_csv",
             "truth_policy": "no hidden truth exists in field mode",
             "solver": "pandapower.runpp_3ph",
-            "field_adapter": "P5 asset/bus observability",
+            "field_adapter": "P5 asset/bus observability + balanced multi-phase meter mapping",
             "calibration": "none; field physics requires complete AMI P coverage",
             "asset_attribution": "direct res_line_3ph/res_trafo_3ph endpoint losses",
             "transformer_zero_sequence_defaults": "mag0_percent=100, mag0_rx=0, si0_hv_partial=0.9 in field-v1 adapter",
