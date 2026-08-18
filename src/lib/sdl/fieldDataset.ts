@@ -3,7 +3,7 @@ export const FIELD_INTERVALS = 96;
 export const FIELD_INTERVAL_MINUTES = 15;
 
 export type FieldElementType = "source" | "line" | "transformer";
-export type FieldPhase = "A" | "B" | "C";
+export type FieldPhase = "A" | "B" | "C" | "AB" | "BC" | "CA" | "ABC";
 
 export interface FieldNetworkElement {
   element_id: string;
@@ -164,6 +164,7 @@ const NETWORK_HEADERS = [
 const CUSTOMER_HEADERS = ["customer_id", "bus_id", "phase", "meter_id", "contract_kva", "pf"] as const;
 const MEASUREMENT_HEADERS = ["timestamp", "asset_id", "measurement_type", "phase", "value", "unit", "quality"] as const;
 const AMI_HEADERS = ["timestamp", "meter_id", "p_kw", "q_kvar", "quality"] as const;
+const FIELD_PHASES: readonly FieldPhase[] = ["A", "B", "C", "AB", "BC", "CA", "ABC"];
 
 type CsvKey =
   | (typeof NETWORK_HEADERS)[number]
@@ -265,7 +266,7 @@ function parseCustomers(rows: CsvRow[], errors: string[]): FieldCustomer[] {
   return rows.map((row, i) => {
     const context = `customers.csv baris ${i + 2}`;
     const phase = row.phase.trim().toUpperCase() as FieldPhase;
-    if (!["A", "B", "C"].includes(phase)) errors.push(`${context}: phase harus A, B, atau C.`);
+    if (!FIELD_PHASES.includes(phase)) errors.push(`${context}: phase harus A, B, C, AB, BC, CA, atau ABC.`);
     const pf = numeric(row.pf, "pf", context, errors, true);
     if (pf != null && (pf <= 0 || pf > 1)) errors.push(`${context}: pf harus > 0 dan <= 1.`);
     return { customer_id: row.customer_id.trim(), bus_id: row.bus_id.trim(), phase, meter_id: row.meter_id.trim(), contract_kva: numeric(row.contract_kva, "contract_kva", context, errors, true), pf };
@@ -383,7 +384,7 @@ export function validateFieldDataset(dataset: FieldDatasetV1): FieldDatasetValid
   return { valid: errors.length === 0, solverReady, errors, warnings, summary };
 }
 
-export async function importFieldDataset(files: FileList | File[]): Promise<FieldDatasetImport> {
+export async function importFieldDataset(files: FileList | File[], sourceLabel = "Imported Field Dataset"): Promise<FieldDatasetImport> {
   const array = Array.from(files);
   const byName = new Map(array.map((file) => [file.name.toLowerCase(), file]));
   const parseErrors: string[] = [];
@@ -396,7 +397,7 @@ export async function importFieldDataset(files: FileList | File[]): Promise<Fiel
   const dataset: FieldDatasetV1 = {
     schema: FIELD_DATASET_SCHEMA,
     dataset_mode: "field_import",
-    source_label: "Imported Field Dataset",
+    source_label: sourceLabel.trim() || "Imported Field Dataset",
     canonical_timebase: { intervals: 96, interval_minutes: 15, period_hours: 24, first_interval: "00:00", last_interval: "23:45", timezone: "local-file" },
     network: parseNetwork(csvObjects(networkText, NETWORK_HEADERS, "network.csv", parseErrors), parseErrors),
     customers: parseCustomers(csvObjects(customerText, CUSTOMER_HEADERS, "customers.csv", parseErrors), parseErrors),
@@ -415,7 +416,7 @@ export async function importFieldDataset(files: FileList | File[]): Promise<Fiel
 export function fieldDatasetSchemaSummary() {
   return [
     { file: "network.csv", role: "Source, line, transformer, bus voltage, impedance, thermal & 3φ parameters" },
-    { file: "customers.csv", role: "Customer → bus / phase / meter mapping + PF fallback" },
+    { file: "customers.csv", role: "Customer → bus / phase A-B-C-ABC / meter mapping + PF fallback" },
     { file: "measurements.csv", role: "SCADA / feeder P-Q-V-I channels for residual validation" },
     { file: "ami.csv", role: "96 × 15-minute customer P/Q interval measurements" },
   ];
