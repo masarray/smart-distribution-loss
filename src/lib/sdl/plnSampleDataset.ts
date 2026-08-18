@@ -108,10 +108,12 @@ export function createPlnSampleCsv(): Record<SampleFilename, string> {
 
   const peakLoad = Math.max(...totalP);
   for (let index = 0; index < 96; index += 1) {
-    const loadRatio = totalP[index] / peakLoad;
-    const lossEstimateKw = 5 + 0.018 * totalP[index] + 0.012 * totalP[index] * loadRatio ** 1.25;
-    const sourceP = (totalP[index] + lossEstimateKw) * (1 + 0.0015 * Math.sin(index * 0.53));
-    const sourceQ = (totalQ[index] + 0.16 * lossEstimateKw) * (1 + 0.001 * Math.sin(index * 0.37 + 0.4));
+    const intervalLoadP = totalP[index] ?? 0;
+    const intervalLoadQ = totalQ[index] ?? 0;
+    const loadRatio = intervalLoadP / peakLoad;
+    const lossEstimateKw = 5 + 0.018 * intervalLoadP + 0.012 * intervalLoadP * loadRatio ** 1.25;
+    const sourceP = (intervalLoadP + lossEstimateKw) * (1 + 0.0015 * Math.sin(index * 0.53));
+    const sourceQ = (intervalLoadQ + 0.16 * lossEstimateKw) * (1 + 0.001 * Math.sin(index * 0.37 + 0.4));
     const vll = 20.12 - 0.24 * loadRatio + 0.02 * Math.sin(index * 0.19);
     const sKva = Math.sqrt(sourceP ** 2 + sourceQ ** 2);
     const currentA = sKva / (Math.sqrt(3) * vll);
