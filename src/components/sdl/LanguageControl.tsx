@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "@/lib/sdl/i18n";
 
 function findHeaderTarget() {
-  const fieldHeader = document.querySelector<HTMLElement>('[data-field-cockpit="true"] header');
-  if (fieldHeader) return fieldHeader;
-  return document.querySelector<HTMLElement>("header");
+  const fieldActions = document.querySelector<HTMLElement>('[data-field-cockpit="true"] header > .ml-auto');
+  if (fieldActions) return fieldActions;
+  return document.querySelector<HTMLElement>("header > .ml-auto") ?? document.querySelector<HTMLElement>("header");
 }
 
 export function LanguageControl() {
