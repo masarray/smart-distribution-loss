@@ -2,7 +2,7 @@ import { runFieldDatasetCandidate, type FieldCandidateProgress } from "./fieldCa
 import type { FieldDatasetResult } from "./fieldDataset";
 import type { FieldAuditResultSnapshot, FieldAuditVerification } from "./fieldAudit";
 
-export type FieldAuditReplayStatus = "MATCH" | "DIFFERENT";
+export type FieldAuditReplayStatus = "MATCH" | "NUMERICAL_DRIFT" | "ENGINE_DRIFT";
 
 export interface FieldAuditReplayDelta {
   key: string;
@@ -19,6 +19,10 @@ export interface FieldAuditReplayReport {
   actualPhysicsSha256: string;
   acceptedIntegritySha256: string;
   replayRawSha256: string;
+  acceptedEngineSha256: string;
+  replayEngineSha256: string;
+  acceptedEngineIdentity: Record<string, string>;
+  replayEngineIdentity: Record<string, string>;
   acceptedGatePass: boolean;
   replayGatePass: boolean;
   seriesCount: number;
@@ -51,18 +55,32 @@ export async function runFieldAuditReplay(
   const acceptedSnapshot = verification.auditPackage.accepted.result;
   const replayResult = await runFieldDatasetCandidate(verification.reconstructedDataset, onProgress);
   const replaySnapshot = snapshotReplayResult(replayResult);
-  const [expectedPhysicsSha256, actualPhysicsSha256, replayRawSha256] = await Promise.all([
+  const acceptedEngineIdentity = engineIdentity(acceptedSnapshot);
+  const replayEngineIdentity = engineIdentity(replaySnapshot);
+  const [expectedPhysicsSha256, actualPhysicsSha256, replayRawSha256, acceptedEngineSha256, replayEngineSha256] = await Promise.all([
     physicsFingerprint(acceptedSnapshot),
     physicsFingerprint(replaySnapshot),
     sha256(stableStringify(replaySnapshot)),
+    sha256(stableStringify(acceptedEngineIdentity)),
+    sha256(stableStringify(replayEngineIdentity)),
   ]);
 
+  const status: FieldAuditReplayStatus = actualPhysicsSha256 === expectedPhysicsSha256
+    ? "MATCH"
+    : acceptedEngineSha256 === replayEngineSha256
+      ? "NUMERICAL_DRIFT"
+      : "ENGINE_DRIFT";
+
   return {
-    status: actualPhysicsSha256 === expectedPhysicsSha256 ? "MATCH" : "DIFFERENT",
+    status,
     expectedPhysicsSha256,
     actualPhysicsSha256,
     acceptedIntegritySha256: verification.auditPackage.integrity.acceptedResultSha256,
     replayRawSha256,
+    acceptedEngineSha256,
+    replayEngineSha256,
+    acceptedEngineIdentity,
+    replayEngineIdentity,
     acceptedGatePass: Boolean(acceptedSnapshot.gate.pass),
     replayGatePass: Boolean(replaySnapshot.gate.pass),
     seriesCount: replaySnapshot.seriesCount,
@@ -89,13 +107,30 @@ function canonicalPhysicsSnapshot(snapshot: FieldAuditResultSnapshot) {
     gate: deepClone(snapshot.gate),
     summary: deepClone(snapshot.summary),
     checks: snapshot.checks.map((check) => ({ ...check })),
-    provenance: Object.fromEntries(
-      Object.entries(snapshot.provenance)
-        .filter(([key]) => !key.startsWith("p10_"))
-        .sort(([a], [b]) => a.localeCompare(b)),
-    ),
+    provenance: canonicalPhysicsProvenance(snapshot.provenance),
     seriesCount: snapshot.seriesCount,
   };
+}
+
+function canonicalPhysicsProvenance(provenance: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(provenance)
+      .filter(([key]) => !key.startsWith("p10_"))
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+}
+
+/**
+ * Declared engine identity only. A changed identity is classified as ENGINE_DRIFT;
+ * identical identity with changed physics is NUMERICAL_DRIFT. This does not claim
+ * binary/code equivalence when the engine did not publish a version/hash key.
+ */
+function engineIdentity(snapshot: FieldAuditResultSnapshot) {
+  return Object.fromEntries(
+    Object.entries(canonicalPhysicsProvenance(snapshot.provenance))
+      .filter(([key]) => /(solver|engine|adapter|version|pandapower)/i.test(key))
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
 }
 
 function compareSummary(accepted: FieldAuditResultSnapshot, replay: FieldAuditResultSnapshot): FieldAuditReplayDelta[] {
