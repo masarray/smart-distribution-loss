@@ -1,4 +1,4 @@
-import { CircuitBoard, ExternalLink, Github, Info, Linkedin, ShieldCheck } from "lucide-react";
+import { CircuitBoard, ExternalLink, Info, ShieldCheck } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -67,7 +67,7 @@ export function AboutSheet() {
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#0A66C2]/35 bg-[#0A66C2]/10 px-2.5 text-[10px] font-semibold text-foreground transition-colors hover:bg-[#0A66C2]/15"
                 data-about-linkedin="true"
               >
-                <Linkedin className="size-3.5" /> LinkedIn <ExternalLink className="size-3" />
+                LinkedIn <ExternalLink className="size-3" />
               </a>
               <a
                 href={GITHUB_URL}
@@ -76,7 +76,7 @@ export function AboutSheet() {
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/70 bg-surface-2/60 px-2.5 text-[10px] font-semibold text-foreground transition-colors hover:border-primary/40"
                 data-about-github="true"
               >
-                <Github className="size-3.5" /> GitHub <ExternalLink className="size-3" />
+                GitHub <ExternalLink className="size-3" />
               </a>
             </div>
           </div>
